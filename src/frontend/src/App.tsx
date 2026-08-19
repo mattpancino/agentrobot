@@ -15,16 +15,16 @@ export default function App() {
   const [catalog, setCatalog] = useState<RegionInfo[]>([]);
   const [tierSettings, setTierSettings] = useState<TierSettingsMap>({
     TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
-    TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
-    TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
+    TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
+    TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
   });
   const [controls, setControls] = useState<SimulationControls>({
     injectMockFailure: false,
     forcedTier: 'AUTO',
     tierSettings: {
       TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
-      TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
-      TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
+      TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
+      TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
     },
   });
 

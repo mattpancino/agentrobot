@@ -61,7 +61,7 @@ def test_api_get_models_catalog():
     region_ids = [reg["regionId"] for reg in data["catalog"]]
     assert "global" in region_ids
     assert "australia-southeast1" in region_ids
-    assert "airgap-vpc-ausyd" in region_ids
+    assert "airgap-vpc-sovereign" in region_ids
 
     # Check models list within a region
     syd_region = next(r for r in data["catalog"] if r["regionId"] == "australia-southeast1")

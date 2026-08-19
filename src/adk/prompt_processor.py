@@ -150,7 +150,7 @@ def generate_command_response(prompt: str) -> str:
             f"Evaluating the requested compliance and risk context regarding: **\"{prompt}\"**\n\n"
             "1. **Continuous Risk Probing:** Active monitoring flags unusual transaction patterns or access anomalies across distributed tiers.\n"
             "2. **Data Residency Assurance:** All audit records and account analysis remain encrypted and stored inside regional sovereign enclaves.\n"
-            "3. **Automated Escalation Protocol:** If suspicious activity or policy deviation is detected, the session locks to Tier 2 (AU-SYD) or Tier 3 (Airgapped VPC)."
+            "3. **Automated Escalation Protocol:** If suspicious activity or policy deviation is detected, the session locks to Tier 2 (Jurisdictional Subregion) or Tier 3 (Airgapped VPC)."
         )
 
     # 6. Airgapped Verification (Test anchor for "Verify airgapped query execution.")
@@ -158,7 +158,7 @@ def generate_command_response(prompt: str) -> str:
         return (
             "### Airgapped VPC Execution Verification\n\n"
             f"Verified execution for query: **\"{prompt}\"**\n\n"
-            "* **Isolated Memory Buffers:** The request was processed inside a private VPC in Sydney (`australia-southeast1`) with zero public IP egress.\n"
+            "* **Isolated Memory Buffers:** The request was processed inside a private sovereign VPC enclave with zero public IP egress.\n"
             "* **No Telemetry Leakage:** Prompt tokens and model activations were confined strictly to internal Compute Engine / GKE enclave nodes.\n"
             "* **Complete Customer Control:** CMEK encryption keys remain under direct enterprise management."
         )
@@ -198,7 +198,7 @@ def generate_command_response(prompt: str) -> str:
             items.append(
                 f"{i}. **{prompt.strip().capitalize()} — Option {i}**\n"
                 f"   * **Operational Focus:** Practical enterprise application and resilience alignment.\n"
-                f"   * **Sovereignty Note:** Processed within Australian data residency boundaries with full context retention."
+                f"   * **Sovereignty Note:** Processed within jurisdictional data residency boundaries with full context retention."
             )
         return header + "\n\n".join(items)
 

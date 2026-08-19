@@ -60,8 +60,8 @@ export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, 
         };
       case 'TIER_2_REGIONAL':
         return {
-          icon: '🦘',
-          label: 'Tier 2 • Regional AU-SYD',
+          icon: '🏛️',
+          label: 'Tier 2 • Jurisdictional Subregion',
           color: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
         };
       case 'TIER_3_SOVEREIGN':

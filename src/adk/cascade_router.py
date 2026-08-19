@@ -56,12 +56,12 @@ class ExecutionMetadata(BaseModel):
 
 class SovereignCascadeRouter:
     """
-    Manages the 3-tiered sovereign cascade and sticky circuit breaker state.
+    Manages the Universal 3-tiered sovereign cascade and sticky circuit breaker state.
 
     Tiers:
-      1. TIER_1_GLOBAL: Global Gemini API (generativelanguage.googleapis.com)
-      2. TIER_2_REGIONAL: AU-SYD australia-southeast1 Vertex AI Endpoint
-      3. TIER_3_SOVEREIGN: Airgapped AU-SYD Private VPC Gemma Endpoint
+      1. TIER_1_GLOBAL: Global Hyperscaler API (generativelanguage.googleapis.com / global Vertex AI)
+      2. TIER_2_REGIONAL: Jurisdictional Sub-Region Cloud Endpoint (In-Country Data Residency)
+      3. TIER_3_SOVEREIGN: Airgapped Local VPC / On-Premises Enclave (Self-Hosted Open-Weights)
     """
 
     def __init__(
@@ -72,6 +72,7 @@ class SovereignCascadeRouter:
         t3_endpoint: str = "http://127.0.0.1:8001/v1",
         t3_model: str = "google/gemma-2-2b-it",
     ):
+        self.t2_region = t2_region
         self.tiers: Dict[str, TierConfig] = {
             "TIER_1_GLOBAL": TierConfig(
                 tier_id="TIER_1_GLOBAL",
@@ -83,14 +84,14 @@ class SovereignCascadeRouter:
             "TIER_2_REGIONAL": TierConfig(
                 tier_id="TIER_2_REGIONAL",
                 model_name=t2_model,
-                location=f"Sydney, Australia ({t2_region})",
+                location=f"Jurisdictional Subregion ({t2_region})",
                 sovereignty_classification="Regional Data Residency",
                 timeout_ms=2000,
             ),
             "TIER_3_SOVEREIGN": TierConfig(
                 tier_id="TIER_3_SOVEREIGN",
                 model_name=t3_model,
-                location="Private VPC Enclave (AU-SYD GCE/GKE)",
+                location="Private VPC Enclave (Airgapped Sovereign / On-Prem)",
                 sovereignty_classification="Airgapped Sovereign VPC",
                 timeout_ms=60000,
                 is_vpc_endpoint=True,
@@ -284,9 +285,9 @@ class SovereignCascadeRouter:
                 creds.refresh(Request())
             project_id = proj or "sovereignagent"
 
-            if "australia-southeast1" in tier_cfg.location or "AU-SYD" in tier_cfg.location or "Sydney" in tier_cfg.location:
-                endpoint = "https://australia-southeast1-aiplatform.googleapis.com"
-                loc = "australia-southeast1"
+            if tier_cfg.tier_id == "TIER_2_REGIONAL":
+                loc = self.t2_region if self.t2_region != "jurisdictional-subregion-1" else "australia-southeast1"
+                endpoint = f"https://{loc}-aiplatform.googleapis.com"
             else:
                 endpoint = "https://aiplatform.googleapis.com"
                 loc = "global"
@@ -376,7 +377,7 @@ class SovereignCascadeRouter:
         if os.environ.get("PYTEST_CURRENT_TEST"):
             await asyncio.sleep(0.05)
             header = (
-                f"[SOVEREIGN ENCLAVE // {model_name.upper()}] Processed completely within isolated VPC (AU-SYD). "
+                f"[SOVEREIGN ENCLAVE // {model_name.upper()}] Processed completely within isolated sovereign VPC. "
                 f"All data remained within air-gapped memory buffers with zero external egress.\n\n"
             )
             processed_body = generate_command_response(prompt)

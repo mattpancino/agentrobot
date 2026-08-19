@@ -131,7 +131,7 @@ def test_mock_gemma_server_chat_completions(gemma_client):
     assert data["model"] == "google/gemma-2-2b-it"
     reply_content = data["choices"][0]["message"]["content"]
     assert "SOVEREIGN ENCLAVE" in reply_content
-    assert "AU-SYD" in reply_content
+    assert "sovereign VPC" in reply_content
     assert "zero external egress" in reply_content
     assert data["usage"]["total_tokens"] > 0
 

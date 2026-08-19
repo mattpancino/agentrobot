@@ -77,8 +77,8 @@ async def list_models():
     }
 
 
-async def _call_real_llm_ausyd(messages: List[ChatMessage]) -> Optional[str]:
-    """Invokes live Vertex AI model in Sydney (australia-southeast1) to answer queries with a real LLM."""
+async def _call_real_llm_sovereign(messages: List[ChatMessage]) -> Optional[str]:
+    """Invokes live regional model endpoint to answer queries with a real LLM."""
     import os
     import google.auth
     from google.auth.transport.requests import Request
@@ -92,8 +92,12 @@ async def _call_real_llm_ausyd(messages: List[ChatMessage]) -> Optional[str]:
         if not creds.valid:
             creds.refresh(Request())
         project_id = proj or "sovereignagent"
-        endpoint = "https://australia-southeast1-aiplatform.googleapis.com"
-        url = f"{endpoint}/v1/projects/{project_id}/locations/australia-southeast1/publishers/google/models/gemini-2.5-flash:generateContent"
+        loc = os.environ.get("GOOGLE_CLOUD_LOCATION", "australia-southeast1")
+        if loc == "global":
+            endpoint = "https://aiplatform.googleapis.com"
+        else:
+            endpoint = f"https://{loc}-aiplatform.googleapis.com"
+        url = f"{endpoint}/v1/projects/{project_id}/locations/{loc}/publishers/google/models/gemini-2.5-flash:generateContent"
         headers = {
             "Authorization": f"Bearer {creds.token}",
             "x-goog-user-project": project_id,
@@ -144,10 +148,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
     await asyncio.sleep(0.05)
 
     header = (
-        f"[SOVEREIGN ENCLAVE // {request.model.upper()}] Processed completely within isolated VPC (AU-SYD). "
+        f"[SOVEREIGN ENCLAVE // {request.model.upper()}] Processed completely within isolated sovereign VPC enclave. "
         f"All data remained within air-gapped memory buffers with zero external egress.\n\n"
     )
-    real_body = await _call_real_llm_ausyd(request.messages)
+    real_body = await _call_real_llm_sovereign(request.messages)
     if real_body:
         processed_body = real_body
     else:

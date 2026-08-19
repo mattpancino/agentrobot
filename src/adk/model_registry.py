@@ -215,11 +215,34 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
         ]
     },
     {
-        "regionId": "airgap-vpc-ausyd",
-        "name": "Private VPC Enclave (AU-SYD GCE/GKE)",
+        "regionId": "jurisdictional-subregion-1",
+        "name": "Jurisdictional Subregion (In-Country Cloud)",
+        "tier": "TIER_2_REGIONAL",
+        "sovereigntyClassification": "Jurisdictional Data Residency",
+        "description": "Standardized regional cloud boundary ensuring data residency within host nation.",
+        "models": [
+            {
+                "id": "gemini-2.5-flash",
+                "name": "Gemini 2.5 Flash",
+                "type": "Latest Regional Flash",
+                "recommended": True,
+                "description": "In-country premier Gemini Flash 2.5 model with ultra-low latency."
+            },
+            {
+                "id": "gemini-1.5-pro-002",
+                "name": "Gemini 1.5 Pro (002)",
+                "type": "Frontier Regional",
+                "recommended": False,
+                "description": "In-country Pro model for high-assurance audit and compliance reasoning."
+            }
+        ]
+    },
+    {
+        "regionId": "airgap-vpc-sovereign",
+        "name": "Private Sovereign Enclave (Airgapped VPC / On-Prem)",
         "tier": "TIER_3_SOVEREIGN",
         "sovereigntyClassification": "Airgapped Sovereign VPC",
-        "description": "Customer-managed private VPC enclave in Sydney running local vLLM/Ollama without internet egress.",
+        "description": "Customer-managed private VPC or on-premise enclave running local vLLM/Ollama without internet egress.",
         "models": [
             {
                 "id": "google/gemma-2-2b-it",
@@ -253,11 +276,11 @@ DEFAULT_TIER_CONFIGS: Dict[str, Dict[str, str]] = {
         "model": "gemini-3.7-flash",
     },
     "TIER_2_REGIONAL": {
-        "region": "australia-southeast1",
+        "region": "jurisdictional-subregion-1",
         "model": "gemini-2.5-flash",
     },
     "TIER_3_SOVEREIGN": {
-        "region": "airgap-vpc-ausyd",
+        "region": "airgap-vpc-sovereign",
         "model": "google/gemma-2-2b-it",
     },
 }
