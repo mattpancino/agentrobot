@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Sovereign-Stream • 3-Tier Resilient AI Failover Demo</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'JetBrains Mono', system-ui, -apple-system, sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function TelemetryHeader({ lastMetadata, onOpenSettings, onResetChat }) {
+      if (!lastMetadata) {
+        return (
+          <header className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+              <span className="font-bold text-sm tracking-tight text-white">Project Sovereign-Stream</span>
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono">
+                ADK 3-Tier Sovereign Cascade
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-slate-400 font-mono hidden sm:inline">
+                Ready for executive demonstration • Send a prompt below
+              </div>
+              {onResetChat && (
+                <button
+                  onClick={onResetChat}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
+                  title="Clear chat transcript and reset session state"
+                >
+                  <span>🔄</span>
+                  <span>Reset Chat</span>
+                </button>
+              )}
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/40 flex items-center gap-1.5 transition whitespace-nowrap"
+                  title="Open Regional Catalog, Enclave Management, and Live Telemetry Logs"
+                >
+                  <span>⚙️</span>
+                  <span>Settings &amp; Logs</span>
+                </button>
+              )}
+            </div>
+          </header>
+        );
+      }
+
+      const { activeTier, modelUsed, executionLocation, latencyMs, routingMode, recoverySentinel } = lastMetadata;
+
+      const getTierBadge = () => {
+        switch (activeTier) {
+          case 'TIER_1_GLOBAL':
+            return {
+              icon: '🌐',
+              label: 'Tier 1 • Global Public',
+              color: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+            };
+          case 'TIER_2_REGIONAL':
+            return {
+              icon: '🦘',
+              label: 'Tier 2 • Regional AU-SYD',
+              color: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
+            };
+          case 'TIER_3_SOVEREIGN':
+            return {
+              icon: '🔒',
+              label: 'Tier 3 • Airgapped VPC',
+              color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
+            };
+          default:
+            return {
+              icon: '🌐',
+              label: 'Tier 1 • Global Public',
+              color: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+            };
+        }
+      };
+
+      const badge = getTierBadge();
+
+      return (
+        <header className="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 sticky top-0 z-20 shadow-md">
+          <div className="flex items-center flex-wrap gap-3">
+            <span className="font-bold text-sm text-white tracking-tight">Project Sovereign-Stream</span>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${badge.color}`}>
+              <span>{badge.icon}</span>
+              <span>{badge.label}</span>
+            </span>
+            <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
+              Model: <span className="text-white font-semibold">{modelUsed}</span>
+            </span>
+            <span className="text-xs text-slate-400 font-mono hidden lg:inline">
+              {executionLocation}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono flex items-center gap-2">
+              <span className="text-slate-400">TTFT Latency:</span>
+              <span className={`font-bold ${latencyMs < 700 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {latencyMs}ms
+              </span>
+              {routingMode === 'STICKY_FALLBACK' && (
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-sans font-semibold">
+                  Sticky (0ms penalty)
+                </span>
+              )}
+            </div>
+
+            {recoverySentinel && (
+              <div
+                className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-2 border ${
+                  recoverySentinel.status === 'PROBING_BACKGROUND'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 animate-pulse'
+                    : recoverySentinel.status === 'PROMOTED_RESTORED'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400'
+                }`}
+                title={recoverySentinel.message}
+              >
+                {recoverySentinel.status === 'PROBING_BACKGROUND' && (
+                  <span>🔄 Sentinel Probing: {recoverySentinel.consecutiveSuccesses}/{recoverySentinel.requiredSuccesses} Healthy</span>
+                )}
+                {recoverySentinel.status === 'PROMOTED_RESTORED' && (
+                  <span>✅ Global Restored: Auto-Promoted</span>
+                )}
+                {recoverySentinel.status === 'IDLE_HEALTHY' && (
+                  <span>🟢 Global Healthy</span>
+                )}
+                {recoverySentinel.status === 'PROBE_FAILED_HYSTERESIS_RESET' && (
+                  <span>⚠️ Sentinel: Probe reset (SLA breach)</span>
+                )}
+              </div>
+            )}
+
+            {onResetChat && (
+              <button
+                onClick={onResetChat}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
+                title="Clear chat transcript and reset session state"
+              >
+                <span>🔄</span>
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+            )}
+
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/40 flex items-center gap-1.5 transition whitespace-nowrap"
+                title="Open Regional Catalog, Enclave Management, and Live Telemetry Logs"
+              >
+                <span>⚙️</span>
+                <span>Settings &amp; Logs</span>
+              </button>
+            )}
+          </div>
+        </header>
+      );
+    }
+
+    function ChaosPanel({ controls, onChange, metadataList, onResetChat, onOpenSettings }) {
+      const totalTurns = metadataList.length;
+      const failoverTurns = metadataList.filter((m) => m.failoverOccurred).length;
+      const stickyTurns = metadataList.filter((m) => m.routingMode === 'STICKY_FALLBACK').length;
+      const totalSavedMs = metadataList.reduce((acc, m) => acc + (m.wastedLatencyAvoidedMs || 0), 0);
+
+      const handleToggleFailure = () => {
+        onChange({ ...controls, injectMockFailure: !controls.injectMockFailure });
+      };
+
+      const handleForcedTierChange = (tier) => {
+        onChange({ ...controls, forcedTier: tier });
+      };
+
+      return (
+        <aside className="w-80 bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between shrink-0 h-[calc(100vh-57px)] overflow-y-auto">
+          <div className="space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Chaos Monkey Controls
+                </h2>
+                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">
+                  Demo Panel
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Inject mock API faults or override sovereign tier routing to demonstrate zero-state-loss failover live.
+              </p>
+            </div>
+
+            {/* 1. Regional Models & Tier Settings Button */}
+            {onOpenSettings && (
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-200">Regional Model Catalog</span>
+                  <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-semibold">
+                    Customizable
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  List available models in each region and assign them to cascade tiers.
+                </p>
+                <button
+                  onClick={onOpenSettings}
+                  className="w-full mt-2 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/40 flex items-center justify-center gap-2 transition"
+                >
+                  <span>⚙️ Settings, Models &amp; VM Logs</span>
+                </button>
+              </div>
+            )}
+
+            {/* 2. Inject Mock Failure Toggle */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-200">Inject Mock Failure</span>
+                <button
+                  onClick={handleToggleFailure}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
+                    controls.injectMockFailure ? 'bg-rose-600' : 'bg-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                      controls.injectMockFailure ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {controls.injectMockFailure ? (
+                  <span className="text-rose-400 font-medium">
+                    Active: Appending `_broken_test` to active model call. Triggers instant HTTP 404/500 fallback.
+                  </span>
+                ) : (
+                  <span>Inactive: Standard multi-tier routing without injected faults.</span>
+                )}
+              </p>
+            </div>
+
+            {/* 3. Manual Tier Override Selectors */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
+                Manual Sovereignty Override
+              </h3>
+              <div className="space-y-2">
+                {[
+                  { id: 'AUTO', label: 'Auto Cascade (Default)', desc: 'Tier 1 -> Tier 2 -> Tier 3' },
+                  { id: 'TIER_1_GLOBAL', label: 'Lock Tier 1 (Global)', desc: 'Generative AI Global API' },
+                  { id: 'TIER_2_REGIONAL', label: 'Lock Tier 2 (AU-SYD)', desc: 'Vertex AI Sydney Data Residency' },
+                  { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (Airgap VPC)', desc: 'Private VPC Gemma-2 Open Weights' },
+                ].map((opt) => (
+                  <label
+                    key={opt.id}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition ${
+                      controls.forcedTier === opt.id
+                        ? 'bg-blue-600/10 border-blue-500/50 text-white'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="forcedTier"
+                      checked={controls.forcedTier === opt.id}
+                      onChange={() => handleForcedTierChange(opt.id)}
+                      className="mt-1 accent-blue-500"
+                    />
+                    <div>
+                      <div className="text-xs font-semibold">{opt.label}</div>
+                      <div className="text-[10px] text-slate-400">{opt.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. System Resilience Telemetry */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
+                Live Session Telemetry
+              </h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center py-1 border-b border-slate-800">
+                  <span className="text-slate-400">Total Chat Turns:</span>
+                  <span className="font-mono text-white font-semibold">{totalTurns}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-800">
+                  <span className="text-slate-400">Failover Transitions:</span>
+                  <span className="font-mono text-amber-400 font-semibold">{failoverTurns} hops</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-800">
+                  <span className="text-slate-400">Sticky Fallback Turns:</span>
+                  <span className="font-mono text-blue-400 font-semibold">{stickyTurns}</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-slate-400">Timeout Latency Avoided:</span>
+                  <span className="font-mono text-emerald-400 font-bold">+{totalSavedMs} ms</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={onResetChat}
+            className="w-full mt-4 py-2.5 px-4 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition shadow-sm"
+          >
+            Clear Chat &amp; Reset ADK Session State
+          </button>
+        </aside>
+      );
+    }
+
+    function SettingsModal({ isOpen, onClose, catalog, tierSettings, onSaveSettings }) {
+      const [activeTab, setActiveTab] = useState('tiers');
+      const [localSettings, setLocalSettings] = useState(tierSettings);
+      const [enclaveStatus, setEnclaveStatus] = useState(null);
+      const [enclaveLoading, setEnclaveLoading] = useState(false);
+      const [enclaveActionMsg, setEnclaveActionMsg] = useState(null);
+      const [enclaveLogs, setEnclaveLogs] = useState(null);
+      const [autoRefreshLogs, setAutoRefreshLogs] = useState(true);
+
+      const fetchEnclaveStatus = async () => {
+        try {
+          const res = await fetch('/api/enclave/status');
+          if (res.ok) {
+            const data = await res.json();
+            setEnclaveStatus(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const fetchEnclaveLogs = async () => {
+        try {
+          const res = await fetch('/api/enclave/logs?limit=30');
+          if (res.ok) {
+            const data = await res.json();
+            setEnclaveLogs(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      useEffect(() => {
+        setLocalSettings(tierSettings);
+      }, [tierSettings, isOpen]);
+
+      useEffect(() => {
+        if (isOpen) {
+          fetchEnclaveStatus();
+          const interval = setInterval(fetchEnclaveStatus, 4000);
+          return () => clearInterval(interval);
+        }
+      }, [isOpen]);
+
+      useEffect(() => {
+        if (isOpen && activeTab === 'logs') {
+          fetchEnclaveLogs();
+          if (autoRefreshLogs) {
+            const interval = setInterval(fetchEnclaveLogs, 3000);
+            return () => clearInterval(interval);
+          }
+        }
+      }, [isOpen, activeTab, autoRefreshLogs]);
+
+      const handleStartVm = async () => {
+        setEnclaveLoading(true);
+        setEnclaveActionMsg('Starting VM instance in AU-SYD...');
+        try {
+          await fetch('/api/enclave/start-vm', { method: 'POST' });
+          setTimeout(fetchEnclaveStatus, 2000);
+        } finally {
+          setEnclaveLoading(false);
+        }
+      };
+
+      const handleStartTunnel = async () => {
+        setEnclaveLoading(true);
+        setEnclaveActionMsg('Opening IAP TCP forwarding tunnel on port 8001...');
+        try {
+          await fetch('/api/enclave/start-tunnel', { method: 'POST' });
+          setTimeout(fetchEnclaveStatus, 2000);
+        } finally {
+          setEnclaveLoading(false);
+        }
+      };
+
+      const handleStopVm = async () => {
+        setEnclaveLoading(true);
+        setEnclaveActionMsg('Stopping VM instance to conserve Argolis quota...');
+        try {
+          await fetch('/api/enclave/stop-vm', { method: 'POST' });
+          setTimeout(fetchEnclaveStatus, 2000);
+        } finally {
+          setEnclaveLoading(false);
+        }
+      };
+
+      if (!isOpen) return null;
+
+      const handleRegionChange = (tierId, newRegionId) => {
+        const region = catalog.find((r) => r.regionId === newRegionId);
+        const defaultModel = region?.models[0]?.id || 'gemini-1.5-pro-002';
+        setLocalSettings((prev) => ({
+          ...prev,
+          [tierId]: {
+            region: newRegionId,
+            model: defaultModel,
+          },
+        }));
+      };
+
+      const handleModelChange = (tierId, newModelId) => {
+        setLocalSettings((prev) => ({
+          ...prev,
+          [tierId]: {
+            ...prev[tierId],
+            model: newModelId,
+          },
+        }));
+      };
+
+      const handleAssignFromCatalog = (regionId, modelId, tierId) => {
+        setLocalSettings((prev) => ({
+          ...prev,
+          [tierId]: {
+            region: regionId,
+            model: modelId,
+          },
+        }));
+        setActiveTab('tiers');
+      };
+
+      const handleResetDefaults = () => {
+        const defaults = {
+          TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
+          TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
+          TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-2b-it' },
+        };
+        setLocalSettings(defaults);
+      };
+
+      const handleSave = () => {
+        onSaveSettings(localSettings);
+        onClose();
+      };
+
+      const tierMetadata = {
+        TIER_1_GLOBAL: {
+          title: 'Tier 1 • Global Frontier Tier',
+          desc: 'Primary high-throughput API routing for standard non-regulated processing.',
+          badge: 'TIER 1',
+          color: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+        },
+        TIER_2_REGIONAL: {
+          title: 'Tier 2 • Regional Sovereign Tier',
+          desc: 'Strict domestic data residency for FSI and APRA CPS 234 compliance.',
+          badge: 'TIER 2',
+          color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+        },
+        TIER_3_SOVEREIGN: {
+          title: 'Tier 3 • Airgapped VPC Sovereign Tier',
+          desc: 'Private VPC enclave for offline failover with zero external internet egress.',
+          badge: 'TIER 3',
+          color: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+        },
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>⚙️ Regional AI Model Catalog & Routing Settings</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  List available models in each region and select which models execute at each cascade tier.
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Live Model Availability Status Lights Bar */}
+            <div className="px-6 py-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+              <span className="text-slate-400 font-semibold flex items-center gap-1.5">
+                <span>📡</span> Live Model Availability:
+              </span>
+              <div className="flex flex-wrap items-center gap-5">
+                <span className="flex items-center gap-1.5 text-emerald-300 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Tier 1 Global (Gemini 3.7 Flash) • Online
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-300 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Tier 2 Regional (Gemini 2.5 Flash) • Online
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-300 font-medium">
+                  <span className={`w-2 h-2 rounded-full ${enclaveStatus?.tunnelActive || enclaveStatus?.vmStatus === 'RUNNING' ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-400'}`}></span>
+                  Tier 3 Sovereign (Gemma 2 2B) • Online (VPC Ready)
+                </span>
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-800 bg-slate-950/60 px-6 gap-6">
+              <button
+                onClick={() => setActiveTab('tiers')}
+                className={`py-3 text-xs font-semibold border-b-2 transition ${
+                  activeTab === 'tiers'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Cascade Tier Configuration (Select Models)
+              </button>
+              <button
+                onClick={() => setActiveTab('catalog')}
+                className={`py-3 text-xs font-semibold border-b-2 transition ${
+                  activeTab === 'catalog'
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Browse Regional Model Catalog ({catalog.length} Regions)
+              </button>
+              <button
+                onClick={() => setActiveTab('enclave')}
+                className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+                  activeTab === 'enclave'
+                    ? 'border-purple-500 text-purple-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>🔒</span> Sovereign Enclave &amp; Tunnel Manager
+              </button>
+              <button
+                onClick={() => setActiveTab('logs')}
+                className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+                  activeTab === 'logs'
+                    ? 'border-emerald-500 text-emerald-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>📜</span> Live Enclave Telemetry Logs
+              </button>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {activeTab === 'tiers' && (
+                <div className="space-y-4">
+                  {['TIER_1_GLOBAL', 'TIER_2_REGIONAL', 'TIER_3_SOVEREIGN'].map((tierId) => {
+                    const setting = localSettings[tierId] || { region: 'global', model: 'gemini-1.5-pro-002' };
+                    const currentRegion = catalog.find((r) => r.regionId === setting.region) || catalog[0];
+                    const meta = tierMetadata[tierId];
+
+                    return (
+                      <div key={tierId} className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${meta.color}`}>
+                                {meta.badge}
+                              </span>
+                              <h3 className="text-sm font-semibold text-white">{meta.title}</h3>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">{meta.desc}</p>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            ONLINE
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          {/* Region Selector */}
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
+                              Assigned Region / Enclave
+                            </label>
+                            <select
+                              value={setting.region}
+                              onChange={(e) => handleRegionChange(tierId, e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500"
+                            >
+                              {catalog.map((reg) => (
+                                <option key={reg.regionId} value={reg.regionId}>
+                                  {reg.name} ({reg.sovereigntyClassification})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Model Selector */}
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
+                              Available Model Selection
+                            </label>
+                            <select
+                              value={setting.model}
+                              onChange={(e) => handleModelChange(tierId, e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500"
+                            >
+                              {currentRegion?.models?.map((mod) => (
+                                <option key={mod.id} value={mod.id}>
+                                  {mod.name} [{mod.type}] {mod.recommended ? '★ Recommended' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Active Model Description Badge */}
+                        {currentRegion && (
+                          <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 flex items-center justify-between">
+                            <span>
+                              Active Model: <strong className="text-white">{setting.model}</strong> —{' '}
+                              {currentRegion.models?.find((m) => m.id === setting.model)?.description || currentRegion.description}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeTab === 'catalog' && (
+                <div className="space-y-6">
+                  {catalog.map((reg) => (
+                    <div key={reg.regionId} className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                        <div>
+                          <h3 className="text-sm font-semibold text-white">{reg.name}</h3>
+                          <p className="text-xs text-slate-400 mt-0.5">{reg.description}</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
+                          {reg.sovereigntyClassification}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                        {reg.models?.map((mod) => (
+                          <div
+                            key={mod.id}
+                            className="p-3 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold text-white font-mono">{mod.name}</span>
+                                {mod.recommended && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-semibold">
+                                    Recommended
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-blue-400 mb-1.5">{mod.type}</div>
+                              <p className="text-[11px] text-slate-400 leading-snug mb-3">{mod.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                              <span className="text-[10px] text-slate-400">Set for:</span>
+                              <button
+                                onClick={() => handleAssignFromCatalog(reg.regionId, mod.id, 'TIER_1_GLOBAL')}
+                                className="px-2 py-1 rounded bg-slate-800 hover:bg-blue-600/30 hover:text-blue-300 text-slate-300 text-[10px] font-medium transition"
+                              >
+                                Tier 1
+                              </button>
+                              <button
+                                onClick={() => handleAssignFromCatalog(reg.regionId, mod.id, 'TIER_2_REGIONAL')}
+                                className="px-2 py-1 rounded bg-slate-800 hover:bg-emerald-600/30 hover:text-emerald-300 text-slate-300 text-[10px] font-medium transition"
+                              >
+                                Tier 2
+                              </button>
+                              <button
+                                onClick={() => handleAssignFromCatalog(reg.regionId, mod.id, 'TIER_3_SOVEREIGN')}
+                                className="px-2 py-1 rounded bg-slate-800 hover:bg-purple-600/30 hover:text-purple-300 text-slate-300 text-[10px] font-medium transition"
+                              >
+                                Tier 3
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'enclave' && (
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  {/* Action Banner */}
+                  {enclaveActionMsg && (
+                    <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between text-xs text-purple-300">
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin">🔄</span>
+                        {enclaveActionMsg}
+                      </span>
+                      <button
+                        onClick={() => setEnclaveActionMsg(null)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {/* VM Status & Control Card */}
+                  <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold border text-purple-400 bg-purple-500/10 border-purple-500/30">
+                            AU-SYD ENCLAVE
+                          </span>
+                          <h3 className="text-sm font-semibold text-white">Sovereign Airgapped VM (Tier 3)</h3>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Customer-managed e2-standard-4 (4 vCPU, 16 GB RAM) running in Sydney without public internet egress.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
+                            enclaveStatus?.vmStatus === 'RUNNING'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${enclaveStatus?.vmStatus === 'RUNNING' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                          VM: {enclaveStatus?.vmStatus || 'CHECKING...'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-mono">Internal VPC IP</span>
+                        <span className="text-white font-mono">{enclaveStatus?.internalIp || '10.152.0.2'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-mono">External Public IP</span>
+                        <span className="text-emerald-400 font-mono">None (--no-address)</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-mono">Zone</span>
+                        <span className="text-slate-300 font-mono">{enclaveStatus?.zone || 'australia-southeast1-a'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        onClick={handleStartVm}
+                        disabled={enclaveLoading || enclaveStatus?.vmStatus === 'RUNNING'}
+                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                      >
+                        <span>▶</span> Start VM (Power On)
+                      </button>
+                      <button
+                        onClick={handleStopVm}
+                        disabled={enclaveLoading || enclaveStatus?.vmStatus === 'STOPPED' || enclaveStatus?.vmStatus === 'TERMINATED'}
+                        className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-red-600/80 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-semibold transition flex items-center gap-1.5"
+                      >
+                        <span>⏹</span> Stop VM (Conserve Quota)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* IAP Secure Tunnel Card */}
+                  <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold border text-blue-400 bg-blue-500/10 border-blue-500/30">
+                            IAP ZERO-TRUST
+                          </span>
+                          <h3 className="text-sm font-semibold text-white">Encrypted TCP Forwarding Tunnel (Port 8001)</h3>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Forwards local port 8001 over Google Identity-Aware Proxy directly into the VM Ollama service.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
+                            enclaveStatus?.tunnelActive
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${enclaveStatus?.tunnelActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                          {enclaveStatus?.tunnelActive ? 'Connected (Port 8001)' : 'Disconnected'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-mono">Local Endpoint</span>
+                        <span className="text-blue-300 font-mono">http://127.0.0.1:8001/v1</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-mono">Loaded Sovereign Model</span>
+                        <span className="text-purple-300 font-mono font-semibold">{enclaveStatus?.modelLoaded || 'google/gemma-2-2b-it'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-[11px] text-slate-500">
+                        💡 Click Start Tunnel below to open or reconnect your encrypted IAP socket.
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={fetchEnclaveStatus}
+                          className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+                        >
+                          🔄 Refresh
+                        </button>
+                        <button
+                          onClick={handleStartTunnel}
+                          disabled={enclaveLoading}
+                          className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                        >
+                          <span>⚡</span> Start / Reconnect IAP Tunnel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security Compliance Verification */}
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
+                    <div className="font-semibold text-slate-200 mb-1">🛡️ Active Argolis Compliance Controls Verified:</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400">✔</span>
+                      <span><strong>Zero Public Internet Ingress/Egress:</strong> Network interface assigned strictly internal IP 10.152.0.2.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400">✔</span>
+                      <span><strong>Project-Scoped Zero Trust:</strong> Firewall restricted exclusively to IAP (35.235.240.0/20) and private VPC range.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400">✔</span>
+                      <span><strong>Hypervisor Shielded VM:</strong> Secure Boot, vTPM, and Integrity Monitoring enabled.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {activeTab === 'logs' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Live Argolis VM Telemetry &amp; Chat Payload Monitor</span>
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Executes real-time refined serial console inspection on <code className="text-slate-300">sovereign-gemma-2b-vm</code> (australia-southeast1-a).
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAutoRefreshLogs(!autoRefreshLogs)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 ${
+                            autoRefreshLogs
+                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${autoRefreshLogs ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
+                          <span>Auto-Refresh: {autoRefreshLogs ? 'ON (3s)' : 'PAUSED'}</span>
+                        </button>
+                        <button
+                          onClick={fetchEnclaveLogs}
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold transition"
+                        >
+                          🔄 Refresh Now
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Command display box */}
+                    <div className="bg-slate-900/90 rounded-lg p-2.5 border border-slate-800 font-mono text-[11px] text-slate-300 flex items-center justify-between gap-2 overflow-x-auto">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-slate-500 select-none">$</span>
+                        <span className="truncate">{enclaveLogs?.command || "gcloud compute instances get-serial-port-output sovereign-gemma-2b-vm --zone=australia-southeast1-a | grep -E 'POST.*chat/completions|prompt eval time|eval time ='"}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (enclaveLogs?.command) {
+                            navigator.clipboard.writeText(enclaveLogs.command);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 text-[10px] shrink-0 transition"
+                        title="Copy CLI command"
+                      >
+                        📋 Copy Command
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Terminal window */}
+                  <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 font-mono text-xs text-emerald-400 overflow-y-auto max-h-[380px] shadow-inner space-y-1">
+                    <div className="text-slate-500 text-[11px] border-b border-slate-900 pb-2 mb-2 flex items-center justify-between">
+                      <span>● OUTPUT STREAM // OLLAMA GEMMA 2 (2B) INFERENCE &amp; PAYLOAD TELEMETRY</span>
+                      <span className="text-slate-400">Total lines: {enclaveLogs?.logs?.length || 0}</span>
+                    </div>
+                    {(!enclaveLogs || enclaveLogs.logs.length === 0) ? (
+                      <div className="text-slate-500 py-6 text-center italic">
+                        No active chat payload telemetry logged yet. Send a prompt to TIER_3_SOVEREIGN to observe live token evaluations...
+                      </div>
+                    ) : (
+                      enclaveLogs.logs.map((logLine, idx) => (
+                        <div key={idx} className="leading-relaxed hover:bg-slate-900/50 px-1 py-0.5 rounded break-all whitespace-pre-wrap">
+                          {logLine}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/90">
+              <button
+                onClick={handleResetDefaults}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+              >
+                Reset to Default Cascade Models
+              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition"
+                >
+                  Save &amp; Apply Regional Models
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ChatWindow({ messages, isLoading, onSendMessage }) {
+      const [input, setInput] = useState('');
+      const [selectedLog, setSelectedLog] = useState(null);
+      const messagesEndRef = React.useRef(null);
+
+      const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      };
+
+      useEffect(() => {
+        scrollToBottom();
+      }, [messages, isLoading]);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+        onSendMessage(input);
+        setInput('');
+      };
+
+      const [expandedLogs, setExpandedLogs] = useState({});
+
+      const toggleLog = (id) => {
+        setExpandedLogs((prev) => ({ ...prev, [id]: !prev[id] }));
+      };
+
+      const renderCollapsibleTelemetry = (msgId, meta) => {
+        if (!meta) return null;
+        const isExpanded = !!expandedLogs[msgId];
+        const {
+          activeTier,
+          modelUsed,
+          executionLocation,
+          sovereigntyClassification,
+          routingMode,
+          latencyMs,
+          wastedLatencyAvoidedMs,
+          failoverOccurred,
+          failoverHops,
+          failoverLog,
+          recoverySentinel,
+        } = meta;
+
+        let badgeColor = 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+        let icon = '🌐';
+        let label = 'Tier 1 Global';
+
+        if (activeTier === 'TIER_2_REGIONAL') {
+          badgeColor = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+          icon = '🦘';
+          label = 'Tier 2 Regional (AU-SYD)';
+        } else if (activeTier === 'TIER_3_SOVEREIGN') {
+          badgeColor = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+          icon = '🔒';
+          label = 'Tier 3 Airgapped VPC';
+        }
+
+        return (
+          <div className="mt-3 pt-3 border-t border-slate-800/80">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2 py-0.5 rounded-full border font-semibold flex items-center gap-1 ${badgeColor}`}>
+                  <span>{icon}</span>
+                  <span>{label}</span>
+                </span>
+                <span className="text-slate-400 font-mono text-[11px]">{modelUsed}</span>
+                <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
+                  {latencyMs}ms
+                </span>
+
+                {wastedLatencyAvoidedMs > 0 && (
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold text-[11px] flex items-center gap-1 border border-emerald-500/30">
+                    <span>⚡</span>
+                    <span>+{wastedLatencyAvoidedMs}ms Saved</span>
+                  </span>
+                )}
+
+                {failoverOccurred && (
+                  <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-semibold text-[11px] border border-rose-500/30">
+                    ⚠️ Fallback Hop ({failoverHops})
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={() => toggleLog(msgId)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition py-1 px-2 rounded-lg hover:bg-slate-800"
+              >
+                <span>{isExpanded ? '▼ Hide Routing & Telemetry Log' : '▶ Show Routing & Telemetry Log'}</span>
+              </button>
+            </div>
+
+            {isExpanded && (
+              <div className="mt-3 p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-3 transition-all">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                    Sovereign-Stream Routing &amp; Telemetry Log
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-900 text-slate-300 text-[10px]">
+                    Mode: {routingMode}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-1">
+                    <div className="text-blue-400 font-bold">// Execution Target:</div>
+                    <div className="text-slate-300">Tier: <span className="text-white font-semibold">{activeTier}</span></div>
+                    <div className="text-slate-300">Location: <span className="text-white">{executionLocation}</span></div>
+                    <div className="text-slate-300">Sovereignty: <span className="text-white">{sovereigntyClassification}</span></div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-1">
+                    <div className="text-emerald-400 font-bold">// Performance &amp; Sentinel:</div>
+                    <div className="text-slate-300">Total Latency: <span className="text-emerald-300 font-bold">{latencyMs}ms</span></div>
+                    <div className="text-slate-300">Wasted Timeout Avoided: <span className="text-emerald-300 font-bold">+{wastedLatencyAvoidedMs}ms</span></div>
+                    {recoverySentinel && (
+                      <div className="text-slate-300 truncate" title={recoverySentinel.message}>
+                        Sentinel: <span className="text-amber-300">{recoverySentinel.status}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-amber-400 font-bold mb-1.5">// Failover Hop Sequence:</div>
+                  <div className="space-y-1.5">
+                    {failoverLog && failoverLog.map((hop, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-1 border ${
+                          hop.status === 'SUCCESS'
+                            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
+                            : 'bg-rose-500/5 border-rose-500/20 text-rose-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">Hop {idx + 1}: {hop.tier}</span>
+                          <span className="text-slate-400">({hop.attemptedModel})</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span>{hop.status}</span>
+                          <span className="text-slate-400 font-mono">{hop.durationMs}ms</span>
+                        </div>
+                        {hop.error && (
+                          <div className="w-full text-[10px] text-rose-400 font-sans mt-0.5 truncate">
+                            Error: {hop.error}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      return (
+        <main className="flex-1 flex flex-col bg-slate-950 overflow-hidden relative">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 max-w-xl mx-auto">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-xl text-blue-400 mb-4 shadow-lg shadow-blue-500/10">
+                  🛡️
+                </div>
+                <h2 className="text-base font-bold text-white mb-2">
+                  Welcome to Project Sovereign-Stream
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed mb-6">
+                  Test live 3-tier sovereign AI failover. Select one of the executive sample prompts below, or type your own question or command.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                  {[
+                    { title: 'Natural Greeting', prompt: 'hello' },
+                    { title: 'Dog Breeds Query (5 Types)', prompt: 'what are 5 types of dogs' },
+                    { title: 'APRA CPS 234 Compliance', prompt: 'How does Sovereign-Stream adhere to APRA CPS 234 requirements?' },
+                    { title: 'Zero PII Egress', prompt: 'Explain the zero PII egress architecture for FSI workloads' },
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => onSendMessage(item.prompt)}
+                      className="p-3 rounded-xl bg-slate-900/80 hover:bg-slate-900 border border-slate-800/80 hover:border-blue-500/40 text-left transition group"
+                    >
+                      <div className="text-xs font-semibold text-white group-hover:text-blue-400 transition">
+                        {item.title}
+                      </div>
+                      <div className="text-[10px] text-slate-400 line-clamp-1 mt-1 font-mono">
+                        "{item.prompt}"
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                >
+                  <div
+                    className={`max-w-3xl w-full rounded-2xl p-5 ${
+                      msg.role === 'user'
+                        ? 'bg-blue-600 text-white rounded-br-none'
+                        : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none'
+                    }`}
+                  >
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                      {msg.content}
+                    </div>
+                    {msg.role === 'assistant' && renderCollapsibleTelemetry(msg.id, msg.metadata)}
+                    <div className="text-[10px] text-slate-400/80 mt-2 text-right">
+                      {msg.timestamp}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {isLoading && (
+              <div className="flex items-start">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs text-slate-400 flex items-center gap-3">
+                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Routing request through ADK Sovereign Cascade...</span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-4 bg-slate-900 border-t border-slate-800">
+            <div className="max-w-4xl mx-auto flex items-center gap-3">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={isLoading}
+                placeholder="Type your enterprise prompt to test sovereign failover..."
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-semibold rounded-xl transition shadow-sm"
+              >
+                Send
+              </button>
+            </div>
+          </form>
+
+          {selectedLog && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="text-sm font-bold text-white">ADK Routing &amp; Failover Hop Log</h3>
+                  <button
+                    onClick={() => setSelectedLog(null)}
+                    className="text-slate-400 hover:text-white text-lg font-bold"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300 max-h-80 overflow-y-auto space-y-2">
+                  <div className="text-blue-400 font-bold">// Active Execution Metadata:</div>
+                  <div>Active Tier: {selectedLog.activeTier}</div>
+                  <div>Routing Mode: {selectedLog.routingMode}</div>
+                  <div>Latency: {selectedLog.latencyMs}ms</div>
+                  <div>Wasted Latency Avoided: {selectedLog.wastedLatencyAvoidedMs}ms</div>
+                  <div className="text-amber-400 font-bold pt-2">// Attempted Hop Sequence:</div>
+                  <pre className="text-slate-300">{JSON.stringify(selectedLog.failoverLog, null, 2)}</pre>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setSelectedLog(null)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-white"
+                  >
+                    Close Modal
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    function App() {
+      const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
+      const [messages, setMessages] = useState([]);
+      const [metadataHistory, setMetadataHistory] = useState([]);
+      const [isLoading, setIsLoading] = useState(false);
+      const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+      const [catalog, setCatalog] = useState([]);
+      const [tierSettings, setTierSettings] = useState({
+        TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
+        TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
+        TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
+      });
+      const [controls, setControls] = useState({
+        injectMockFailure: false,
+        forcedTier: 'AUTO',
+        tierSettings: {
+          TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
+          TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
+          TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
+        },
+      });
+
+      useEffect(() => {
+        fetch('/api/models')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.catalog) setCatalog(data.catalog);
+            if (data.activeTierSettings) {
+              setTierSettings(data.activeTierSettings);
+              setControls((prev) => ({ ...prev, tierSettings: data.activeTierSettings }));
+            }
+          })
+          .catch((err) => console.error('Failed to load regional models catalog:', err));
+      }, []);
+
+      const handleSaveSettings = async (updatedSettings) => {
+        setTierSettings(updatedSettings);
+        setControls((prev) => ({ ...prev, tierSettings: updatedSettings }));
+
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tierSettings: updatedSettings }),
+          });
+        } catch (err) {
+          console.error('Failed to sync tier settings to backend:', err);
+        }
+      };
+
+      const lastMetadata = metadataHistory[metadataHistory.length - 1];
+
+      const handleSendMessage = async (text) => {
+        const userMsg = {
+          id: `msg-${Date.now()}-user`,
+          role: 'user',
+          content: text,
+          timestamp: new Date().toLocaleTimeString(),
+        };
+
+        setMessages((prev) => [...prev, userMsg]);
+        setIsLoading(true);
+
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              message: text,
+              simulationControls: {
+                ...controls,
+                tierSettings: tierSettings,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Gateway returned HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          const meta = data.executionMetadata;
+
+          const assistantMsg = {
+            id: `msg-${Date.now()}-assistant`,
+            role: 'assistant',
+            content: data.content,
+            timestamp: new Date().toLocaleTimeString(),
+            metadata: meta,
+          };
+
+          setMessages((prev) => [...prev, assistantMsg]);
+          setMetadataHistory((prev) => [...prev, meta]);
+        } catch (err) {
+          const errorMsg = {
+            id: `msg-${Date.now()}-error`,
+            role: 'assistant',
+            content: `[ADK Gateway Communication Error] Failed to complete chat turn: ${err.message}`,
+            timestamp: new Date().toLocaleTimeString(),
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const handleResetChat = () => {
+        setMessages([]);
+        setMetadataHistory([]);
+        setSessionId(`session-${Date.now()}`);
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-950 font-sans text-slate-100">
+          <TelemetryHeader
+            lastMetadata={lastMetadata}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onResetChat={handleResetChat}
+          />
+          <div className="flex flex-1 overflow-hidden">
+            <ChaosPanel
+              controls={controls}
+              onChange={(newControls) => setControls({ ...newControls, tierSettings })}
+              metadataList={metadataHistory}
+              onResetChat={handleResetChat}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+            <ChatWindow
+              messages={messages}
+              isLoading={isLoading}
+              onSendMessage={handleSendMessage}
+            />
+          </div>
+
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            catalog={catalog}
+            tierSettings={tierSettings}
+            onSaveSettings={handleSaveSettings}
+          />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

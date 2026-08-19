@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Logs & Runtime
+*.log
+gateway.log
+mock_gemma.log
+
+# Environment & Secrets
+.env
+.env.*
