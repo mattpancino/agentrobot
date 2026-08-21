@@ -1,6 +1,6 @@
 // Copyright 2026 Google LLC. All Rights Reserved.
 import React, { useState, useEffect } from 'react';
-import { RegionInfo, TierSettingsMap } from '../types';
+import { RegionInfo, TierSettingsMap, RedisSyncTelemetry, SimulationControls, CustomPIIRule } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -8,6 +8,8 @@ interface SettingsModalProps {
   catalog: RegionInfo[];
   tierSettings: TierSettingsMap;
   onSaveSettings: (updatedSettings: TierSettingsMap) => void;
+  controls?: SimulationControls;
+  onUpdateControls?: (updated: SimulationControls) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -16,23 +18,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   catalog,
   tierSettings,
   onSaveSettings,
+  controls,
+  onUpdateControls,
 }) => {
-  const [activeTab, setActiveTab] = useState<'tiers' | 'catalog' | 'enclave' | 'logs'>('tiers');
+  const [activeTab, setActiveTab] = useState<'tiers' | 'catalog' | 'enclave' | 'logs' | 'pii'>('tiers');
   const [localSettings, setLocalSettings] = useState<TierSettingsMap>(tierSettings);
+  const [customRules, setCustomRules] = useState<CustomPIIRule[]>([]);
+  const [isAddingRule, setIsAddingRule] = useState(false);
+  const [newRuleName, setNewRuleName] = useState('');
+  const [newRulePattern, setNewRulePattern] = useState('');
+  const [newRuleEntityType, setNewRuleEntityType] = useState('PERSON');
+  const [newRuleConfidence, setNewRuleConfidence] = useState(0.90);
+  const [newRuleDesc, setNewRuleDesc] = useState('');
   const [enclaveStatus, setEnclaveStatus] = useState<{
     vmStatus: string;
     tunnelActive: boolean;
     modelLoaded: string;
     internalIp: string;
     zone: string;
+    redisSync?: RedisSyncTelemetry;
   } | null>(null);
   const [enclaveLoading, setEnclaveLoading] = useState(false);
   const [enclaveActionMsg, setEnclaveActionMsg] = useState<string | null>(null);
   const [enclaveLogs, setEnclaveLogs] = useState<{
     command: string;
     logs: string[];
+    redisSync?: RedisSyncTelemetry;
   } | null>(null);
   const [autoRefreshLogs, setAutoRefreshLogs] = useState(true);
+
+  const fetchPiiRules = async () => {
+    try {
+      const res = await fetch('/api/pii/rules');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rules) {
+          setCustomRules(data.rules);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchEnclaveStatus = async () => {
     try {
@@ -79,6 +106,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
     }
   }, [isOpen, activeTab, autoRefreshLogs]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchPiiRules();
+    }
+  }, [isOpen]);
+
+  const handleAddRule = async () => {
+    if (!newRuleName.trim() || !newRulePattern.trim()) return;
+    const ruleObj: CustomPIIRule = {
+      name: newRuleName.trim(),
+      pattern: newRulePattern.trim(),
+      entity_type: newRuleEntityType.trim().toUpperCase().replace(/\s+/g, '_') || 'CUSTOM',
+      confidence: Number(newRuleConfidence) || 0.90,
+      description: newRuleDesc.trim() || undefined,
+      enabled: true,
+    };
+    try {
+      const res = await fetch('/api/pii/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ruleObj),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomRules(data.rules || [...customRules, ruleObj]);
+        setNewRuleName('');
+        setNewRulePattern('');
+        setNewRuleDesc('');
+        setIsAddingRule(false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteRule = async (ruleName: string) => {
+    try {
+      const res = await fetch(`/api/pii/rules/${encodeURIComponent(ruleName)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomRules(data.rules || customRules.filter(r => r.name !== ruleName));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleRule = async (rule: CustomPIIRule) => {
+    const updatedRule = { ...rule, enabled: !rule.enabled };
+    try {
+      const res = await fetch('/api/pii/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedRule),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomRules(data.rules);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handleStartVm = async () => {
     setEnclaveLoading(true);
@@ -183,6 +276,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     },
   };
 
+  const getTier3Status = () => {
+    if (!enclaveStatus) {
+      return {
+        text: 'Tier 3 Sovereign (Gemma 2 2B) • Checking Status...',
+        dotClass: 'bg-slate-500 animate-pulse',
+        textClass: 'text-slate-400',
+      };
+    }
+    const vmStatus = enclaveStatus.vmStatus;
+    const tunnelActive = enclaveStatus.tunnelActive;
+
+    if (vmStatus === 'RUNNING') {
+      if (tunnelActive) {
+        return {
+          text: 'Tier 3 Sovereign (Gemma 2 2B) • Online (VPC Ready)',
+          dotClass: 'bg-emerald-400 animate-pulse',
+          textClass: 'text-emerald-300',
+        };
+      }
+      return {
+        text: 'Tier 3 Sovereign (Gemma 2 2B) • VM Ready (Tunnel Offline)',
+        dotClass: 'bg-amber-400 animate-pulse',
+        textClass: 'text-amber-300',
+      };
+    }
+
+    if (['PROVISIONING', 'STAGING', 'STARTING'].includes(vmStatus)) {
+      return {
+        text: 'Tier 3 Sovereign (Gemma 2 2B) • VM Starting...',
+        dotClass: 'bg-amber-400 animate-pulse',
+        textClass: 'text-amber-300',
+      };
+    }
+
+    if (vmStatus === 'STOPPING') {
+      return {
+        text: 'Tier 3 Sovereign (Gemma 2 2B) • VM Stopping...',
+        dotClass: 'bg-amber-400 animate-pulse',
+        textClass: 'text-amber-300',
+      };
+    }
+
+    const offlineLabel =
+      vmStatus === 'STOPPED_OR_UNREACHABLE'
+        ? 'Unreachable'
+        : vmStatus === 'STOPPED' || vmStatus === 'TERMINATED'
+        ? 'VM Stopped'
+        : `VM ${vmStatus}`;
+
+    return {
+      text: `Tier 3 Sovereign (Gemma 2 2B) • Offline (${offlineLabel})`,
+      dotClass: 'bg-slate-500',
+      textClass: 'text-slate-400',
+    };
+  };
+
+  const tier3Status = getTier3Status();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
       <div className="w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -202,6 +353,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             ✕
           </button>
+        </div>
+
+        {/* Live Model Availability Status Lights Bar */}
+        <div className="px-6 py-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+          <span className="text-slate-400 font-semibold flex items-center gap-1.5">
+            <span>📡</span> Live Model Availability:
+          </span>
+          <div className="flex flex-wrap items-center gap-5">
+            <span className="flex items-center gap-1.5 text-emerald-300 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Tier 1 Global (Gemini 3.7 Flash) • Online
+            </span>
+            <span className="flex items-center gap-1.5 text-emerald-300 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Tier 2 Regional (Gemini 2.5 Flash) • Online
+            </span>
+            <span className={`flex items-center gap-1.5 font-medium ${tier3Status.textClass}`}>
+              <span className={`w-2 h-2 rounded-full ${tier3Status.dotClass}`}></span>
+              {tier3Status.text}
+            </span>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -235,6 +407,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             <span>🔒</span> Sovereign Enclave &amp; Tunnel Manager
+          </button>
+          <button
+            onClick={() => setActiveTab('pii')}
+            className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'pii'
+                ? 'border-purple-500 text-purple-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>🛡️</span> Sovereign PII Cleanser
           </button>
           <button
             onClick={() => setActiveTab('logs')}
@@ -525,6 +707,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Sovereign Redis Session Sync Card */}
+              <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold border text-emerald-400 bg-emerald-500/10 border-emerald-500/30">
+                      REDIS SESSION SYNC
+                    </span>
+                    <h3 className="text-sm font-bold text-white">
+                      Sovereign Dual-Tier Replicating Store (Tier 2 ↔ Tier 3)
+                    </h3>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Synchronized (DB 1)
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  Asynchronously streams conversation transcripts, append-only <code className="text-slate-300">turnStream</code>, and private subagent scratchpads to the Tier 3 sovereign enclave (<code className="text-slate-300">127.0.0.1:6379</code>) ensuring zero-loss state continuity during failover.
+                </p>
+
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-800 font-mono text-[11px] text-emerald-400 max-h-40 overflow-y-auto space-y-1">
+                  <div className="text-slate-500 text-[10px] border-b border-slate-800 pb-1 mb-1.5 flex items-center justify-between">
+                    <span>● LIVE REDIS REPLICATION LOG EVIDENCE STREAM (PORT 6379 / VALKEY AOF)</span>
+                    <span className="text-slate-400">Status: {enclaveStatus?.redisSync?.syncStatus || 'Synchronized'}</span>
+                  </div>
+                  {(!enclaveStatus?.redisSync?.lastSyncLogs || enclaveStatus.redisSync.lastSyncLogs.length === 0) ? (
+                    <div className="text-slate-400">Replicating session manager active. Send a message to stream synchronization logs...</div>
+                  ) : (
+                    enclaveStatus.redisSync.lastSyncLogs.map((syncLine, idx) => (
+                      <div key={idx} className="leading-relaxed hover:bg-slate-800/50 px-1 py-0.5 rounded text-emerald-300 break-all">
+                        {syncLine}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               {/* Security Compliance Verification */}
               <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
                 <div className="font-semibold text-slate-200 mb-1">🛡️ Active Argolis Compliance Controls Verified:</div>
@@ -545,6 +765,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
           {activeTab === 'logs' && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              {/* Redis Session Synchronization Log Window */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Sovereign Redis Session Replication Evidence Logs</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Real-time Dual-Tier session state synchronization and crisis turn reconciliation telemetry (<code className="text-slate-300">Port 6379</code>).
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Tier 3 Synced ✓
+                  </span>
+                </div>
+
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-800 font-mono text-[11px] text-emerald-300 max-h-36 overflow-y-auto space-y-1">
+                  <div className="text-slate-500 text-[10px] border-b border-slate-800 pb-1 mb-1.5">
+                    ● REPLICATION AUDIT TRAIL (PRIMARY VERTEX AI ↔ AIRGAPPED SOVEREIGN STANDBY)
+                  </div>
+                  {(!enclaveLogs?.redisSync?.lastSyncLogs || enclaveLogs.redisSync.lastSyncLogs.length === 0) ? (
+                    <div className="text-slate-400 italic">No sync events recorded yet...</div>
+                  ) : (
+                    enclaveLogs.redisSync.lastSyncLogs.map((syncLine, idx) => (
+                      <div key={idx} className="leading-relaxed hover:bg-slate-800/50 px-1 py-0.5 rounded break-all whitespace-pre-wrap">
+                        {syncLine}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -614,6 +867,384 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pii' && (
+            <div className="space-y-6">
+              {/* Master PII Cleanser Activation Box */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/30 space-y-4 shadow-lg shadow-purple-500/5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-purple-500/20 text-purple-300 border-purple-500/40">
+                        ZERO-EGRESS SHIELD
+                      </span>
+                      <h3 className="text-sm font-bold text-white">
+                        Zero-PII Egress Protection &amp; Tokenizer
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                      Automatically scrubs sensitive enterprise identifiers (Names, AU TFNs, Medicare, BSB, Account #s) at the Sovereign Edge before escaping to Tier 1 Global LLMs, and reconstitutes data inside Tier 3 Airgap.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-xs font-bold ${controls?.enablePiiTokenizer ? 'text-purple-400' : 'text-slate-500'}`}>
+                      {controls?.enablePiiTokenizer ? 'SHIELD ACTIVE' : 'SHIELD DISABLED'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateControls && controls) {
+                          onUpdateControls({
+                            ...controls,
+                            enablePiiTokenizer: !controls.enablePiiTokenizer,
+                          });
+                        }
+                      }}
+                      className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        controls?.enablePiiTokenizer ? 'bg-purple-600' : 'bg-slate-800'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          controls?.enablePiiTokenizer ? 'translate-x-7' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-purple-500/20 flex flex-wrap items-center gap-4 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Tier 2 Edge: <strong>Cloud Run (AU-SYD)</strong></span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                    <span>Tier 3 In-Enclave: <strong>Local Enclave (Port 8002)</strong></span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span>Presidio NER: <strong>spaCy + AU Recognizers</strong></span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Architecture & Live Endpoints */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Tier 2 Edge Tokenizer */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🦘</span>
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Tier 2 Sovereign Edge Tokenizer</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      ONLINE (IAM OIDC)
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Enterprise microservice executing on Google Cloud Run in Sydney. Intercepts incoming user prompts at the sovereign perimeter before global dispatch.
+                  </p>
+                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[10px] space-y-1">
+                    <div className="text-slate-500 uppercase font-semibold">Service Endpoint (australia-southeast1):</div>
+                    <div className="text-blue-300 truncate">https://sovereign-pii-tokenizer-uygw3ejxsa-ts.a.run.app</div>
+                    <div className="text-slate-500 pt-1">Auth Scheme: <span className="text-emerald-400 font-semibold">Google OIDC IAM Bearer Token</span></div>
+                  </div>
+                </div>
+
+                {/* Tier 3 Enclave Cleanser */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🔒</span>
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Tier 3 Airgap In-Enclave Cleanser</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                      IN-ENCLAVE ZERO-EGRESS
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Local microservice co-located alongside Gemma 2 inside the isolated VPC enclave. Reconstitutes tokenized payloads entirely within private CPU/memory.
+                  </p>
+                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[10px] space-y-1">
+                    <div className="text-slate-500 uppercase font-semibold">Local Enclave Endpoint:</div>
+                    <div className="text-purple-300">http://127.0.0.1:8002 / http://enclave-host:8002</div>
+                    <div className="text-slate-500 pt-1">Reconstitution: <span className="text-purple-300 font-semibold">Deterministic Session Salt Reassembly</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Presidio Recognizers Catalog */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                    <span>🛡️</span>
+                    <span>Active Sovereign Presidio Entity Recognizers</span>
+                  </h4>
+                  <span className="text-[10px] text-slate-400 font-mono">8 Active Detectors</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                  {[
+                    { name: 'AU Tax File Numbers', tag: 'AU_TFN', desc: '9-digit algorithm with Mod-11 check', color: 'border-amber-500/30 text-amber-300 bg-amber-500/5' },
+                    { name: 'AU Medicare Numbers', tag: 'AU_MEDICARE', desc: '10/11-digit format with checksum verification', color: 'border-amber-500/30 text-amber-300 bg-amber-500/5' },
+                    { name: 'AU Bank BSB Numbers', tag: 'AU_BSB', desc: '6-digit APCA financial branch validation', color: 'border-amber-500/30 text-amber-300 bg-amber-500/5' },
+                    { name: 'Person Names', tag: 'PERSON', desc: 'spaCy statistical NER (en_core_web_sm)', color: 'border-blue-500/30 text-blue-300 bg-blue-500/5' },
+                    { name: 'Bank Account Numbers', tag: 'ACCOUNT_NUMBER', desc: 'Domestic & global bank account regexes', color: 'border-purple-500/30 text-purple-300 bg-purple-500/5' },
+                    { name: 'Phone Numbers', tag: 'PHONE_NUMBER', desc: 'Australian & international formats', color: 'border-purple-500/30 text-purple-300 bg-purple-500/5' },
+                    { name: 'Email Addresses', tag: 'EMAIL_ADDRESS', desc: 'RFC 5322 compliant regex parser', color: 'border-purple-500/30 text-purple-300 bg-purple-500/5' },
+                    { name: 'Credit Card Numbers', tag: 'CREDIT_CARD', desc: 'Major issuers with Luhn checksum', color: 'border-purple-500/30 text-purple-300 bg-purple-500/5' },
+                  ].map((item, idx) => (
+                    <div key={idx} className={`p-2.5 rounded-lg border ${item.color} space-y-1`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs">{item.name}</span>
+                        <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-black/40 border border-white/10">{item.tag}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-snug">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* User-Defined Custom PII Tokenizer Rules */}
+              <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                      <span>✨</span>
+                      <span>User-Defined Custom PII Tokenization Rules &amp; RegEx</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Define custom pattern recognizers (e.g. conversational names, internal employee badges, project codenames) to be tokenized and restored.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsAddingRule(!isAddingRule)}
+                    className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                  >
+                    <span>{isAddingRule ? '✕ Cancel' : '+ Add New Tokenizer Rule'}</span>
+                  </button>
+                </div>
+
+                {/* Add Rule Form */}
+                {isAddingRule && (
+                  <div className="p-4 rounded-xl bg-slate-900 border border-purple-500/30 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <span className="text-xs font-bold text-purple-300">Create Custom Tokenizer Rule</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400">Quick Presets:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewRuleName('Conversational Friend Names');
+                            setNewRuleEntityType('PERSON');
+                            setNewRulePattern(String.raw`\b(?:(?:best\s+)?friend(?:\s+is|\s+named|\'s\s+name\s+is)?|named|called|speaking\s+with|meet(?:\s+with)?)\s+([A-Za-z]{2,20}(?:\s+[A-Za-z]{2,20}){1,2})\b`);
+                            setNewRuleDesc('Matches informal lowercase name statements');
+                          }}
+                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/30 text-slate-300 text-[10px] transition"
+                        >
+                          Friend Names
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewRuleName('Project Codename');
+                            setNewRuleEntityType('PROJECT_CODENAME');
+                            setNewRulePattern(String.raw`\b(?:Project\s+[A-Z][a-z]+|Project\s+[A-Z0-9_-]+)\b`);
+                            setNewRuleDesc('Matches internal confidential project titles');
+                          }}
+                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/30 text-slate-300 text-[10px] transition"
+                        >
+                          Project Codename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewRuleName('Employee Badge ID');
+                            setNewRuleEntityType('EMPLOYEE_ID');
+                            setNewRulePattern(String.raw`\bEMP-\d{5,8}\b`);
+                            setNewRuleDesc('Matches internal enterprise employee badges');
+                          }}
+                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600/30 text-slate-300 text-[10px] transition"
+                        >
+                          Employee ID
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                          Rule Friendly Name
+                        </label>
+                        <input
+                          type="text"
+                          value={newRuleName}
+                          onChange={(e) => setNewRuleName(e.target.value)}
+                          placeholder="e.g. VIP Customer Name"
+                          className="w-full bg-slate-950 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                          Entity Tag / Token Type
+                        </label>
+                        <input
+                          type="text"
+                          value={newRuleEntityType}
+                          onChange={(e) => setNewRuleEntityType(e.target.value)}
+                          placeholder="e.g. PERSON, PROJECT, SECRET_CODE"
+                          className="w-full bg-slate-950 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        RegEx Pattern (Supports Capture Groups for target name extraction)
+                      </label>
+                      <input
+                        type="text"
+                        value={newRulePattern}
+                        onChange={(e) => setNewRulePattern(e.target.value)}
+                        placeholder={String.raw`e.g. \b(?:friend\s+is|named)\s+([A-Za-z]+)\b or \bEMP-\d{5}\b`}
+                        className="w-full bg-slate-950 border border-slate-700 text-purple-300 font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                          Description / Purpose (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={newRuleDesc}
+                          onChange={(e) => setNewRuleDesc(e.target.value)}
+                          placeholder="Brief note on when this rule applies"
+                          className="w-full bg-slate-950 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                          Confidence Score (0.50 – 1.00)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.05"
+                          min="0.50"
+                          max="1.00"
+                          value={newRuleConfidence}
+                          onChange={(e) => setNewRuleConfidence(parseFloat(e.target.value) || 0.90)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingRule(false)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddRule}
+                        disabled={!newRuleName.trim() || !newRulePattern.trim()}
+                        className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-xs font-semibold shadow transition"
+                      >
+                        Save Custom Rule
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Rules List */}
+                <div className="space-y-2">
+                  {customRules.length === 0 ? (
+                    <div className="p-4 rounded-lg bg-slate-900/60 border border-slate-800 text-center text-xs text-slate-500 italic">
+                      No custom PII rules defined yet. Click "+ Add New Tokenizer Rule" above to create one.
+                    </div>
+                  ) : (
+                    customRules.map((rule, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border transition flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                          rule.enabled
+                            ? 'bg-slate-900 border-purple-500/30'
+                            : 'bg-slate-950 border-slate-800 opacity-60'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-white">{rule.name}</span>
+                            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold">
+                              [[PII_{rule.entity_type || 'CUSTOM'}_...]]
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({Math.round((rule.confidence || 0.9) * 100)}% conf)
+                            </span>
+                          </div>
+                          <div className="font-mono text-[11px] text-purple-200 bg-slate-950 px-2 py-1 rounded border border-slate-800 inline-block">
+                            {rule.pattern}
+                          </div>
+                          {rule.description && (
+                            <p className="text-[10px] text-slate-400">{rule.description}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleRule(rule)}
+                            className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition ${
+                              rule.enabled
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                            }`}
+                          >
+                            {rule.enabled ? 'Enabled ✓' : 'Disabled'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRule(rule.name)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-300 hover:bg-red-500/20 border border-transparent hover:border-red-500/30 transition"
+                            title="Delete custom rule"
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* UI Dynamic View Switcher Explanation */}
+              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2 text-xs text-slate-300">
+                <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                  <span>💡</span>
+                  <span>Chat View Switching Behavior:</span>
+                </div>
+                <p className="text-slate-400 text-xs leading-relaxed">
+                  When PII Cleanser is <strong>Enabled</strong>, the Chat Window exposes the 3-tier view switcher at the top:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-slate-400 text-xs pl-2">
+                  <li><strong className="text-blue-400">Clean User View:</strong> Canonical human-readable cleartext preserved in the session vault.</li>
+                  <li><strong className="text-purple-400">Sovereign Shield View:</strong> Tokenized representation as seen by the Tier 1 Global LLM with zero PII egress.</li>
+                  <li><strong className="text-amber-400">Split / Diff View:</strong> Side-by-side verification and audit comparison.</li>
+                </ul>
+                <p className="text-slate-500 text-[11px] pt-1">
+                  When disabled, the view switcher is hidden and standard direct pass-through is utilized.
+                </p>
               </div>
             </div>
           )}

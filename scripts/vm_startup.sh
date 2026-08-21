@@ -8,13 +8,23 @@ export HOME="${HOME:-/root}"
 export DEBIAN_FRONTEND=noninteractive
 
 echo "[Argolis Bootstrap] Updating packages and installing dependencies..."
-apt-get update -y && apt-get install -y curl jq sysstat cron
+apt-get update -y && apt-get install -y curl jq sysstat cron redis-server
+
+echo "[Argolis Bootstrap] Configuring Sovereign Redis Session Store (Port 6379)..."
+sed -i 's/^bind .*/bind 0.0.0.0/' /etc/redis/redis.conf || true
+sed -i 's/^appendonly no/appendonly yes/' /etc/redis/redis.conf || true
+systemctl enable redis-server
+systemctl restart redis-server
 
 echo "[Argolis Bootstrap] Installing Google Cloud Ops Agent for Cloud Logging ingestion..."
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh && bash add-google-cloud-ops-agent-repo.sh --also-install || true
 
 echo "[Argolis Bootstrap] Installing Ollama..."
-curl -fsSL https://ollama.com/install.sh | sh
+if ! command -v ollama >/dev/null 2>&1; then
+    curl -fsSL https://ollama.com/install.sh | sh
+else
+    echo "[Argolis Bootstrap] Ollama is already installed, skipping installer."
+fi
 
 echo "[Argolis Bootstrap] Configuring Ollama systemd service to listen on 0.0.0.0:8001..."
 mkdir -p /etc/systemd/system/ollama.service.d
@@ -27,11 +37,16 @@ mkdir -p /usr/share/ollama/.ollama
 chown -R ollama:ollama /usr/share/ollama
 
 systemctl daemon-reload
+systemctl enable ollama
 systemctl restart ollama
 sleep 5
 
 echo "[Argolis Bootstrap] Pulling google/gemma-2-2b-it (gemma2:2b)..."
-HOME=/usr/share/ollama OLLAMA_HOST=127.0.0.1:8001 ollama pull gemma2:2b
+if ! HOME=/usr/share/ollama OLLAMA_HOST=127.0.0.1:8001 ollama list 2>/dev/null | grep -q "gemma2:2b"; then
+    HOME=/usr/share/ollama OLLAMA_HOST=127.0.0.1:8001 ollama pull gemma2:2b
+else
+    echo "[Argolis Bootstrap] Model gemma2:2b already present, skipping pull."
+fi
 
 echo "[Argolis Bootstrap] Configuring Argolis Auto-Stop Protections..."
 

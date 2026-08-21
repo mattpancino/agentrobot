@@ -11,7 +11,7 @@ before promoting session.state['stickyTier'] back to the primary global tier.
 
 import time
 import asyncio
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, List
 
 
 class RecoverySentinel:
@@ -44,16 +44,38 @@ class RecoverySentinel:
         latency_ms = int((time.time() - start_time) * 1000)
         return True, latency_ms
 
-    async def run_probe_cycle(self, session_state: Dict[str, Any]) -> Dict[str, Any]:
+    async def run_probe_cycle(
+        self, session_state: Dict[str, Any], failed_tiers: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """
         Executes a single out-of-band health probe cycle against the demoted tier.
-
-        Args:
-            session_state: The ADK session dictionary containing 'stickyTier'.
-
-        Returns:
-            Dictionary with current Sentinel telemetry and status message.
+        If any tiers are explicitly force-failed via Chaos controls, auto-promotion is disabled.
         """
+        if failed_tiers:
+            tier_names = {
+                "TIER_1_GLOBAL": "Tier 1 (Global)",
+                "TIER_2_REGIONAL": "Tier 2 (AU-SYD)",
+                "TIER_3_SOVEREIGN": "Tier 3 (Airgap VPC)",
+            }
+            failed_labels = [tier_names.get(t, t) for t in failed_tiers]
+            failed_str = ", ".join(failed_labels)
+
+            if "recoverySentinel" in session_state and isinstance(session_state["recoverySentinel"], dict):
+                session_state["recoverySentinel"]["consecutiveSuccesses"] = 0
+
+            sentinel_status = {
+                "status": "FORCE_FAILED",
+                "targetTier": self.target_tier,
+                "probeIntervalSec": self.probe_interval_sec,
+                "consecutiveSuccesses": 0,
+                "requiredSuccesses": self.required_successes,
+                "lastProbeLatencyMs": 0,
+                "failedTiers": failed_tiers,
+                "message": f"Simulated Fault Active: {failed_str} force-failed by controls. Auto-promotion disabled.",
+            }
+            session_state["recoverySentinel"] = sentinel_status
+            return sentinel_status
+
         current_sticky = session_state.get("stickyTier", "TIER_1_GLOBAL")
 
         # If we are already on the target tier, no recovery probing is necessary

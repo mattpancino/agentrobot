@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from src.adk.prompt_processor import generate_command_response
+from src.adk.schema_adapter import strip_sovereign_header
 
 
 app = FastAPI(
@@ -80,18 +81,14 @@ async def list_models():
 async def _call_real_llm_sovereign(messages: List[ChatMessage]) -> Optional[str]:
     """Invokes live regional model endpoint to answer queries with a real LLM."""
     import os
-    import google.auth
-    from google.auth.transport.requests import Request
     import httpx
+    from src.adk.cascade_router import get_gcp_bearer_token, PersistentHTTPClientContext
 
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return None
 
     try:
-        creds, proj = google.auth.default()
-        if not creds.valid:
-            creds.refresh(Request())
-        project_id = proj or "sovereignagent"
+        token, project_id = await get_gcp_bearer_token()
         loc = os.environ.get("GOOGLE_CLOUD_LOCATION", "australia-southeast1")
         if loc == "global":
             endpoint = "https://aiplatform.googleapis.com"
@@ -99,7 +96,7 @@ async def _call_real_llm_sovereign(messages: List[ChatMessage]) -> Optional[str]
             endpoint = f"https://{loc}-aiplatform.googleapis.com"
         url = f"{endpoint}/v1/projects/{project_id}/locations/{loc}/publishers/google/models/gemini-2.5-flash:generateContent"
         headers = {
-            "Authorization": f"Bearer {creds.token}",
+            "Authorization": f"Bearer {token}",
             "x-goog-user-project": project_id,
             "Content-Type": "application/json",
         }
@@ -108,13 +105,15 @@ async def _call_real_llm_sovereign(messages: List[ChatMessage]) -> Optional[str]
             role = "user" if msg.role == "user" else "model"
             if msg.role == "system":
                 continue
-            formatted_contents.append({"role": role, "parts": [{"text": msg.content}]})
+            clean_text = strip_sovereign_header(msg.content)
+            if clean_text:
+                formatted_contents.append({"role": role, "parts": [{"text": clean_text}]})
 
         if not formatted_contents:
             return None
 
         payload = {"contents": formatted_contents}
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with PersistentHTTPClientContext(timeout=15.0) as client:
             res = await client.post(url, headers=headers, json=payload)
             if res.status_code == 200:
                 data = res.json()
@@ -153,9 +152,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
     )
     real_body = await _call_real_llm_sovereign(request.messages)
     if real_body:
-        processed_body = real_body
+        processed_body = strip_sovereign_header(real_body).strip()
     else:
-        processed_body = generate_command_response(last_user_msg)
+        msg_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
+        processed_body = generate_command_response(last_user_msg, messages=msg_dicts)
     sovereign_reply = header + processed_body
 
     created_timestamp = int(time.time())

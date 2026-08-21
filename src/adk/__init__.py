@@ -3,13 +3,16 @@
 """
 ADK Sovereign-Stream package: Provides 3-tier resilient cascade routing,
 sticky failover demotion, schema adaptation, background recovery sentinels,
-and enterprise base agents for Google Agent Development Kit (ADK) applications.
+declarative tool registry, replicating session storage, and enterprise base agents
+for Google Agent Development Kit (ADK) applications.
 """
 
 from .schema_adapter import normalize_messages_for_gemma
 from .cascade_router import SovereignCascadeRouter, TierConfig, FailoverHopLog, ExecutionMetadata
 from .base_agent import SovereignResilientAgent, SovereigntyPolicy
 from .recovery_sentinel import RecoverySentinel
+from .session_service import SessionService, InMemorySessionService, RedisSessionService, ReplicatingSessionService
+from .tool_registry import extract_tool_schema, extract_tools_schemas, execute_tool_call
 
 __all__ = [
     "normalize_messages_for_gemma",
@@ -20,4 +23,11 @@ __all__ = [
     "SovereignResilientAgent",
     "SovereigntyPolicy",
     "RecoverySentinel",
+    "SessionService",
+    "InMemorySessionService",
+    "RedisSessionService",
+    "ReplicatingSessionService",
+    "extract_tool_schema",
+    "extract_tools_schemas",
+    "execute_tool_call",
 ]

@@ -206,3 +206,120 @@ async def test_invoke_gemma_vpc_http_request(router):
     assert call_kwargs["json"]["model"] == "gemma2:2b"
     assert call_kwargs["json"]["messages"][0]["role"] == "system"
 
+
+@pytest.mark.asyncio
+async def test_single_tier_failure_checkbox(router, mock_session_store):
+    """Test that passing failed_tiers=['TIER_1_GLOBAL'] fails Tier 1 and falls back to Tier 2."""
+    result = await router.execute_turn(
+        session_state=mock_session_store,
+        prompt="Trigger tier 1 failure checkbox.",
+        failed_tiers=["TIER_1_GLOBAL"],
+    )
+
+    metadata = result["executionMetadata"]
+    assert metadata["activeTier"] == "TIER_2_REGIONAL"
+    assert metadata["failoverOccurred"] is True
+    assert metadata["failoverHops"] == 1
+    assert "australia-southeast1" in metadata["executionLocation"]
+    assert len(metadata["failoverLog"]) == 2
+    assert "404 NotFound" in metadata["failoverLog"][0]["error"]
+
+
+@pytest.mark.asyncio
+async def test_multi_tier_failure_checkboxes(router, mock_session_store):
+    """Test that passing failed_tiers=['TIER_1_GLOBAL', 'TIER_2_REGIONAL'] cascades to Tier 3."""
+    result = await router.execute_turn(
+        session_state=mock_session_store,
+        prompt="Trigger multi-tier failure checkboxes.",
+        failed_tiers=["TIER_1_GLOBAL", "TIER_2_REGIONAL"],
+    )
+
+    metadata = result["executionMetadata"]
+    assert metadata["activeTier"] == "TIER_3_SOVEREIGN"
+    assert metadata["failoverOccurred"] is True
+    assert metadata["failoverHops"] == 2
+    assert "Private VPC" in metadata["executionLocation"]
+    assert len(metadata["failoverLog"]) == 3
+    assert "404 NotFound" in metadata["failoverLog"][0]["error"]
+    assert "404 NotFound" in metadata["failoverLog"][1]["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_gcp_bearer_token_caching():
+    """Test that get_gcp_bearer_token caches credentials and avoids repeated google.auth.default calls."""
+    import src.adk.cascade_router as router_module
+    from unittest.mock import MagicMock
+
+    router_module._CACHED_CREDS = None
+    router_module._CACHED_PROJECT = None
+
+    mock_creds = MagicMock()
+    mock_creds.valid = True
+    mock_creds.token = "fake-oauth-token-123"
+
+    with patch("google.auth.default", return_value=(mock_creds, "test-gcp-project")) as mock_default:
+        token1, project1 = await router_module.get_gcp_bearer_token()
+        token2, project2 = await router_module.get_gcp_bearer_token()
+
+    assert token1 == "fake-oauth-token-123"
+    assert project1 == "test-gcp-project"
+    assert token2 == "fake-oauth-token-123"
+    assert project2 == "test-gcp-project"
+    mock_default.assert_called_once()
+
+
+def test_strip_sovereign_header_helper():
+    """Verify that strip_sovereign_header removes single and duplicated sovereign enclave banners."""
+    from src.adk.schema_adapter import strip_sovereign_header
+
+    single_header_text = (
+        "[SOVEREIGN ENCLAVE // GOOGLE/GEMMA-2-2B-IT] Processed completely within isolated VPC (AU-SYD). "
+        "All data remained within air-gapped memory buffers with zero external egress.\n\n"
+        "1 + 1 = 2"
+    )
+    assert strip_sovereign_header(single_header_text) == "1 + 1 = 2"
+
+    double_header_text = (
+        "[SOVEREIGN ENCLAVE // GOOGLE/GEMMA-2-2B-IT] Processed completely within isolated VPC (AU-SYD). "
+        "All data remained within air-gapped memory buffers with zero external egress.\n\n"
+        "[SOVEREIGN ENCLAVE // GOOGLE/GEMMA-2-2B-IT] Processed completely within isolated VPC (AU-SYD). "
+        "All data remained within air-gapped memory buffers with zero external egress.\n\n"
+        "Your favorite cat is a **tabby**."
+    )
+    assert strip_sovereign_header(double_header_text) == "Your favorite cat is a **tabby**."
+
+
+@pytest.mark.asyncio
+async def test_multi_turn_context_handoff_local_to_global():
+    """Verify multi-turn context handoff from local Tier 3 to global Tier 1 without banner duplication."""
+    from src.adk.base_agent import SovereignResilientAgent
+
+    agent = SovereignResilientAgent()
+    session_state = {"session_id": "test-context-handoff", "stickyTier": "TIER_1_GLOBAL", "messages": []}
+
+    # Turn 1: User says 'I love eagles.....' on Tier 3 (Airgap VPC)
+    res1 = await agent.run(
+        session_state=session_state,
+        prompt="I love eagles.....",
+        forced_tier="TIER_3_SOVEREIGN",
+    )
+    assert res1["executionMetadata"]["activeTier"] == "TIER_3_SOVEREIGN"
+    assert "[SOVEREIGN ENCLAVE //" in res1["content"]
+
+    # Verify session history stored clean text without [SOVEREIGN ENCLAVE // ...] banner pollution
+    assert len(session_state["messages"]) == 2
+    assert "[SOVEREIGN ENCLAVE //" not in session_state["messages"][1]["content"]
+
+    # Turn 2: User asks follow-up on Tier 1 Global
+    res2 = await agent.run(
+        session_state=session_state,
+        prompt="tell me more about my favourite bird",
+        forced_tier="TIER_1_GLOBAL",
+    )
+    assert res2["executionMetadata"]["activeTier"] == "TIER_1_GLOBAL"
+    assert "[SOVEREIGN ENCLAVE //" not in res2["content"]
+    assert "eagle" in res2["content"].lower()
+
+
+
+

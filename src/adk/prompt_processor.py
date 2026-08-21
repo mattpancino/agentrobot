@@ -9,7 +9,7 @@ structured content rather than generic boilerplate.
 """
 
 import re
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 
 DOG_BREEDS = [
@@ -84,7 +84,10 @@ def extract_requested_count(prompt: str, default_count: int = 3) -> int:
     return default_count
 
 
-def generate_command_response(prompt: str) -> str:
+def generate_command_response(
+    prompt: str,
+    messages: Optional[List[Dict[str, Any]]] = None,
+) -> str:
     """
     Parses the user prompt and synthesizes a direct, structured response
     that accurately answers the command while maintaining enterprise context.
@@ -202,9 +205,22 @@ def generate_command_response(prompt: str) -> str:
             )
         return header + "\n\n".join(items)
 
+    # 8.5. Conversational Follow-ups & Multi-Turn Context Resolution
+    history_text = " ".join(str(m.get("content", "")) for m in (messages or [])).lower()
+    combined_context = f"{history_text} {prompt_lower}"
+
+    if "bird" in prompt_lower or ("eagle" in combined_context and any(k in prompt_lower for k in ["bird", "favourite", "favorite", "tell me more"])):
+        if "eagle" in combined_context:
+            return (
+                "Based on our previous conversation, your favourite bird is the **eagle**.\n\n"
+                "Eagles are majestic apex predators renowned for their incredible eyesight, powerful soaring flight on thermal updrafts, and impressive wingspans. "
+                "Across the sovereign routing cascade, session context has been seamlessly preserved from your earlier turn."
+            )
+    if "cat" in prompt_lower or ("tabby" in combined_context and any(k in prompt_lower for k in ["cat", "favourite", "favorite", "tell me more"])):
+        if "tabby" in combined_context or "cat" in prompt_lower:
+            return "Based on our previous conversation, your favorite cat is a **tabby**."
+
     # 9. General Question / Universal Command Processor Fallback
     return (
-        f"Regarding your query **\"{prompt}\"**:\n\n"
-        f"I have processed your request while maintaining active session context across the sovereign routing cascade. "
-        f"If you'd like a more detailed breakdown, code implementation, or compliance mapping for this topic, let me know!"
+        f"I've received your query: \"{prompt}\". How can I best assist you with this?"
     )

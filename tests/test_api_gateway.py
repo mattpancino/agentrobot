@@ -221,3 +221,42 @@ def test_enclave_management_endpoints():
     assert len(logs_data["logs"]) > 0
     assert "POST" in logs_data["logs"][2] or "tokens" in logs_data["logs"][0]
 
+
+def test_api_chat_failed_tiers_injection():
+    response = client.post(
+        "/api/chat",
+        json={
+            "sessionId": "gateway-test-failed-tiers",
+            "message": "Give me an incident response checklist",
+            "simulationControls": {"failedTiers": ["TIER_1_GLOBAL"], "forcedTier": "AUTO"},
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    meta = data["executionMetadata"]
+    assert meta["activeTier"] == "TIER_2_REGIONAL"
+    assert meta["failoverOccurred"] is True
+    assert meta["stickyTier"] == "TIER_2_REGIONAL"
+    assert meta["recoverySentinel"]["status"] == "FORCE_FAILED"
+    assert meta["recoverySentinel"]["failedTiers"] == ["TIER_1_GLOBAL"]
+    assert "force-failed by controls" in meta["recoverySentinel"]["message"]
+
+
+def test_api_build_info():
+    """Verify that build time and git branch are returned by build info and models endpoints."""
+    res_build = client.get("/api/build-info")
+    assert res_build.status_code == 200
+    data_build = res_build.json()
+    assert "buildTime" in data_build
+    assert "branch" in data_build
+    assert data_build["buildTime"]
+    assert data_build["branch"]
+
+    res_models = client.get("/api/models")
+    assert res_models.status_code == 200
+    data_models = res_models.json()
+    assert "buildInfo" in data_models
+    assert data_models["buildInfo"]["branch"] == data_build["branch"]
+
+
+

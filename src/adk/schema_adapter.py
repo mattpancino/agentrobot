@@ -10,7 +10,24 @@ Transforms and normalizes message history across distinct model families:
 - Handles system instruction injection without dropping prior conversation context.
 """
 
+import re
 from typing import List, Dict, Any, Optional
+
+
+def strip_sovereign_header(text: str) -> str:
+    """
+    Strips any leading [SOVEREIGN ENCLAVE // ...] banner headers from message text
+    to prevent header duplication and prompt pollution across multi-tier failovers.
+    """
+    if not text:
+        return text
+    cleaned = re.sub(
+        r"^(?:\[SOVEREIGN ENCLAVE // [^\]]+\][^\n]*\n*)+",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+    return cleaned
 
 
 def normalize_messages_for_gemma(
@@ -47,6 +64,7 @@ def normalize_messages_for_gemma(
             raw_role = str(getattr(msg, "role", "user")).lower()
             content = str(getattr(msg, "content", "")).strip()
 
+        content = strip_sovereign_header(content)
         if not content:
             continue
 
@@ -64,3 +82,4 @@ def normalize_messages_for_gemma(
         })
 
     return normalized
+

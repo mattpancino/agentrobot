@@ -1,23 +1,38 @@
 // Copyright 2026 Google LLC. All Rights Reserved.
 import React from 'react';
-import { ExecutionMetadata } from '../types';
+import { ExecutionMetadata, BuildInfo } from '../types';
 
 interface TelemetryHeaderProps {
   lastMetadata?: ExecutionMetadata;
+  buildInfo?: BuildInfo;
   onOpenSettings?: () => void;
   onResetChat?: () => void;
 }
 
-export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, onOpenSettings, onResetChat }) => {
+export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, buildInfo, onOpenSettings, onResetChat }) => {
   if (!lastMetadata) {
     return (
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
-          <span className="font-bold text-sm tracking-tight text-white">Project Sovereign-Stream</span>
-          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono">
+        <div className="flex items-center flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+            <span className="font-bold text-sm tracking-tight text-white">Project Sovereign-Stream</span>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
             ADK 3-Tier Sovereign Cascade
           </span>
+          {buildInfo && (
+            <>
+              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Active Git Branch">
+                <span className="text-slate-400">Branch:</span>
+                <span className="text-emerald-400 font-semibold">{buildInfo.branch}</span>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Server Build Timestamp">
+                <span className="text-slate-400">Build:</span>
+                <span className="text-slate-300">{buildInfo.buildTime}</span>
+              </span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="text-xs text-slate-400 font-mono hidden sm:inline">
@@ -89,7 +104,19 @@ export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, 
         <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
           Model: <span className="text-white font-semibold">{modelUsed}</span>
         </span>
-        <span className="text-xs text-slate-400 font-mono hidden lg:inline">
+        {buildInfo && (
+          <>
+            <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700 flex items-center gap-1.5" title="Active Git Branch">
+              <span className="text-slate-400">Branch:</span>
+              <span className="text-emerald-400 font-semibold">{buildInfo.branch}</span>
+            </span>
+            <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700 hidden sm:flex items-center gap-1.5" title="Server Build Timestamp">
+              <span className="text-slate-400">Build:</span>
+              <span className="text-slate-300">{buildInfo.buildTime}</span>
+            </span>
+          </>
+        )}
+        <span className="text-xs text-slate-400 font-mono hidden xl:inline">
           {executionLocation}
         </span>
       </div>
@@ -112,7 +139,9 @@ export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, 
         {recoverySentinel && (
           <div
             className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-2 border ${
-              recoverySentinel.status === 'PROBING_BACKGROUND'
+              recoverySentinel.status === 'FORCE_FAILED'
+                ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                : recoverySentinel.status === 'PROBING_BACKGROUND'
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 animate-pulse'
                 : recoverySentinel.status === 'PROMOTED_RESTORED'
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
@@ -120,6 +149,24 @@ export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, 
             }`}
             title={recoverySentinel.message}
           >
+            {recoverySentinel.status === 'FORCE_FAILED' && (
+              <>
+                <span>🚨 Forced Fault:</span>
+                <span className="font-mono text-rose-200">
+                  {recoverySentinel.failedTiers && recoverySentinel.failedTiers.length > 0
+                    ? recoverySentinel.failedTiers
+                        .map((t: string) =>
+                          t === 'TIER_1_GLOBAL'
+                            ? 'Tier 1 (Global)'
+                            : t === 'TIER_2_REGIONAL'
+                            ? 'Tier 2 (AU-SYD)'
+                            : 'Tier 3 (VPC)'
+                        )
+                        .join(' + ') + ' Failed'
+                    : 'Chaos Fault Active'}
+                </span>
+              </>
+            )}
             {recoverySentinel.status === 'PROBING_BACKGROUND' && (
               <>
                 <span>🔄 Sentinel Probing:</span>

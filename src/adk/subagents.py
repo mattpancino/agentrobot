@@ -8,7 +8,7 @@ Demonstrates how Parent Agents delegate tasks to specialized subagents using
 isolation and universal 3-tier cascade failover.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 from .base_agent import SovereignResilientAgent, SovereigntyPolicy
 from .session_service import SessionService
 
@@ -88,6 +88,7 @@ class SovereignParentOrchestrator(SovereignResilientAgent):
         session_id: str,
         prompt: str,
         inject_mock_failure: bool = False,
+        failed_tiers: Optional[List[str]] = None,
         forced_tier: str = "AUTO",
     ) -> Dict[str, Any]:
         """
@@ -107,6 +108,7 @@ class SovereignParentOrchestrator(SovereignResilientAgent):
             session_id=session_id,
             prompt=prompt,
             inject_mock_failure=inject_mock_failure,
+            failed_tiers=failed_tiers,
             forced_tier=forced_tier,
         )
 

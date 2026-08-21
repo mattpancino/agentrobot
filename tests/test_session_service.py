@@ -49,3 +49,24 @@ async def test_session_service_private_memory_isolation():
     policy_fetched = await service.get_private_memory(session_id, "policy_guard")
     assert policy_fetched["compliance_score"] == 0.99
     assert policy_fetched["confidential_audit_flag"] == "VERIFIED_SECURE"
+
+
+@pytest.mark.asyncio
+async def test_resilient_redis_cooldown_fast_fail(monkeypatch):
+    """Verify that ResilientRedisClient enters cooldown after connection failure and returns instantly from fallback."""
+    from src.adk.session_service import ResilientRedisClient
+    import time
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    client = ResilientRedisClient(host="127.0.0.1", port=63799, db=15)
+    t0 = time.time()
+    val = await client.get("non-existent-key")
+    assert time.time() - t0 < 0.5
+    assert val is None
+
+    t1 = time.time()
+    await client.set("key1", "val1")
+    val2 = await client.get("key1")
+    assert time.time() - t1 < 0.05
+    assert val2 == "val1"
+

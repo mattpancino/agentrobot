@@ -10,13 +10,36 @@ export interface FailoverHopLog {
 }
 
 export interface RecoverySentinelStatus {
-  status: 'IDLE_HEALTHY' | 'PROBING_BACKGROUND' | 'PROMOTED_RESTORED' | 'PROBE_FAILED_HYSTERESIS_RESET';
+  status:
+    | 'IDLE_HEALTHY'
+    | 'PROBING_BACKGROUND'
+    | 'PROMOTED_RESTORED'
+    | 'PROBE_FAILED_HYSTERESIS_RESET'
+    | 'FORCE_FAILED';
   targetTier: string;
   probeIntervalSec: number;
   consecutiveSuccesses: number;
   requiredSuccesses: number;
   lastProbeLatencyMs?: number;
+  failedTiers?: string[];
   message: string;
+}
+
+export interface PIIEntityRecord {
+  type: string;
+  token: string;
+  maskedSnippet: string;
+  confidence: number;
+}
+
+export interface PIITelemetry {
+  enabled: boolean;
+  entitiesIntercepted: number;
+  scanDurationMs: number;
+  entities: PIIEntityRecord[];
+  tokenizedPrompt?: string;
+  tokenizedResponse?: string;
+  zeroEgressVerified: boolean;
 }
 
 export interface ExecutionMetadata {
@@ -32,12 +55,26 @@ export interface ExecutionMetadata {
   failoverLog: FailoverHopLog[];
   recoverySentinel?: RecoverySentinelStatus;
   tierSettings?: Record<string, { region: string; model: string }>;
+  tier3Synced?: boolean;
+  tier3SyncStatus?: string;
+  replicationLogs?: string[];
+  piiTelemetry?: PIITelemetry;
+  tokenizedPrompt?: string;
+  tokenizedResponse?: string;
+}
+
+export interface RedisSyncTelemetry {
+  tier3Synced?: boolean;
+  syncStatus?: string;
+  standbyEndpoint?: string;
+  lastSyncLogs?: string[];
 }
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  tokenizedContent?: string;
   timestamp: string;
   metadata?: ExecutionMetadata;
 }
@@ -64,10 +101,25 @@ export interface TierSetting {
   model: string;
 }
 
-export type TierSettingsMap = Record<string, TierSetting>;
+export interface CustomPIIRule {
+  name: string;
+  pattern: string;
+  entity_type?: string;
+  confidence?: number;
+  description?: string;
+  enabled?: boolean;
+}
 
 export interface SimulationControls {
-  injectMockFailure: boolean;
+  failedTiers?: string[];
+  injectMockFailure?: boolean;
   forcedTier: 'AUTO' | 'TIER_1_GLOBAL' | 'TIER_2_REGIONAL' | 'TIER_3_SOVEREIGN';
   tierSettings?: TierSettingsMap;
+  enablePiiTokenizer?: boolean;
+  customPiiRules?: CustomPIIRule[];
+}
+
+export interface BuildInfo {
+  buildTime: string;
+  branch: string;
 }

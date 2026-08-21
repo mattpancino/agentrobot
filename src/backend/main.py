@@ -13,14 +13,49 @@ import os
 import asyncio
 import subprocess
 import httpx
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from src.adk.base_agent import SovereignResilientAgent, SovereigntyPolicy
 from src.adk.recovery_sentinel import RecoverySentinel
 from src.adk.model_registry import get_regional_catalog, get_default_tier_settings
+
+
+def get_git_branch() -> str:
+    """Retrieves the current git branch name or short commit SHA."""
+    try:
+        cwd = os.path.dirname(os.path.abspath(__file__))
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=cwd,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+        if branch == "HEAD" or not branch:
+            branch = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=cwd,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        return branch if branch else "unknown"
+    except Exception:
+        return "unknown"
+
+
+GIT_BRANCH = os.environ.get("GIT_BRANCH") or get_git_branch()
+BUILD_TIME = os.environ.get("BUILD_TIME") or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def get_build_info() -> Dict[str, str]:
+    return {
+        "buildTime": BUILD_TIME,
+        "branch": GIT_BRANCH,
+    }
+
 
 
 app = FastAPI(
@@ -38,18 +73,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global in-memory session store for demo sessions
+from src.adk.session_service import (
+    RedisSessionService,
+    ReplicatingSessionService,
+    ResilientRedisClient,
+)
+
+# Global in-memory fallback dict for demo inspection / debugging
 SESSION_STORE: Dict[str, Dict[str, Any]] = {}
 
-# Global model and region settings store for the cascade tiers
+# Dual-Tier Replicating Redis Session Store (Primary Tier 2 <-> Sovereign Tier 3)
+tier2_redis_client = ResilientRedisClient(host="127.0.0.1", port=6379, db=0)
+tier3_redis_client = ResilientRedisClient(host="127.0.0.1", port=6379, db=1)
+session_manager = ReplicatingSessionService(
+    tier2_service=RedisSessionService(tier2_redis_client),
+    tier3_service=RedisSessionService(tier3_redis_client),
+)
+
+from src.adk.pii_tokenizer import default_tokenizer, CustomPIIRule
+
+# Global model, region, and custom PII rule settings store
 GLOBAL_SETTINGS: Dict[str, Any] = {
-    "tierSettings": get_default_tier_settings()
+    "tierSettings": get_default_tier_settings(),
+    "customPiiRules": [
+        {
+            "name": "Friend & Conversational Names",
+            "pattern": r"\b(?:(?:best\s+)?friend(?:\s+is|\s+named|\'s\s+name\s+is)?|named|called|speaking\s+with|talking\s+(?:to|with)|meet(?:\s+with)?)\s+([A-Za-z]{2,20}(?:\s+[A-Za-z]{2,20}){1,2})\b",
+            "entity_type": "PERSON",
+            "confidence": 0.90,
+            "description": "Matches informal lowercase conversational names (e.g., 'friend is julia roberts')",
+            "enabled": True,
+        }
+    ],
 }
+default_tokenizer.set_custom_rules(GLOBAL_SETTINGS["customPiiRules"])
 
 # Enterprise base agent and recovery sentinel
 sovereign_agent = SovereignResilientAgent(
     name="sovereign_demo_agent",
     sovereignty_policy=SovereigntyPolicy.GLOBAL_CASCADE,
+    session_service=session_manager,
 )
 sentinel = RecoverySentinel(
     probe_interval_sec=5.0,
@@ -60,9 +123,12 @@ sentinel = RecoverySentinel(
 
 
 class SimulationControls(BaseModel):
+    failedTiers: List[str] = Field(default_factory=list)
     injectMockFailure: bool = False
     forcedTier: str = "AUTO"  # "AUTO", "TIER_1_GLOBAL", "TIER_2_REGIONAL", "TIER_3_SOVEREIGN"
     tierSettings: Optional[Dict[str, Dict[str, str]]] = None
+    enablePiiTokenizer: bool = False
+    customPiiRules: Optional[List[Dict[str, Any]]] = None
 
 
 class ChatRequest(BaseModel):
@@ -72,7 +138,8 @@ class ChatRequest(BaseModel):
 
 
 class SettingsUpdateRequest(BaseModel):
-    tierSettings: Dict[str, Dict[str, str]]
+    tierSettings: Optional[Dict[str, Dict[str, str]]] = None
+    customPiiRules: Optional[List[Dict[str, Any]]] = None
 
 
 @app.get("/")
@@ -84,7 +151,17 @@ async def root_ui():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "Sovereign-Stream Gateway"}
+    return {
+        "status": "ok",
+        "service": "Sovereign-Stream Gateway",
+        "buildInfo": get_build_info(),
+    }
+
+
+@app.get("/api/build-info")
+async def build_info():
+    """Returns application build time and current git branch."""
+    return get_build_info()
 
 
 @app.get("/api/enclave/status")
@@ -118,25 +195,30 @@ async def get_enclave_status():
     vm_status = "UNKNOWN"
     internal_ip = "10.152.0.2"
     try:
-        out = subprocess.check_output(
-            ["gcloud", "compute", "instances", "describe", "sovereign-gemma-2b-vm",
-             "--zone=australia-southeast1-a", "--project=sovereignagent",
-             "--format=value(status)"],
-            stderr=subprocess.DEVNULL,
-            timeout=3.0,
-            text=True
-        ).strip()
+        def _check_vm_status():
+            return subprocess.check_output(
+                ["gcloud", "compute", "instances", "describe", "sovereign-gemma-2b-vm",
+                 "--zone=australia-southeast1-a", "--project=sovereignagent",
+                 "--format=value(status)"],
+                stderr=subprocess.DEVNULL,
+                timeout=3.0,
+                text=True
+            ).strip()
+
+        out = await asyncio.to_thread(_check_vm_status)
         if out:
             vm_status = out
     except Exception:
         vm_status = "STOPPED_OR_UNREACHABLE"
 
+    sync_telemetry = session_manager.get_sync_telemetry("default-session")
     return {
         "vmStatus": vm_status,
         "tunnelActive": tunnel_active,
         "modelLoaded": model_loaded,
         "internalIp": internal_ip,
         "zone": "australia-southeast1-a",
+        "redisSync": sync_telemetry,
     }
 
 
@@ -189,12 +271,14 @@ async def get_enclave_logs(limit: int = 30):
                 "No live chat payload metrics logged yet. Send a prompt to TIER_3_SOVEREIGN in the chat window to generate Ollama inference logs."
             ]
 
+    sync_telemetry = session_manager.get_sync_telemetry("default-session")
     return {
         "status": "SUCCESS",
         "vmName": "sovereign-gemma-2b-vm",
         "zone": "australia-southeast1-a",
         "command": command_str,
         "logs": logs,
+        "redisSync": sync_telemetry,
     }
 
 
@@ -213,9 +297,10 @@ async def start_enclave_vm():
 
 @app.post("/api/enclave/start-tunnel")
 async def start_enclave_tunnel():
-    """Opens the IAP TCP forwarding tunnel from localhost:8001 to VM port 8001."""
+    """Opens the IAP TCP forwarding tunnels for Ollama (8001) and Redis (6379)."""
     if not os.environ.get("PYTEST_CURRENT_TEST"):
-        subprocess.run(["pkill", "-f", "start-iap-tunnel.*8001"], stderr=subprocess.DEVNULL)
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8001"], stderr=subprocess.DEVNULL)
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*6379"], stderr=subprocess.DEVNULL)
         subprocess.Popen(
             ["gcloud", "compute", "start-iap-tunnel", "sovereign-gemma-2b-vm", "8001",
              "--local-host-port=localhost:8001", "--zone=australia-southeast1-a",
@@ -223,7 +308,14 @@ async def start_enclave_tunnel():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-    return {"status": "tunnel_starting", "message": "IAP tunnel command dispatched."}
+        subprocess.Popen(
+            ["gcloud", "compute", "start-iap-tunnel", "sovereign-gemma-2b-vm", "6379",
+             "--local-host-port=localhost:6379", "--zone=australia-southeast1-a",
+             "--project=sovereignagent"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    return {"status": "tunnel_starting", "message": "IAP tunnels (8001 & 6379) dispatched."}
 
 
 @app.post("/api/enclave/stop-vm")
@@ -249,26 +341,71 @@ async def get_models():
         "catalog": get_regional_catalog(),
         "defaultTierSettings": get_default_tier_settings(),
         "activeTierSettings": GLOBAL_SETTINGS["tierSettings"],
+        "buildInfo": get_build_info(),
+    }
+
+
+@app.get("/api/pii/rules")
+async def get_pii_rules():
+    """Returns all active custom PII tokenization rules."""
+    return {
+        "rules": default_tokenizer.get_custom_rules(),
+    }
+
+
+@app.post("/api/pii/rules")
+async def add_or_update_pii_rule(rule: Dict[str, Any]):
+    """Adds or updates a custom PII rule."""
+    rule_obj = default_tokenizer.add_custom_rule(rule)
+    GLOBAL_SETTINGS["customPiiRules"] = default_tokenizer.get_custom_rules()
+    return {
+        "status": "success",
+        "rule": rule_obj.model_dump(),
+        "rules": GLOBAL_SETTINGS["customPiiRules"],
+    }
+
+
+@app.delete("/api/pii/rules/{rule_name}")
+async def delete_pii_rule(rule_name: str):
+    """Deletes a custom PII rule by name."""
+    removed = default_tokenizer.remove_custom_rule(rule_name)
+    GLOBAL_SETTINGS["customPiiRules"] = default_tokenizer.get_custom_rules()
+    return {
+        "status": "success" if removed else "not_found",
+        "rules": GLOBAL_SETTINGS["customPiiRules"],
     }
 
 
 @app.get("/api/settings")
 async def get_settings():
-    """Returns the current active model and region configuration for each tier."""
+    """Returns the current active model, region configuration, and custom PII rules."""
     return {
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
+        "customPiiRules": default_tokenizer.get_custom_rules(),
+        "buildInfo": get_build_info(),
     }
 
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsUpdateRequest):
-    """Updates the active model and region configuration for each tier."""
+    """Updates the active model, region configuration, and custom PII rules."""
     if req.tierSettings:
         GLOBAL_SETTINGS["tierSettings"] = req.tierSettings
+    if req.customPiiRules is not None:
+        default_tokenizer.set_custom_rules(req.customPiiRules)
+        GLOBAL_SETTINGS["customPiiRules"] = default_tokenizer.get_custom_rules()
     return {
         "status": "success",
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
+        "customPiiRules": default_tokenizer.get_custom_rules(),
     }
+
+
+@app.get("/api/session/{session_id}")
+async def get_session_history(session_id: str):
+    """Returns the synchronized Dual-Tier session state and conversation history."""
+    state = await sovereign_agent.session_service.get_session(session_id)
+    return state
 
 
 @app.post("/api/chat")
@@ -278,15 +415,22 @@ async def chat_handler(req: ChatRequest):
     background Recovery Sentinel cycle if the session is on a sticky demoted tier.
     """
     session_id = req.sessionId or "default-session"
-    if session_id not in SESSION_STORE:
-        SESSION_STORE[session_id] = {
-            "session_id": session_id,
-            "stickyTier": "TIER_1_GLOBAL",
-            "messages": [],
-        }
+    session_state = await sovereign_agent.session_service.get_session(session_id)
+    if not session_state.get("session_id"):
+        session_state["session_id"] = session_id
+        session_state["stickyTier"] = "TIER_1_GLOBAL"
+        session_state["messages"] = []
 
-    session_state = SESSION_STORE[session_id]
     controls = req.simulationControls or SimulationControls()
+
+    # Reconcile any turns generated during an airgapped Tier 3 crisis back into Vertex AI
+    last_tier = session_state.get("stickyTier", "TIER_1_GLOBAL")
+    target_tier = controls.forcedTier if controls.forcedTier != "AUTO" else last_tier
+    if last_tier == "TIER_3_SOVEREIGN" and target_tier != "TIER_3_SOVEREIGN":
+        if hasattr(sovereign_agent.session_service, "resync_after_crisis"):
+            session_state = await sovereign_agent.session_service.resync_after_crisis(session_id)
+
+    SESSION_STORE[session_id] = session_state
 
     # Determine effective tier settings (from request override or global settings)
     active_tier_settings = controls.tierSettings or GLOBAL_SETTINGS["tierSettings"]
@@ -297,18 +441,30 @@ async def chat_handler(req: ChatRequest):
             session_state=session_state,
             prompt=req.message,
             inject_mock_failure=controls.injectMockFailure,
+            failed_tiers=controls.failedTiers,
             forced_tier=controls.forcedTier,
             tier_settings=active_tier_settings,
+            enable_pii_tokenizer=controls.enablePiiTokenizer,
         )
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Run an asynchronous Recovery Sentinel probe cycle if demoted
-    sentinel_status = await sentinel.run_probe_cycle(session_state)
+    sentinel_status = await sentinel.run_probe_cycle(
+        session_state, failed_tiers=controls.failedTiers
+    )
     result["executionMetadata"]["recoverySentinel"] = sentinel_status
     result["executionMetadata"]["stickyTier"] = session_state.get("stickyTier", "TIER_1_GLOBAL")
     result["executionMetadata"]["tierSettings"] = active_tier_settings
+
+    # Persist updated sentinel/sticky state to Redis
+    await sovereign_agent.session_service.save_session(session_id, session_state)
+    SESSION_STORE[session_id] = session_state
+
+    sync_info = session_manager.get_sync_telemetry(session_id)
+    result["executionMetadata"]["tier3Synced"] = sync_info["tier3Synced"]
+    result["executionMetadata"]["tier3SyncStatus"] = sync_info["syncStatus"]
+    result["executionMetadata"]["replicationLogs"] = sync_info["lastSyncLogs"]
 
     return result
