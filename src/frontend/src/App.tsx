@@ -1,6 +1,5 @@
-// Copyright 2026 Google LLC. All Rights Reserved.
 import { useState, useEffect } from 'react';
-import { ChatMessage, ExecutionMetadata, SimulationControls, RegionInfo, TierSettingsMap, BuildInfo } from './types';
+import { ChatMessage, ExecutionMetadata, SimulationControls, RegionInfo, TierSettingsMap, BuildInfo, DatasetSummary } from './types';
 import { TelemetryHeader } from './components/TelemetryHeader';
 import { ChaosPanel } from './components/ChaosPanel';
 import { ChatWindow } from './components/ChatWindow';
@@ -20,6 +19,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [catalog, setCatalog] = useState<RegionInfo[]>([]);
+  const [datasetSummary, setDatasetSummary] = useState<DatasetSummary | null>(null);
   const [tierSettings, setTierSettings] = useState<TierSettingsMap>({
     TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
     TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
@@ -29,6 +29,7 @@ export default function App() {
     failedTiers: [],
     forcedTier: 'AUTO',
     enablePiiTokenizer: true,
+    enterpriseDataEnabled: true,
     tierSettings: {
       TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
       TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
@@ -37,6 +38,19 @@ export default function App() {
   });
 
   useEffect(() => {
+    fetch('/api/dataset')
+      .then((res) => res.json())
+      .then((data: DatasetSummary) => {
+        if (data) {
+          setDatasetSummary(data);
+          setControls((prev) => ({
+            ...prev,
+            enterpriseDataEnabled: data.enabled !== undefined ? data.enabled : true,
+          }));
+        }
+      })
+      .catch((err) => console.error('Failed to load dataset info:', err));
+
     fetch(`/api/session/${sessionId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -172,11 +186,15 @@ export default function App() {
     setSessionId(newId);
   };
 
+  const isEnterpriseActive = controls.enterpriseDataEnabled ?? datasetSummary?.enabled ?? false;
+
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-slate-950 font-sans text-slate-100">
       <TelemetryHeader
         lastMetadata={lastMetadata}
         buildInfo={buildInfo}
+        datasetSummary={datasetSummary}
+        enterpriseDataEnabled={isEnterpriseActive}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onResetChat={handleResetChat}
       />
@@ -192,6 +210,7 @@ export default function App() {
           isLoading={isLoading}
           onSendMessage={handleSendMessage}
           enablePiiTokenizer={controls.enablePiiTokenizer}
+          enterpriseDataEnabled={isEnterpriseActive}
         />
       </div>
 
@@ -203,6 +222,10 @@ export default function App() {
         onSaveSettings={handleSaveSettings}
         controls={controls}
         onUpdateControls={setControls}
+        onDatasetUpdate={(updated) => {
+          setDatasetSummary(updated);
+          setControls((prev) => ({ ...prev, enterpriseDataEnabled: updated.enabled }));
+        }}
       />
     </div>
   );

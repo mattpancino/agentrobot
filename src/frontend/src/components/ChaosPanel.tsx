@@ -82,6 +82,25 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
       }
     }
 
+    const skillText = activeTier === 'TIER_3_SOVEREIGN'
+      ? 'APRA Enclave Rulebook (Local VPC)'
+      : 'APRA Mortgage Underwriter (AU-SYD)';
+    const skillColor = activeTier === 'TIER_3_SOVEREIGN'
+      ? 'text-emerald-400 font-semibold'
+      : 'text-amber-400 font-semibold';
+
+    const toolText = activeTier === 'TIER_3_SOVEREIGN'
+      ? 'calculate_customer_lvr (Airgap Enclave)'
+      : 'calculate_customer_lvr (Local VM Engine)';
+    const toolColor = 'text-emerald-400 font-semibold';
+
+    const storageRestText = activeTier === 'TIER_3_SOVEREIGN'
+      ? 'Local Enclave Disk Mirror (/src/data)'
+      : 'gs://au-fsi-customer-assets/ (AU-SYD CMEK)';
+    const storageRestColor = activeTier === 'TIER_3_SOVEREIGN'
+      ? 'text-emerald-400 font-semibold'
+      : 'text-amber-400 font-semibold';
+
     switch (activeTier) {
       case 'TIER_2_REGIONAL':
         return {
@@ -94,6 +113,12 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           memoryColor: 'text-amber-400 font-semibold',
           piiCleanser: piiCleanserText,
           piiCleanserColor: piiCleanserColor,
+          skill: skillText,
+          skillColor: skillColor,
+          tool: toolText,
+          toolColor: toolColor,
+          storageRest: storageRestText,
+          storageRestColor: storageRestColor,
           color: 'amber',
           borderClass: 'border-amber-500/40 bg-gradient-to-b from-amber-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-amber-500/10',
@@ -111,6 +136,12 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           memoryColor: 'text-emerald-400 font-semibold',
           piiCleanser: piiCleanserText,
           piiCleanserColor: piiCleanserColor,
+          skill: skillText,
+          skillColor: skillColor,
+          tool: toolText,
+          toolColor: toolColor,
+          storageRest: storageRestText,
+          storageRestColor: storageRestColor,
           color: 'emerald',
           borderClass: 'border-emerald-500/40 bg-gradient-to-b from-emerald-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-emerald-500/10',
@@ -129,6 +160,12 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           memoryColor: 'text-amber-400 font-semibold',
           piiCleanser: piiCleanserText,
           piiCleanserColor: piiCleanserColor,
+          skill: skillText,
+          skillColor: skillColor,
+          tool: toolText,
+          toolColor: toolColor,
+          storageRest: storageRestText,
+          storageRestColor: storageRestColor,
           color: 'blue',
           borderClass: 'border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-blue-500/10',
@@ -252,6 +289,28 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   {agentChar.piiCleanser}
                 </span>
               </div>
+            )}
+            {controls.enterpriseDataEnabled && (
+              <>
+                <div className="flex items-start justify-between gap-2 text-slate-400 border-t border-slate-800/60 pt-1.5">
+                  <span className="text-slate-500 shrink-0">🧠 Skill:</span>
+                  <span className={`text-right font-sans ${agentChar.skillColor}`}>
+                    {agentChar.skill}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-2 text-slate-400">
+                  <span className="text-slate-500 shrink-0">🔧 Tool:</span>
+                  <span className={`text-right font-sans ${agentChar.toolColor}`}>
+                    {agentChar.tool}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-2 text-slate-400">
+                  <span className="text-slate-500 shrink-0">📁 Storage (Rest):</span>
+                  <span className={`text-right font-sans ${agentChar.storageRestColor}`}>
+                    {agentChar.storageRest}
+                  </span>
+                </div>
+              </>
             )}
           </div>
         </div>

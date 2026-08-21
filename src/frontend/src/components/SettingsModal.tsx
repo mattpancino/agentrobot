@@ -1,6 +1,6 @@
 // Copyright 2026 Google LLC. All Rights Reserved.
 import React, { useState, useEffect } from 'react';
-import { RegionInfo, TierSettingsMap, RedisSyncTelemetry, SimulationControls, CustomPIIRule } from '../types';
+import { RegionInfo, TierSettingsMap, RedisSyncTelemetry, SimulationControls, CustomPIIRule, DatasetSummary, LoanCustomerRow } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface SettingsModalProps {
   onSaveSettings: (updatedSettings: TierSettingsMap) => void;
   controls?: SimulationControls;
   onUpdateControls?: (updated: SimulationControls) => void;
+  onDatasetUpdate?: (updatedDataset: DatasetSummary) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -20,8 +21,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveSettings,
   controls,
   onUpdateControls,
+  onDatasetUpdate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'tiers' | 'catalog' | 'enclave' | 'logs' | 'pii'>('tiers');
+  const [activeTab, setActiveTab] = useState<'tiers' | 'catalog' | 'dataset' | 'enclave' | 'logs' | 'pii'>('tiers');
   const [localSettings, setLocalSettings] = useState<TierSettingsMap>(tierSettings);
   const [customRules, setCustomRules] = useState<CustomPIIRule[]>([]);
   const [isAddingRule, setIsAddingRule] = useState(false);
@@ -30,6 +32,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newRuleEntityType, setNewRuleEntityType] = useState('PERSON');
   const [newRuleConfidence, setNewRuleConfidence] = useState(0.90);
   const [newRuleDesc, setNewRuleDesc] = useState('');
+
+  // Enterprise Loan Dataset & Trix Ingestion State
+  const [dataset, setDataset] = useState<DatasetSummary | null>(null);
+  const [datasetLoading, setDatasetLoading] = useState(false);
+  const [datasetMsg, setDatasetMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [ingestMode, setIngestMode] = useState<'preset' | 'url' | 'upload' | 'paste'>('preset');
+  const [ingestUrl, setIngestUrl] = useState('');
+  const [ingestRawCsv, setIngestRawCsv] = useState('');
+  const [datasetSearch, setDatasetSearch] = useState('');
   const [enclaveStatus, setEnclaveStatus] = useState<{
     vmStatus: string;
     tunnelActive: boolean;
@@ -172,6 +183,134 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       console.error(e);
     }
   };
+
+  const LOAN_PRESETS = [
+    {
+      id: 'benchmark',
+      name: '🇦🇺 AU Residential Mortgages (Default Benchmark)',
+      description: 'Balanced mix of prime loans, APRA buffer boundaries, and high-LVR LMI accounts (Sarah Jenkins, David Zhang, Emma Watson).',
+      csv: `customer_id,customer_name,property_value_aud,loan_balance_aud,annual_income_aud,monthly_expenses_aud,current_interest_rate_pct,loan_term_years
+CUST-8821,Sarah Jenkins,1200000.00,980000.00,165000.00,4200.00,6.15,30
+CUST-1042,David Zhang,850000.00,510000.00,140000.00,3100.00,5.99,25
+CUST-3310,Emma Watson,650000.00,590000.00,95000.00,2800.00,6.25,30
+CUST-4491,Marcus Aurelius,2100000.00,1250000.00,320000.00,6500.00,5.85,30
+CUST-9012,Chloe Bennett,750000.00,600000.00,110000.00,3400.00,6.30,30`,
+    },
+    {
+      id: 'fhb',
+      name: '🏠 High-LVR First Home Buyers (90%+ Exposure)',
+      description: 'First home buyer loans with low deposits, mandatory Lenders Mortgage Insurance, and high sensitivity to rate shocks.',
+      csv: `customer_id,customer_name,property_value_aud,loan_balance_aud,annual_income_aud,monthly_expenses_aud,current_interest_rate_pct,loan_term_years
+CUST-FHB1,Liam Hemsworth,750000.00,712500.00,110000.00,3200.00,6.45,30
+CUST-FHB2,Jessica Mauboy,880000.00,818400.00,125000.00,3600.00,6.35,30
+CUST-FHB3,Hugh Jackman,1400000.00,1260000.00,195000.00,4900.00,6.20,30`,
+    },
+    {
+      id: 'cre',
+      name: '🏢 Commercial Real Estate & High-Net-Worth Debt',
+      description: 'Multi-million commercial asset facilities, low LVRs, high cashflow buffers, and private wealth syndicates.',
+      csv: `customer_id,customer_name,property_value_aud,loan_balance_aud,annual_income_aud,monthly_expenses_aud,current_interest_rate_pct,loan_term_years
+CUST-CRE1,Sydney Logistics Hub,4800000.00,2400000.00,720000.00,14000.00,5.75,20
+CUST-CRE2,Melbourne Medical Centre,3500000.00,1750000.00,510000.00,10500.00,5.85,25
+CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
+    },
+  ];
+
+  const fetchDataset = async () => {
+    try {
+      setDatasetLoading(true);
+      const res = await fetch('/api/dataset');
+      if (res.ok) {
+        const data = await res.json();
+        setDataset(data);
+        if (onDatasetUpdate) onDatasetUpdate(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dataset:', err);
+    } finally {
+      setDatasetLoading(false);
+    }
+  };
+
+  const handleToggleDataset = async (newEnabled: boolean) => {
+    try {
+      const res = await fetch('/api/dataset/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newEnabled }),
+      });
+      if (res.ok) {
+        const updated = dataset ? { ...dataset, enabled: newEnabled } : null;
+        if (updated) {
+          setDataset(updated);
+          if (onDatasetUpdate) onDatasetUpdate(updated);
+        }
+        if (onUpdateControls && controls) {
+          onUpdateControls({ ...controls, enterpriseDataEnabled: newEnabled });
+        }
+        setDatasetMsg({
+          text: `Enterprise LVR Calculator ${newEnabled ? 'Enabled' : 'Disabled'}`,
+          isError: false,
+        });
+      }
+    } catch (err) {
+      setDatasetMsg({ text: `Toggle error: ${String(err)}`, isError: true });
+    }
+  };
+
+  const handleIngest = async (csvContent: string, sourceUrl?: string) => {
+    try {
+      setDatasetLoading(true);
+      setDatasetMsg(null);
+      const res = await fetch('/api/dataset/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvContent, sourceUrl }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setDataset(data);
+      if (onDatasetUpdate) onDatasetUpdate(data);
+      setDatasetMsg({
+        text: `Successfully ingested ${data.rowCount} customer loan records into local VM storage.`,
+        isError: false,
+      });
+    } catch (err) {
+      setDatasetMsg({
+        text: `Ingestion failed: ${err instanceof Error ? err.message : String(err)}`,
+        isError: true,
+      });
+    } finally {
+      setDatasetLoading(false);
+    }
+  };
+
+  const handleResetDataset = async () => {
+    try {
+      setDatasetLoading(true);
+      setDatasetMsg(null);
+      const res = await fetch('/api/dataset/reset', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setDataset(data);
+        if (onDatasetUpdate) onDatasetUpdate(data);
+        setDatasetMsg({ text: 'Reset to default Australian benchmark loan dataset.', isError: false });
+      }
+    } catch (err) {
+      setDatasetMsg({ text: `Reset failed: ${String(err)}`, isError: true });
+    } finally {
+      setDatasetLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchDataset();
+    }
+  }, [isOpen]);
 
   const handleStartVm = async () => {
     setEnclaveLoading(true);
@@ -399,6 +538,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             Browse Regional Model Catalog ({catalog.length} Regions)
           </button>
           <button
+            onClick={() => setActiveTab('dataset')}
+            className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'dataset'
+                ? 'border-amber-500 text-amber-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>📊</span> Enterprise Data (Trix &amp; Loans)
+          </button>
+          <button
             onClick={() => setActiveTab('enclave')}
             className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
               activeTab === 'enclave'
@@ -564,6 +713,370 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === 'dataset' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Notification Banner */}
+              {datasetMsg && (
+                <div
+                  className={`p-3 rounded-xl flex items-center justify-between text-xs border ${
+                    datasetMsg.isError
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>{datasetMsg.isError ? '⚠️' : '✅'}</span>
+                    <span>{datasetMsg.text}</span>
+                  </span>
+                  <button onClick={() => setDatasetMsg(null)} className="text-slate-400 hover:text-white">
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Master Feature Toggle & Overview Card */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border text-amber-400 bg-amber-500/10 border-amber-500/30">
+                        ENTERPRISE DATA &amp; TOOLING
+                      </span>
+                      <h3 className="text-sm font-semibold text-white">
+                        Enterprise Loan Portfolio &amp; LVR Calculator
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                      Empowers the agent with deterministic Python financial underwriting tools to calculate LVR, DTI, monthly amortization, and APRA +3.0% stress tests from ingested spreadsheets.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDataset(!dataset?.enabled)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold border transition shadow-sm flex items-center gap-2 ${
+                        dataset?.enabled
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-amber-500/10'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${dataset?.enabled ? 'bg-amber-400 animate-pulse' : 'bg-slate-500'}`} />
+                      <span>{dataset?.enabled ? 'Feature Enabled ✓' : 'Feature Disabled'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sovereign Storage Architecture Status Bar */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-slate-900/90 p-3.5 rounded-xl border border-slate-800/90 font-mono">
+                  <div className="space-y-1">
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Governed Cloud Storage</span>
+                    <span className="text-amber-300 font-semibold text-[11px] block">
+                      gs://au-fsi-customer-assets/loans.csv
+                    </span>
+                    <span className="text-slate-400 text-[10px]">australia-southeast1 (Cloud KMS CMEK)</span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Local Enclave Mirror</span>
+                    <span className="text-emerald-300 font-semibold text-[11px] block">
+                      /src/data/customer_loans.csv
+                    </span>
+                    <span className="text-slate-400 text-[10px]">Airgapped Enclave Synchronized</span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Active Working Memory</span>
+                    <span className="text-amber-300 font-semibold text-[11px] block">
+                      Vertex AI Sessions (AU-SYD)
+                    </span>
+                    <span className="text-slate-400 text-[10px]">&lt; 1ms Hot Turn Context</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ingestion Workspace */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                      <span>📥</span> Ingest Spreadsheets &amp; Trix Data to Local VM
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Choose a benchmark scenario, connect a Google Sheet, upload a CSV, or paste raw tabular data.
+                    </p>
+                  </div>
+
+                  {/* Mode Selector Tabs */}
+                  <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1 text-xs font-semibold">
+                    <button
+                      onClick={() => setIngestMode('preset')}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        ingestMode === 'preset' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      ⚡ 1-Click Presets
+                    </button>
+                    <button
+                      onClick={() => setIngestMode('url')}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        ingestMode === 'url' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      🔗 Google Sheet URL
+                    </button>
+                    <button
+                      onClick={() => setIngestMode('upload')}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        ingestMode === 'upload' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      📁 Upload CSV
+                    </button>
+                    <button
+                      onClick={() => setIngestMode('paste')}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        ingestMode === 'paste' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      ✍️ Raw CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-mode 1: Presets */}
+                {ingestMode === 'preset' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    {LOAN_PRESETS.map((preset) => (
+                      <div
+                        key={preset.id}
+                        className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/40 transition flex flex-col justify-between space-y-3"
+                      >
+                        <div>
+                          <div className="font-bold text-xs text-white">{preset.name}</div>
+                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{preset.description}</p>
+                        </div>
+                        <button
+                          onClick={() => handleIngest(preset.csv)}
+                          disabled={datasetLoading}
+                          className="w-full py-2 rounded-lg bg-slate-800 hover:bg-amber-600 hover:text-white text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <span>📥</span>
+                          <span>Apply to Local VM</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Sub-mode 2: Google Sheet URL */}
+                {ingestMode === 'url' && (
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        Google Sheets (Trix) CSV Export URL or Public CSV Link:
+                      </label>
+                      <input
+                        type="url"
+                        value={ingestUrl}
+                        onChange={(e) => setIngestUrl(e.target.value)}
+                        placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
+                        className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-3.5 py-2.5 font-mono focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleIngest('', ingestUrl)}
+                        disabled={datasetLoading || !ingestUrl.trim()}
+                        className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
+                      >
+                        <span>📥</span>
+                        <span>Fetch &amp; Ingest to Local VM</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-mode 3: File Upload */}
+                {ingestMode === 'upload' && (
+                  <div className="p-6 rounded-xl bg-slate-900/60 border border-dashed border-slate-700 text-center space-y-3">
+                    <div className="text-2xl">📄</div>
+                    <div className="text-xs text-slate-300 font-semibold">Select a .csv mortgage spreadsheet from your computer</div>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const content = event.target?.result as string;
+                            if (content) handleIngest(content);
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                      className="text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                {/* Sub-mode 4: Raw CSV Editor */}
+                {ingestMode === 'paste' && (
+                  <div className="space-y-3 pt-1">
+                    <textarea
+                      rows={6}
+                      value={ingestRawCsv}
+                      onChange={(e) => setIngestRawCsv(e.target.value)}
+                      placeholder="customer_id,customer_name,property_value_aud,loan_balance_aud,annual_income_aud,monthly_expenses_aud,current_interest_rate_pct,loan_term_years&#10;CUST-8821,Sarah Jenkins,1200000.00,980000.00,165000.00,4200.00,6.15,30"
+                      className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl p-3 font-mono focus:outline-none focus:border-amber-500"
+                    />
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => handleIngest(ingestRawCsv)}
+                        disabled={datasetLoading || !ingestRawCsv.trim()}
+                        className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
+                      >
+                        <span>📥</span>
+                        <span>Save &amp; Ingest to Local VM</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Portfolio Analytics Summary Cards */}
+              {dataset?.stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total Loan Book</span>
+                    <div className="text-base font-bold text-white font-mono">
+                      ${(dataset.stats.totalLoanBookAud / 1000000).toFixed(2)}M AUD
+                    </div>
+                    <span className="text-[10px] text-slate-400">{dataset.rowCount} Total Mortgages</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Average Portfolio LVR</span>
+                    <div className={`text-base font-bold font-mono ${dataset.stats.averageLvrPercent > 80 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {dataset.stats.averageLvrPercent.toFixed(2)}%
+                    </div>
+                    <span className="text-[10px] text-slate-400">APRA Standard: &le; 80%</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">LMI Required Accounts</span>
+                    <div className="text-base font-bold text-amber-300 font-mono">
+                      {dataset.stats.highLvrAccountsCount} Accounts
+                    </div>
+                    <span className="text-[10px] text-amber-400/80">LVR &gt; 80.0% Boundary</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">APRA +3% Stress Deficits</span>
+                    <div className="text-base font-bold text-rose-300 font-mono">
+                      {dataset.stats.apraStressFailuresCount} Accounts
+                    </div>
+                    <span className="text-[10px] text-rose-400/80">Serviceability Shortfall</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Ingested Live Data Table */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold text-white">
+                      Active Customer Loan Records ({dataset?.rows?.length || 0})
+                    </h3>
+                    <button
+                      onClick={handleResetDataset}
+                      disabled={datasetLoading}
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] font-semibold border border-slate-700 transition"
+                      title="Reset back to default 5 Australian benchmark mortgages"
+                    >
+                      🔄 Reset Benchmark
+                    </button>
+                  </div>
+
+                  <div className="w-full sm:w-64">
+                    <input
+                      type="text"
+                      value={datasetSearch}
+                      onChange={(e) => setDatasetSearch(e.target.value)}
+                      placeholder="Search ID, Name..."
+                      className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-900/90 text-slate-400 font-mono text-[10px] uppercase border-b border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-3">Customer ID</th>
+                        <th className="py-2.5 px-3">Customer Name</th>
+                        <th className="py-2.5 px-3">Property Value</th>
+                        <th className="py-2.5 px-3">Loan Balance</th>
+                        <th className="py-2.5 px-3">LVR %</th>
+                        <th className="py-2.5 px-3">Income</th>
+                        <th className="py-2.5 px-3">Rate</th>
+                        <th className="py-2.5 px-3">Monthly P&amp;I</th>
+                        <th className="py-2.5 px-3">LMI Status</th>
+                        <th className="py-2.5 px-3">APRA +3% Shock</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                      {dataset?.rows
+                        ?.filter(
+                          (r) =>
+                            !datasetSearch ||
+                            r.customerId.toLowerCase().includes(datasetSearch.toLowerCase()) ||
+                            r.customerName.toLowerCase().includes(datasetSearch.toLowerCase())
+                        )
+                        .map((row) => (
+                          <tr key={row.customerId} className="hover:bg-slate-900/40 transition">
+                            <td className="py-2.5 px-3 text-amber-300 font-bold">{row.customerId}</td>
+                            <td className="py-2.5 px-3 text-white font-sans font-medium">{row.customerName}</td>
+                            <td className="py-2.5 px-3 text-slate-300">${(row.propertyValueAud || 0).toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-slate-300">${(row.loanBalanceAud || 0).toLocaleString()}</td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`px-2 py-0.5 rounded font-bold ${
+                                  row.lvrPercent > 85
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                    : row.lvrPercent > 80
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                }`}
+                              >
+                                {row.lvrPercent.toFixed(2)}%
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-400">${(row.annualIncomeAud || 0).toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-slate-300">{row.currentInterestRatePct.toFixed(2)}%</td>
+                            <td className="py-2.5 px-3 text-white font-semibold">${row.baseMonthlyRepaymentAud.toLocaleString()}</td>
+                            <td className="py-2.5 px-3">
+                              {row.lmiRequired ? (
+                                <span className="text-amber-400 font-sans font-semibold text-[10px]">⚠️ Mandatory</span>
+                              ) : (
+                                <span className="text-emerald-400 font-sans font-semibold text-[10px]">✔ Exempt</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {row.apraStressTestPassed ? (
+                                <span className="text-emerald-300 text-[10px]">✔ Pass (+${row.monthlySurplusBufferAud})</span>
+                              ) : (
+                                <span className="text-rose-400 text-[10px]">🚨 Deficit (${row.monthlySurplusBufferAud})</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 

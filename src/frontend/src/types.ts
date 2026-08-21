@@ -117,9 +117,59 @@ export interface SimulationControls {
   tierSettings?: TierSettingsMap;
   enablePiiTokenizer?: boolean;
   customPiiRules?: CustomPIIRule[];
+  enterpriseDataEnabled?: boolean;
 }
 
 export interface BuildInfo {
   buildTime: string;
   branch: string;
+}
+
+export interface LoanCustomerRow {
+  status?: string;
+  customerId: string;
+  customerName: string;
+  propertyValueAud: number;
+  loanBalanceAud: number;
+  annualIncomeAud: number;
+  monthlyExpensesAud: number;
+  currentInterestRatePct: number;
+  loanTermYears: number;
+  lvrPercent: number;
+  lmiRequired: boolean;
+  lmiThresholdExceededByAud: number;
+  dtiRatio: number;
+  baseMonthlyRepaymentAud: number;
+  stressedInterestRatePct: number;
+  stressedMonthlyRepaymentAud: number;
+  grossMonthlyIncomeAud?: number;
+  monthlySurplusBufferAud: number;
+  apraStressTestPassed: boolean;
+  riskTier: string;
+  storageResidency?: string;
+}
+
+export interface DatasetStats {
+  totalLoanBookAud: number;
+  averageLvrPercent: number;
+  highLvrAccountsCount: number;
+  apraStressFailuresCount: number;
+}
+
+export interface DatasetStorageResidency {
+  cloudStorageBucket: string;
+  jurisdiction: string;
+  encryption: string;
+  localMirrorStatus: string;
+}
+
+export interface DatasetSummary {
+  enabled: boolean;
+  filename: string;
+  filePath: string;
+  rowCount: number;
+  columns: string[];
+  rows: LoanCustomerRow[];
+  stats: DatasetStats;
+  storageResidency: DatasetStorageResidency;
 }

@@ -7,6 +7,7 @@ interface ChatWindowProps {
   isLoading: boolean;
   onSendMessage: (text: string) => void;
   enablePiiTokenizer?: boolean;
+  enterpriseDataEnabled?: boolean;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -14,6 +15,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isLoading,
   onSendMessage,
   enablePiiTokenizer = true,
+  enterpriseDataEnabled = false,
 }) => {
   const [input, setInput] = useState('');
   const [activeTab, setActiveTab] = useState<'user' | 'shield' | 'diff'>('user');
@@ -314,13 +316,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </p>
             </div>
             <div className="grid grid-cols-1 gap-2 w-full pt-2">
-              {[
-                "Transfer $500 from John Smith's account 123-456 to Jane Doe.",
-                "Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.",
-                "What are our primary data governance obligations under APRA CPS 234?",
-                "Provide an incident response checklist for cross-border data transfer anomalies.",
-                "How do we prove zero PII egress when running sensitive FSI workloads?",
-              ].map((sample) => (
+              {(enterpriseDataEnabled
+                ? [
+                    "📊 Calculate LVR, DTI, and LMI requirements for Sarah Jenkins (CUST-8821)",
+                    "🚨 Run APRA +3.0% mortgage serviceability stress test on David Zhang (CUST-1042)",
+                    "🏦 Assess Emma Watson (CUST-3310) for high LVR default risk and buffer breach",
+                    "Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.",
+                    "What are our primary data governance obligations under APRA CPS 234?",
+                  ]
+                : [
+                    "Transfer $500 from John Smith's account 123-456 to Jane Doe.",
+                    "Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.",
+                    "What are our primary data governance obligations under APRA CPS 234?",
+                    "Provide an incident response checklist for cross-border data transfer anomalies.",
+                    "How do we prove zero PII egress when running sensitive FSI workloads?",
+                  ]
+              ).map((sample) => (
                 <button
                   key={sample}
                   onClick={() => onSendMessage(sample)}
@@ -415,6 +426,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick Action Chips Bar (When Enterprise Data / Trix is enabled) */}
+      {enterpriseDataEnabled && (
+        <div className="px-4 py-2 bg-slate-950/80 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto text-xs">
+          <span className="text-slate-500 shrink-0 font-mono text-[11px] flex items-center gap-1">
+            <span>⚡</span> Quick Queries:
+          </span>
+          <button
+            type="button"
+            onClick={() => onSendMessage("Calculate LVR, DTI, and LMI requirements for Sarah Jenkins (CUST-8821)")}
+            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-[11px] flex items-center gap-1.5 shadow-sm"
+          >
+            <span>📊</span>
+            <span>Sarah Jenkins LVR &amp; LMI (CUST-8821)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSendMessage("Run APRA +3.0% mortgage serviceability stress test on David Zhang (CUST-1042)")}
+            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-[11px] flex items-center gap-1.5 shadow-sm"
+          >
+            <span>🚨</span>
+            <span>David Zhang APRA +3% (CUST-1042)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSendMessage("Audit Emma Watson (CUST-3310) for high LVR default risk and buffer breach")}
+            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-[11px] flex items-center gap-1.5 shadow-sm"
+          >
+            <span>🏦</span>
+            <span>Emma Watson LVR Risk (CUST-3310)</span>
+          </button>
+        </div>
+      )}
+
       {/* Input Box */}
       <form onSubmit={handleSubmit} className="p-4 bg-slate-900 border-t border-slate-800">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
@@ -423,7 +467,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
-            placeholder="Type your prompt (e.g. sensitive FSI query with John Smith, account 123-456)..."
+            placeholder={
+              enterpriseDataEnabled
+                ? "Ask about customer loans (e.g. Calculate LVR for Sarah Jenkins CUST-8821, or David Zhang APRA stress test)..."
+                : "Type your prompt (e.g. sensitive FSI query with John Smith, account 123-456)..."
+            }
             className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
           />
           <button

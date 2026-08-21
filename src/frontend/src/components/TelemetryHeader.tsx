@@ -1,15 +1,25 @@
-// Copyright 2026 Google LLC. All Rights Reserved.
 import React from 'react';
-import { ExecutionMetadata, BuildInfo } from '../types';
+import { ExecutionMetadata, BuildInfo, DatasetSummary } from '../types';
 
 interface TelemetryHeaderProps {
   lastMetadata?: ExecutionMetadata;
   buildInfo?: BuildInfo;
+  datasetSummary?: DatasetSummary | null;
+  enterpriseDataEnabled?: boolean;
   onOpenSettings?: () => void;
   onResetChat?: () => void;
 }
 
-export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, buildInfo, onOpenSettings, onResetChat }) => {
+export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({
+  lastMetadata,
+  buildInfo,
+  datasetSummary,
+  enterpriseDataEnabled,
+  onOpenSettings,
+  onResetChat,
+}) => {
+  const isDatasetActive = (enterpriseDataEnabled && datasetSummary?.enabled !== false) || datasetSummary?.enabled === true;
+
   if (!lastMetadata) {
     return (
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
@@ -21,6 +31,18 @@ export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, 
           <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
             ADK 3-Tier Sovereign Cascade
           </span>
+          {isDatasetActive && (
+            <button
+              onClick={onOpenSettings}
+              className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 text-xs font-mono border border-amber-500/40 flex items-center gap-1.5 hover:bg-amber-500/25 transition shadow-sm"
+              title="Active Australian Loan Book Ingested & Active • Click to manage Trix datasets"
+            >
+              <span>📊</span>
+              <span className="font-semibold text-amber-200">Active Loan Book:</span>
+              <span>{datasetSummary?.rowCount ?? 5} Mortgages</span>
+              <span className="hidden xl:inline text-[11px] text-amber-400/80">(AU-SYD CMEK)</span>
+            </button>
+          )}
           {buildInfo && (
             <>
               <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Active Git Branch">
@@ -115,6 +137,18 @@ export const TelemetryHeader: React.FC<TelemetryHeaderProps> = ({ lastMetadata, 
               <span className="text-slate-300">{buildInfo.buildTime}</span>
             </span>
           </>
+        )}
+        {isDatasetActive && (
+          <button
+            onClick={onOpenSettings}
+            className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 text-xs font-mono border border-amber-500/40 flex items-center gap-1.5 hover:bg-amber-500/25 transition shadow-sm"
+            title="Active Australian Loan Book Ingested & Active • Click to manage Trix datasets"
+          >
+            <span>📊</span>
+            <span className="font-semibold text-amber-200">Active Loan Book:</span>
+            <span>{datasetSummary?.rowCount ?? 5} Mortgages</span>
+            <span className="hidden xl:inline text-[11px] text-amber-400/80">(AU-SYD CMEK)</span>
+          </button>
         )}
         <span className="text-xs text-slate-400 font-mono hidden xl:inline">
           {executionLocation}

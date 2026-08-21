@@ -91,10 +91,17 @@ session_manager = ReplicatingSessionService(
 )
 
 from src.adk.pii_tokenizer import default_tokenizer, CustomPIIRule
+from src.adk.loan_lvr_tool import (
+    calculate_customer_lvr_and_serviceability,
+    get_dataset_summary,
+    ingest_loans_csv,
+    reset_default_loans,
+)
 
-# Global model, region, and custom PII rule settings store
+# Global model, region, custom PII rule, and enterprise dataset settings store
 GLOBAL_SETTINGS: Dict[str, Any] = {
     "tierSettings": get_default_tier_settings(),
+    "enterpriseDataEnabled": True,
     "customPiiRules": [
         {
             "name": "Friend & Conversational Names",
@@ -113,6 +120,7 @@ sovereign_agent = SovereignResilientAgent(
     name="sovereign_demo_agent",
     sovereignty_policy=SovereigntyPolicy.GLOBAL_CASCADE,
     session_service=session_manager,
+    tools=[calculate_customer_lvr_and_serviceability],
 )
 sentinel = RecoverySentinel(
     probe_interval_sec=5.0,
@@ -129,6 +137,7 @@ class SimulationControls(BaseModel):
     tierSettings: Optional[Dict[str, Dict[str, str]]] = None
     enablePiiTokenizer: bool = False
     customPiiRules: Optional[List[Dict[str, Any]]] = None
+    enterpriseDataEnabled: Optional[bool] = None
 
 
 class ChatRequest(BaseModel):
@@ -137,7 +146,19 @@ class ChatRequest(BaseModel):
     simulationControls: Optional[SimulationControls] = None
 
 
+class DatasetIngestRequest(BaseModel):
+    csvContent: Optional[str] = ""
+    sourceUrl: Optional[str] = None
+
+
+class DatasetToggleRequest(BaseModel):
+    enabled: bool
+
+
 class SettingsUpdateRequest(BaseModel):
+    tierSettings: Optional[Dict[str, Dict[str, str]]] = None
+    customPiiRules: Optional[List[Dict[str, Any]]] = None
+    enterpriseDataEnabled: Optional[bool] = None
     tierSettings: Optional[Dict[str, Dict[str, str]]] = None
     customPiiRules: Optional[List[Dict[str, Any]]] = None
 
@@ -378,27 +399,86 @@ async def delete_pii_rule(rule_name: str):
 
 @app.get("/api/settings")
 async def get_settings():
-    """Returns the current active model, region configuration, and custom PII rules."""
+    """Returns the current active model, region configuration, custom PII rules, and enterprise dataset status."""
     return {
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "customPiiRules": default_tokenizer.get_custom_rules(),
+        "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
         "buildInfo": get_build_info(),
     }
 
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsUpdateRequest):
-    """Updates the active model, region configuration, and custom PII rules."""
+    """Updates the active model, region configuration, custom PII rules, and enterprise dataset status."""
     if req.tierSettings:
         GLOBAL_SETTINGS["tierSettings"] = req.tierSettings
     if req.customPiiRules is not None:
         default_tokenizer.set_custom_rules(req.customPiiRules)
         GLOBAL_SETTINGS["customPiiRules"] = default_tokenizer.get_custom_rules()
+    if req.enterpriseDataEnabled is not None:
+        GLOBAL_SETTINGS["enterpriseDataEnabled"] = req.enterpriseDataEnabled
     return {
         "status": "success",
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "customPiiRules": default_tokenizer.get_custom_rules(),
+        "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
     }
+
+
+@app.get("/api/dataset")
+async def get_dataset_endpoint():
+    """Returns metadata, preview rows, and statistics for the active enterprise loan dataset."""
+    summary = get_dataset_summary()
+    summary["enabled"] = GLOBAL_SETTINGS.get("enterpriseDataEnabled", True)
+    return summary
+
+
+@app.post("/api/dataset/toggle")
+async def toggle_dataset_endpoint(req: DatasetToggleRequest):
+    """Toggles the enterprise loan dataset and LVR calculator feature on or off."""
+    GLOBAL_SETTINGS["enterpriseDataEnabled"] = req.enabled
+    return {
+        "status": "success",
+        "enabled": req.enabled,
+    }
+
+
+@app.post("/api/dataset/ingest")
+async def ingest_dataset_endpoint(req: DatasetIngestRequest):
+    """Ingests a new CSV dataset into local VM storage from raw text or Google Sheet (Trix) URL."""
+    csv_text = (req.csvContent or "").strip()
+    if req.sourceUrl and not csv_text:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(req.sourceUrl)
+                if resp.status_code == 200:
+                    csv_text = resp.text
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to fetch CSV from source URL: HTTP {resp.status_code}",
+                    )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to connect to spreadsheet source URL: {str(exc)}",
+            )
+
+    try:
+        summary = ingest_loans_csv(csv_text)
+        summary["enabled"] = GLOBAL_SETTINGS.get("enterpriseDataEnabled", True)
+        return summary
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+
+
+@app.post("/api/dataset/reset")
+async def reset_dataset_endpoint():
+    """Restores the default benchmark Australian loan portfolio dataset."""
+    summary = reset_default_loans()
+    summary["enabled"] = GLOBAL_SETTINGS.get("enterpriseDataEnabled", True)
+    return summary
 
 
 @app.get("/api/session/{session_id}")

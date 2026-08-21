@@ -1,0 +1,6 @@
+customer_id,customer_name,property_value_aud,loan_balance_aud,annual_income_aud,monthly_expenses_aud,current_interest_rate_pct,loan_term_years
+CUST-8821,Sarah Jenkins,1200000.00,980000.00,165000.00,4200.00,6.15,30
+CUST-1042,David Zhang,850000.00,510000.00,140000.00,3100.00,5.99,25
+CUST-3310,Emma Watson,650000.00,590000.00,95000.00,2800.00,6.25,30
+CUST-4491,Marcus Aurelius,2100000.00,1250000.00,320000.00,6500.00,5.85,30
+CUST-9012,Chloe Bennett,750000.00,600000.00,110000.00,3400.00,6.30,30

@@ -12,7 +12,13 @@ from .cascade_router import SovereignCascadeRouter, TierConfig, FailoverHopLog, 
 from .base_agent import SovereignResilientAgent, SovereigntyPolicy
 from .recovery_sentinel import RecoverySentinel
 from .session_service import SessionService, InMemorySessionService, RedisSessionService, ReplicatingSessionService
-from .tool_registry import extract_tool_schema, extract_tools_schemas, execute_tool_call
+from .loan_lvr_tool import (
+    calculate_customer_lvr_and_serviceability,
+    get_all_loan_customers,
+    get_dataset_summary,
+    ingest_loans_csv,
+    reset_default_loans,
+)
 
 __all__ = [
     "normalize_messages_for_gemma",
@@ -30,4 +36,9 @@ __all__ = [
     "extract_tool_schema",
     "extract_tools_schemas",
     "execute_tool_call",
+    "calculate_customer_lvr_and_serviceability",
+    "get_all_loan_customers",
+    "get_dataset_summary",
+    "ingest_loans_csv",
+    "reset_default_loans",
 ]
