@@ -173,3 +173,25 @@ export interface DatasetSummary {
   stats: DatasetStats;
   storageResidency: DatasetStorageResidency;
 }
+
+export type ArchitectureFunctionKey =
+  | 'runtime'
+  | 'modelLocation'
+  | 'model'
+  | 'memory'
+  | 'piiCleanser'
+  | 'skill'
+  | 'tool'
+  | 'storageRest';
+
+export type ArchitectureDescriptionMap = Record<ArchitectureFunctionKey, string>;
+
+export interface ArchitectureModalState {
+  type: 'function_desc' | 'tool_dataset' | 'skill_rulebook';
+  functionKey?: ArchitectureFunctionKey;
+  title?: string;
+  icon?: string;
+  activeValue?: string;
+  activeColor?: string;
+}
+

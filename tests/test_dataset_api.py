@@ -4,10 +4,12 @@
 import pytest
 from fastapi.testclient import TestClient
 from src.backend.main import app, GLOBAL_SETTINGS
+from src.adk.loan_lvr_tool import reset_default_loans
 
 
 @pytest.fixture
 def client():
+    reset_default_loans()
     return TestClient(app)
 
 

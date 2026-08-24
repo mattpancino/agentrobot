@@ -47,9 +47,9 @@ class SovereignResilientAgent:
         instruction: str = "You are a helpful and intelligent AI assistant.",
         tools: Optional[List[Callable]] = None,
         sovereignty_policy: SovereigntyPolicy = SovereigntyPolicy.GLOBAL_CASCADE,
-        t1_model: str = "gemini-1.5-pro-002",
-        t2_model: str = "gemini-1.5-flash-002",
-        t3_model: str = "google/gemma-2-9b-it",
+        t1_model: str = "gemini-3.7-flash",
+        t2_model: str = "gemini-2.5-flash",
+        t3_model: str = "google/gemma-2-2b-it",
         session_service: Optional[SessionService] = None,
     ):
         self.name = name
@@ -113,6 +113,7 @@ class SovereignResilientAgent:
         forced_tier: str = "AUTO",
         tier_settings: Optional[Dict[str, Any]] = None,
         enable_pii_tokenizer: bool = False,
+        tools: Optional[List[Callable]] = None,
     ) -> Dict[str, Any]:
         """
         Parent Agent capability: Delegate execution to a specialized subagent by passing
@@ -132,6 +133,7 @@ class SovereignResilientAgent:
             forced_tier=forced_tier,
             tier_settings=tier_settings,
             enable_pii_tokenizer=enable_pii_tokenizer,
+            tools=tools,
         )
 
     async def run(
@@ -143,6 +145,7 @@ class SovereignResilientAgent:
         forced_tier: str = "AUTO",
         tier_settings: Optional[Dict[str, Any]] = None,
         enable_pii_tokenizer: bool = False,
+        tools: Optional[List[Callable]] = None,
     ) -> Dict[str, Any]:
         """
         Executes a turn through the resilient sovereign cascade router with declarative tools.
@@ -153,6 +156,8 @@ class SovereignResilientAgent:
         if effective_forced_tier == "AUTO":
             effective_forced_tier = self.enforce_policy_on_session(session_state)
 
+        effective_tools = tools if tools is not None else self.tools
+
         result = await self.router.execute_turn(
             session_state=session_state,
             prompt=prompt,
@@ -161,7 +166,7 @@ class SovereignResilientAgent:
             failed_tiers=failed_tiers,
             forced_tier=effective_forced_tier,
             tier_settings=tier_settings,
-            tools=self.tools,
+            tools=effective_tools,
             enable_pii_tokenizer=enable_pii_tokenizer,
         )
 

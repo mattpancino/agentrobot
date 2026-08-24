@@ -259,4 +259,78 @@ def test_api_build_info():
     assert data_models["buildInfo"]["branch"] == data_build["branch"]
 
 
+def test_enclave_status_when_vm_stopped(monkeypatch):
+    """Verify that when the VM is stopped/terminated in GCP, tunnelActive is False and modelLoaded is None."""
+    from src.backend import main
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(main.subprocess, "check_output", lambda *args, **kwargs: "TERMINATED\n")
+
+    res = client.get("/api/enclave/status")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["vmStatus"] == "TERMINATED"
+    assert data["tunnelActive"] is False
+    assert data["modelLoaded"] == "None"
+
+
+def test_api_architecture_descriptions():
+    """Verify that architecture descriptions can be updated and retrieved via /api/settings and /api/models."""
+    custom_desc = {
+        "runtime": "Custom sandboxed execution environment.",
+        "model": "Custom model routing description.",
+    }
+    # Update settings
+    post_res = client.post("/api/settings", json={"architectureDescriptions": custom_desc})
+    assert post_res.status_code == 200
+    post_data = post_res.json()
+    assert "architectureDescriptions" in post_data
+    assert post_data["architectureDescriptions"]["runtime"] == "Custom sandboxed execution environment."
+
+    # Get settings
+    get_res = client.get("/api/settings")
+    assert get_res.status_code == 200
+    get_data = get_res.json()
+    assert get_data["architectureDescriptions"]["runtime"] == "Custom sandboxed execution environment."
+
+    # Get models
+    models_res = client.get("/api/models")
+    assert models_res.status_code == 200
+    models_data = models_res.json()
+    assert "architectureDescriptions" in models_data
+    assert models_data["architectureDescriptions"]["runtime"] == "Custom sandboxed execution environment."
+
+
+def test_api_demo_reset():
+    """Verify that /api/demo/reset clears all session stores, resets stages to Stage 1, and verifies Tier 3."""
+    # First, populate a session with messages
+    client.post(
+        "/api/chat",
+        json={
+            "sessionId": "demo-reset-test-session",
+            "message": "Remember this secret session data",
+            "simulationControls": {"forcedTier": "AUTO", "enterpriseDataEnabled": True},
+        },
+    )
+
+    # Perform demo reset
+    res = client.post("/api/demo/reset")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert data["stage"] == 1
+    assert data["memoryCleared"] is True
+    assert data["enterpriseDataEnabled"] is False
+    assert "tier3" in data
+    assert data["tier3"]["gemmaAccessible"] is True
+    assert "datasetSummary" in data
+
+    # Verify session was purged
+    session_res = client.get("/api/session/demo-reset-test-session")
+    assert session_res.status_code == 200
+    session_data = session_res.json()
+    assert session_data.get("messages") == []
+
+
+
+
 

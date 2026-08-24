@@ -47,6 +47,11 @@ class SessionService(ABC):
         """Persist private scratchpad memory scoped exclusively to the specified agent."""
         pass
 
+    @abstractmethod
+    async def clear_all_sessions(self) -> None:
+        """Purges all conversation context, message streams, and private session memory."""
+        pass
+
 
 class InMemorySessionService(SessionService):
     """
@@ -56,6 +61,9 @@ class InMemorySessionService(SessionService):
 
     def __init__(self, initial_store: Optional[Dict[str, Dict[str, Any]]] = None):
         self._store: Dict[str, Dict[str, Any]] = copy.deepcopy(initial_store) if initial_store is not None else {}
+
+    async def clear_all_sessions(self) -> None:
+        self._store.clear()
 
     async def get_session(self, session_id: str) -> Dict[str, Any]:
         key = f"session:{session_id}"
@@ -161,6 +169,19 @@ class ResilientRedisClient:
                 self._redis_client = None
         return True
 
+    async def flushdb(self) -> bool:
+        self._fallback_store.clear()
+        client = await self._get_client()
+        if client:
+            try:
+                await asyncio.wait_for(client.flushdb(), timeout=0.5)
+                return True
+            except Exception:
+                import time
+                self._last_connect_attempt = time.time()
+                self._redis_client = None
+        return True
+
 
 class RedisSessionService(SessionService):
     """
@@ -170,6 +191,10 @@ class RedisSessionService(SessionService):
     def __init__(self, redis_client: Any):
         self.redis = redis_client
         self.ttl_seconds = 86400  # 24 hours default expiry
+
+    async def clear_all_sessions(self) -> None:
+        if hasattr(self.redis, "flushdb"):
+            await self.redis.flushdb()
 
     async def get_session(self, session_id: str) -> Dict[str, Any]:
         key = f"session:{session_id}"
@@ -236,6 +261,19 @@ class ReplicatingSessionService(SessionService):
             f"[{now_str}] [ReplicationWatchdog] Standby replication listener active for zero-loss failover.",
         ]
 
+    async def clear_all_sessions(self) -> None:
+        """Purges both Tier 2 and Tier 3 session stores and resets sync logs."""
+        await asyncio.gather(
+            self.tier2.clear_all_sessions(),
+            self.tier3.clear_all_sessions(),
+            return_exceptions=True,
+        )
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        self.sync_logs = [
+            f"[{now_str}] [DemoReset] All session and private memory stores flushed (Tier 2 DB 0 & Tier 3 DB 1).",
+            f"[{now_str}] [ReplicationWatchdog] Standby replication listener active for zero-loss failover.",
+        ]
+
     def _track_task(self, coro: Any) -> asyncio.Task:
         task = asyncio.create_task(coro)
         self._background_tasks.add(task)
@@ -254,12 +292,27 @@ class ReplicatingSessionService(SessionService):
             self.tier3.get_session(session_id),
         )
 
+        merged_vault = dict(t3_state.get("pii_vault", {}))
+        merged_vault.update(t2_state.get("pii_vault", {}))
+
         t2_msgs = t2_state.get("messages", [])
         t3_msgs = t3_state.get("messages", [])
 
         if len(t3_msgs) > len(t2_msgs):
-            return t3_state
-        return t2_state
+            selected = copy.deepcopy(t3_state)
+        else:
+            selected = copy.deepcopy(t2_state)
+
+        selected["pii_vault"] = merged_vault
+
+        t2_tok = t2_state.get("tokenized_messages", [])
+        t3_tok = t3_state.get("tokenized_messages", [])
+        if len(t3_tok) > len(selected.get("tokenized_messages", [])):
+            selected["tokenized_messages"] = list(t3_tok)
+        elif len(t2_tok) > len(selected.get("tokenized_messages", [])):
+            selected["tokenized_messages"] = list(t2_tok)
+
+        return selected
 
     async def save_session(self, session_id: str, state: Dict[str, Any]) -> None:
         """

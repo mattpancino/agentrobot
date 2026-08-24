@@ -53,6 +53,18 @@ def test_loan_e2e_tier_1_sarah_jenkins_lvr():
     assert "MANDATORY" in content or "LMI" in content
     assert "5,970.44" in content
 
+    # Verify Zero-PII Egress Protection
+    assert meta.get("tokenizedPrompt") is not None
+    assert "[[PII_PERSON_" in meta["tokenizedPrompt"]
+    assert "Sarah Jenkins" not in meta["tokenizedPrompt"]
+
+    assert meta.get("tokenizedResponse") is not None
+    assert "[[PII_PERSON_" in meta["tokenizedResponse"]
+    assert "Sarah Jenkins" not in meta["tokenizedResponse"]
+
+    assert data.get("tokenizedContent") is not None
+    assert "Sarah Jenkins" not in data["tokenizedContent"]
+
 
 def test_loan_e2e_tier_2_david_zhang_apra_stress():
     """Verify Tier 2 Regional Agent (AU-SYD) executes tool for David Zhang (CUST-1042)."""
@@ -80,9 +92,18 @@ def test_loan_e2e_tier_2_david_zhang_apra_stress():
     assert "4,290.26" in content
     assert "PASSED" in content or "PASS" in content
 
+    # Verify Zero-PII Egress Protection
+    assert meta.get("tokenizedPrompt") is not None
+    assert "[[PII_PERSON_" in meta["tokenizedPrompt"]
+    assert "David Zhang" not in meta["tokenizedPrompt"]
+
+    assert meta.get("tokenizedResponse") is not None
+    assert "[[PII_PERSON_" in meta["tokenizedResponse"]
+    assert "David Zhang" not in meta["tokenizedResponse"]
+
 
 def test_loan_e2e_tier_3_emma_watson_sovereign_enclave():
-    """Verify Tier 3 Sovereign Enclave Agent executes tool for Emma Watson (CUST-3310)."""
+    """Verify Tier 3 On-Prem Agent executes tool for Emma Watson (CUST-3310)."""
     response = client.post(
         "/api/chat",
         json={
@@ -105,6 +126,15 @@ def test_loan_e2e_tier_3_emma_watson_sovereign_enclave():
     assert "90.77%" in content
     assert "3,632.73" in content
     assert "MANDATORY" in content or "LMI" in content
+
+    # Verify Zero-PII Egress Protection
+    assert meta.get("tokenizedPrompt") is not None
+    assert "[[PII_PERSON_" in meta["tokenizedPrompt"]
+    assert "Emma Watson" not in meta["tokenizedPrompt"]
+
+    assert meta.get("tokenizedResponse") is not None
+    assert "[[PII_PERSON_" in meta["tokenizedResponse"]
+    assert "Emma Watson" not in meta["tokenizedResponse"]
 
 
 def test_loan_e2e_failover_cascade_with_tool():
@@ -191,3 +221,83 @@ def test_loan_e2e_pii_shield_and_tool_interoperability():
     content = data["content"]
     assert "Sarah Jenkins" in content or "CUST-8821" in content
     assert "81.67%" in content
+
+
+def test_loan_e2e_paydown_scenario():
+    """Verify follow-up paydown hypothetical calculation without CUST- ID in prompt."""
+    response = client.post(
+        "/api/chat",
+        json={
+            "sessionId": "e2e-paydown-sess",
+            "message": "If Sarah Jenkins pays down $50,000 off her loan balance, what is her new LVR and does she still need LMI?",
+            "simulationControls": {
+                "forcedTier": "TIER_1_GLOBAL",
+                "enablePiiTokenizer": True,
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    content = data["content"]
+    assert "77.50%" in content
+    assert "NO LONGER REQUIRED" in content or "not required" in content.lower() or "80" in content
+
+
+def test_loan_e2e_comparative_tier_switch():
+    """
+    Verify multi-turn flow:
+    Turn 1 (Tier 1): Query Emma Watson LVR.
+    Turn 2 (Tier 3): Switch to Tier 3 Airgap and query 'Compare Emma Watson's LVR risk tier against Sarah Jenkins'.
+    Verify both entities are queried, tool executes for both, and comparative table is synthesized.
+    """
+    session_id = "e2e-comparative-switch-sess"
+
+    # Turn 1: Emma Watson on Tier 1
+    t1_res = client.post(
+        "/api/chat",
+        json={
+            "sessionId": session_id,
+            "message": "Calculate LVR for Emma Watson",
+            "simulationControls": {
+                "forcedTier": "TIER_1_GLOBAL",
+                "enablePiiTokenizer": True,
+            },
+        },
+    )
+    assert t1_res.status_code == 200
+    t1_data = t1_res.json()
+    assert "90.77%" in t1_data["content"]
+
+    # Turn 2: Compare Emma Watson against Sarah Jenkins on Tier 3
+    t2_res = client.post(
+        "/api/chat",
+        json={
+            "sessionId": session_id,
+            "message": "Compare Emma Watson's LVR risk tier against Sarah Jenkins",
+            "simulationControls": {
+                "forcedTier": "TIER_3_SOVEREIGN",
+                "enablePiiTokenizer": True,
+            },
+        },
+    )
+    assert t2_res.status_code == 200
+    t2_data = t2_res.json()
+    t2_meta = t2_data["executionMetadata"]
+    assert t2_meta["activeTier"] == "TIER_3_SOVEREIGN"
+
+    t2_content = t2_data["content"]
+    # Verify BOTH customers are present in comparative report
+    assert "Emma Watson" in t2_content or "CUST-3310" in t2_content
+    assert "Sarah Jenkins" in t2_content or "CUST-8821" in t2_content
+    assert "90.77%" in t2_content
+    assert "81.67%" in t2_content
+    assert "Comparative" in t2_content or "Assessment" in t2_content
+
+    # Verify toolCalls dispatched both customers
+    tool_calls = t2_meta.get("toolCalls", [])
+    assert len(tool_calls) == 2
+    cids_queried = [tc.get("arguments", {}).get("customer_id") for tc in tool_calls]
+    assert "CUST-3310" in cids_queried or "Emma Watson" in cids_queried
+    assert "CUST-8821" in cids_queried or "Sarah Jenkins" in cids_queried
+
+

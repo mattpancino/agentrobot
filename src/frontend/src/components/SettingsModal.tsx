@@ -1,6 +1,20 @@
 // Copyright 2026 Google LLC. All Rights Reserved.
 import React, { useState, useEffect } from 'react';
-import { RegionInfo, TierSettingsMap, RedisSyncTelemetry, SimulationControls, CustomPIIRule, DatasetSummary, LoanCustomerRow } from '../types';
+import {
+  RegionInfo,
+  TierSettingsMap,
+  RedisSyncTelemetry,
+  SimulationControls,
+  CustomPIIRule,
+  DatasetSummary,
+  LoanCustomerRow,
+  ArchitectureDescriptionMap,
+  ArchitectureFunctionKey,
+} from '../types';
+import {
+  DEFAULT_ARCHITECTURE_DESCRIPTIONS,
+  ARCHITECTURE_FUNCTION_METADATA,
+} from '../defaultArchitectureDescriptions';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -11,6 +25,9 @@ interface SettingsModalProps {
   controls?: SimulationControls;
   onUpdateControls?: (updated: SimulationControls) => void;
   onDatasetUpdate?: (updatedDataset: DatasetSummary) => void;
+  architectureDescriptions?: ArchitectureDescriptionMap;
+  onSaveArchitectureDescriptions?: (updated: ArchitectureDescriptionMap) => void;
+  initialTab?: string;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -22,9 +39,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   controls,
   onUpdateControls,
   onDatasetUpdate,
+  architectureDescriptions,
+  onSaveArchitectureDescriptions,
+  initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'tiers' | 'catalog' | 'dataset' | 'enclave' | 'logs' | 'pii'>('tiers');
+  const [activeTab, setActiveTab] = useState<'tiers' | 'catalog' | 'dataset' | 'enclave' | 'logs' | 'pii' | 'architecture'>('tiers');
   const [localSettings, setLocalSettings] = useState<TierSettingsMap>(tierSettings);
+  const [archDescriptions, setArchDescriptions] = useState<ArchitectureDescriptionMap>(
+    architectureDescriptions || DEFAULT_ARCHITECTURE_DESCRIPTIONS
+  );
+  const [archSavedMsg, setArchSavedMsg] = useState<string | null>(null);
   const [customRules, setCustomRules] = useState<CustomPIIRule[]>([]);
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
@@ -98,7 +122,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     setLocalSettings(tierSettings);
-  }, [tierSettings, isOpen]);
+    if (architectureDescriptions) {
+      setArchDescriptions(architectureDescriptions);
+    }
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab as any);
+    }
+  }, [tierSettings, architectureDescriptions, isOpen, initialTab]);
 
   useEffect(() => {
     if (isOpen) {
@@ -389,8 +419,28 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
     setLocalSettings(defaults);
   };
 
+  const handleSaveArchitecture = () => {
+    if (onSaveArchitectureDescriptions) {
+      onSaveArchitectureDescriptions(archDescriptions);
+    }
+    setArchSavedMsg('Architecture descriptions successfully saved.');
+    setTimeout(() => setArchSavedMsg(null), 3000);
+  };
+
+  const handleResetArchitectureDefaults = () => {
+    setArchDescriptions(DEFAULT_ARCHITECTURE_DESCRIPTIONS);
+    if (onSaveArchitectureDescriptions) {
+      onSaveArchitectureDescriptions(DEFAULT_ARCHITECTURE_DESCRIPTIONS);
+    }
+    setArchSavedMsg('Reset all function descriptions to default specifications.');
+    setTimeout(() => setArchSavedMsg(null), 3000);
+  };
+
   const handleSave = () => {
     onSaveSettings(localSettings);
+    if (onSaveArchitectureDescriptions) {
+      onSaveArchitectureDescriptions(archDescriptions);
+    }
     onClose();
   };
 
@@ -576,6 +626,16 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
             }`}
           >
             <span>📜</span> Live Enclave Telemetry Logs
+          </button>
+          <button
+            onClick={() => setActiveTab('architecture')}
+            className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'architecture'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>🏛️</span> Architecture &amp; Function Info
           </button>
         </div>
 
@@ -782,9 +842,9 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   <div className="space-y-1">
                     <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Local Enclave Mirror</span>
                     <span className="text-emerald-300 font-semibold text-[11px] block">
-                      /src/data/customer_loans.csv
+                      /var/sovereign/data/customer_loans.csv
                     </span>
-                    <span className="text-slate-400 text-[10px]">Airgapped Enclave Synchronized</span>
+                    <span className="text-slate-400 text-[10px]">sovereign-gemma-2b-vm (Port 8003)</span>
                   </div>
                   <div className="space-y-1">
                     <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Active Working Memory</span>
@@ -1758,6 +1818,148 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 <p className="text-slate-500 text-[11px] pt-1">
                   When disabled, the view switcher is hidden and standard direct pass-through is utilized.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'architecture' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Notification Banner */}
+              {archSavedMsg && (
+                <div className="p-3 rounded-xl flex items-center justify-between text-xs border bg-emerald-500/10 border-emerald-500/30 text-emerald-300">
+                  <span className="flex items-center gap-2">
+                    <span>✅</span>
+                    <span>{archSavedMsg}</span>
+                  </span>
+                  <button onClick={() => setArchSavedMsg(null)} className="text-slate-400 hover:text-white">
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Master Header Card */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border text-blue-400 bg-blue-500/10 border-blue-500/30">
+                        ARCHITECTURE &amp; INTERACTIVE POPUPS
+                      </span>
+                      <h3 className="text-sm font-semibold text-white">
+                        Sovereign Function Descriptions &amp; Documentation
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                      Customize the descriptions displayed in popups when clicking on function icons in the Active Sovereign Agent architecture card.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleResetArchitectureDefaults}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition"
+                    >
+                      Reset All Defaults
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveArchitecture}
+                      className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition"
+                    >
+                      Save Descriptions
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 8 Configurable Function Cards */}
+              <div className="space-y-4">
+                {(
+                  [
+                    'runtime',
+                    'modelLocation',
+                    'model',
+                    'memory',
+                    'piiCleanser',
+                    'skill',
+                    'tool',
+                    'storageRest',
+                  ] as ArchitectureFunctionKey[]
+                ).map((key) => {
+                  const meta = ARCHITECTURE_FUNCTION_METADATA[key];
+                  const currentDesc = archDescriptions[key] || DEFAULT_ARCHITECTURE_DESCRIPTIONS[key];
+                  const isModified = currentDesc !== DEFAULT_ARCHITECTURE_DESCRIPTIONS[key];
+
+                  return (
+                    <div
+                      key={key}
+                      className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5 hover:border-slate-700 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{meta.icon}</span>
+                          <span className="text-xs font-bold text-white uppercase tracking-wide">
+                            {meta.label}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-slate-900 border border-slate-800 text-slate-400">
+                            {meta.category}
+                          </span>
+                        </div>
+
+                        {isModified && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setArchDescriptions((prev) => ({
+                                ...prev,
+                                [key]: DEFAULT_ARCHITECTURE_DESCRIPTIONS[key],
+                              }))
+                            }
+                            className="text-[10px] text-amber-400 hover:text-amber-300 underline"
+                          >
+                            Reset this item
+                          </button>
+                        )}
+                      </div>
+
+                      <textarea
+                        rows={2}
+                        value={currentDesc}
+                        onChange={(e) =>
+                          setArchDescriptions((prev) => ({
+                            ...prev,
+                            [key]: e.target.value,
+                          }))
+                        }
+                        className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-sans leading-relaxed"
+                        placeholder={`Enter description for ${meta.label}...`}
+                      />
+
+                      <div className="text-[10px] text-slate-500 font-sans flex items-center justify-between">
+                        <span>{meta.technicalDoc}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleResetArchitectureDefaults}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+                >
+                  Reset All to Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveArchitecture}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition"
+                >
+                  Save &amp; Apply Descriptions
+                </button>
               </div>
             </div>
           )}

@@ -45,9 +45,9 @@ graph TD
     end
 
     subgraph T3 ["TIER 3: AIRGAPPED SOVEREIGN ENCLAVE (CRISIS / DR)"]
-        G3["Self-Hosted Gemma 2<br/>(Private Isolated VPC via vLLM)"]
+        G3["Self-Hosted Gemma 2<br/>(Private Isolated VPC via Ollama)"]
         M3[("Tier 3 Standby Redis Replica<br/>(Local In-Memory Cache)")]
-        S3[("Airgapped Local Storage<br/>`/src/data/customer_loans.csv`<br/>(Encrypted Local Disk Mirror)")]
+        S3[("Airgapped Enclave Storage<br/>`/var/sovereign/data/customer_loans.csv`<br/>(sovereign-gemma-2b-vm Enclave Disk)")]
     end
 
     T1 -->|"1. Inference Call"| G1
@@ -72,7 +72,7 @@ graph TD
 | :--- | :--- | :--- | :--- | :--- |
 | **Tier 1 (Global Frontier)** | 🔵 **Global Hyperscaler API** (`generativelanguage.googleapis.com`) | 🟡 **Vertex AI Sessions** (`australia-southeast1`) | 🟡 **Regional GCS Bucket** (`gs://au-fsi-customer-assets/` in **`australia-southeast1` CMEK**) | 🔵 Blue Inference / 🟡 Amber Storage |
 | **Tier 2 (Regional AU)** | 🟡 **In-Country Vertex AI** (`australia-southeast1`) | 🟡 **Vertex AI Sessions / Redis** (`australia-southeast1`) | 🟡 **Regional GCS Bucket** (`gs://au-fsi-customer-assets/` in **`australia-southeast1` CMEK**) | 🟡 Amber Compute & Storage |
-| **Tier 3 (Airgapped VPC)** | 🟢 **Self-Hosted Gemma 2** (Private Isolated VPC) | 🟢 **Standby Redis Replica** (Airgapped Local DB 1) | 🟢 **Local Enclave Disk** (`/src/data/customer_loans.csv`) | 🟢 Emerald Airgapped Enclave |
+| **Tier 3 (Airgapped VPC)** | 🟢 **Self-Hosted Gemma 2** (Private Isolated VPC) | 🟢 **Standby Redis Replica** (Airgapped Local DB 1) | 🟢 **Local Enclave Disk** (`/var/sovereign/data/customer_loans.csv` on `sovereign-gemma-2b-vm`) | 🟢 Emerald Airgapped Enclave |
 
 ---
 
@@ -86,7 +86,7 @@ sequenceDiagram
     actor User as Wealth Advisor / Operator
     participant UI as Settings Modal (Enterprise Data Tab)
     participant API as FastAPI Gateway (/api/dataset)
-    participant Disk as Local VM Storage (/src/data/customer_loans.csv)
+    participant Disk as Tier 3 Enclave Storage (/var/sovereign/data/customer_loans.csv)
     participant Tool as Python LVR Tool (loan_lvr_tool.py)
     participant Router as Sovereign Cascade Router
 

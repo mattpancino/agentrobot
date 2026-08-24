@@ -70,3 +70,25 @@ async def test_resilient_redis_cooldown_fast_fail(monkeypatch):
     assert time.time() - t1 < 0.05
     assert val2 == "val1"
 
+
+@pytest.mark.asyncio
+async def test_session_service_clear_all():
+    """Verify that clear_all_sessions flushes both shared sessions and private agent memories."""
+    service = InMemorySessionService()
+    session_id = "test-clear-all"
+
+    # Add shared session and private memory
+    await service.save_session(session_id, {"session_id": session_id, "messages": [{"role": "user", "content": "Hi"}]})
+    await service.save_private_memory(session_id, "agent_1", {"scratchpad": "data"})
+
+    # Clear all
+    await service.clear_all_sessions()
+
+    # Verify session was reset
+    fetched_session = await service.get_session(session_id)
+    assert fetched_session["messages"] == []
+
+    fetched_private = await service.get_private_memory(session_id, "agent_1")
+    assert fetched_private == {}
+
+

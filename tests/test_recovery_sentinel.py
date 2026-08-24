@@ -135,3 +135,22 @@ def test_mock_gemma_server_chat_completions(gemma_client):
     assert "zero external egress" in reply_content
     assert data["usage"]["total_tokens"] > 0
 
+
+def test_mock_gemma_server_rejected_when_vm_stopped(gemma_client, monkeypatch):
+    """Verify that mock_gemma_server returns 503 when the sovereign VM is stopped."""
+    from src.backend import mock_gemma_server
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("ENABLE_MOCK_TIER3", raising=False)
+    monkeypatch.setattr(mock_gemma_server.subprocess, "check_output", lambda *args, **kwargs: "TERMINATED\n")
+
+    res_models = gemma_client.get("/v1/models")
+    assert res_models.status_code == 503
+    assert "stopped or terminated" in res_models.json()["detail"]
+
+    res_chat = gemma_client.post("/v1/chat/completions", json={
+        "model": "google/gemma-2-2b-it",
+        "messages": [{"role": "user", "content": "hello"}],
+    })
+    assert res_chat.status_code == 503
+    assert "stopped or terminated" in res_chat.json()["detail"]
+

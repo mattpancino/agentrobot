@@ -1,13 +1,17 @@
 // Copyright 2026 Google LLC. All Rights Reserved.
-import React from 'react';
-import { SimulationControls, ExecutionMetadata } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { SimulationControls, ExecutionMetadata, ArchitectureModalState } from '../types';
 
 interface ChaosPanelProps {
   controls: SimulationControls;
   onChange: (updated: SimulationControls) => void;
   metadataList: ExecutionMetadata[];
   onResetChat: () => void;
-  onOpenSettings?: () => void;
+  onResetDemo?: () => void;
+  isResettingDemo?: boolean;
+  onOpenSettings?: (tab?: string) => void;
+  onSelectStage?: (stage: number) => void;
+  onOpenArchitectureModal?: (modalState: ArchitectureModalState) => void;
 }
 
 export const ChaosPanel: React.FC<ChaosPanelProps> = ({
@@ -15,12 +19,86 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
   onChange,
   metadataList,
   onResetChat,
+  onResetDemo,
+  isResettingDemo,
+  onOpenSettings,
+  onSelectStage,
+  onOpenArchitectureModal,
 }) => {
+  // Collapsible panels state (default closed, 5s inactivity auto-close)
+  const [isOverrideOpen, setIsOverrideOpen] = useState(false);
+  const [isStagesOpen, setIsStagesOpen] = useState(false);
+
+  const overrideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const stagesTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetOverrideTimer = () => {
+    if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+    overrideTimerRef.current = setTimeout(() => {
+      setIsOverrideOpen(false);
+    }, 5000);
+  };
+
+  const resetStagesTimer = () => {
+    if (stagesTimerRef.current) clearTimeout(stagesTimerRef.current);
+    stagesTimerRef.current = setTimeout(() => {
+      setIsStagesOpen(false);
+    }, 5000);
+  };
+
+  const handleToggleOverride = () => {
+    setIsOverrideOpen((prev) => {
+      const next = !prev;
+      if (next) resetOverrideTimer();
+      else if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+      return next;
+    });
+  };
+
+  const handleToggleStages = () => {
+    setIsStagesOpen((prev) => {
+      const next = !prev;
+      if (next) resetStagesTimer();
+      else if (stagesTimerRef.current) clearTimeout(stagesTimerRef.current);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+      if (stagesTimerRef.current) clearTimeout(stagesTimerRef.current);
+    };
+  }, []);
   // Aggregate stats
   const totalTurns = metadataList.length;
   const failoverTurns = metadataList.filter((m) => m.failoverOccurred).length;
   const stickyTurns = metadataList.filter((m) => m.routingMode === 'STICKY_FALLBACK').length;
   const totalSavedMs = metadataList.reduce((acc, m) => acc + (m.wastedLatencyAvoidedMs || 0), 0);
+
+  const currentStage =
+    controls.enablePiiTokenizer && controls.enterpriseDataEnabled
+      ? 3
+      : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+      ? 2
+      : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+      ? 1
+      : 0;
+
+  const handleStageSelect = (stage: number) => {
+    if (onSelectStage) {
+      onSelectStage(stage);
+    } else {
+      if (stage === 1) {
+        onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+      } else if (stage === 2) {
+        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+      } else if (stage === 3) {
+        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
+      }
+      onResetChat();
+    }
+  };
 
   const handleForcedTierChange = (tier: SimulationControls['forcedTier']) => {
     onChange({
@@ -68,7 +146,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
 
   const getAgentCharacter = () => {
     let piiCleanserText = 'Disabled (Bypassed)';
-    let piiCleanserColor = 'text-slate-500 font-semibold';
+    let piiCleanserColor = 'text-slate-500 font-normal';
     if (controls.enablePiiTokenizer) {
       if (activeTier === 'TIER_3_SOVEREIGN') {
         piiCleanserText = 'Enclave Sidecar (AU-SYD)';
@@ -82,24 +160,57 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
       }
     }
 
-    const skillText = activeTier === 'TIER_3_SOVEREIGN'
-      ? 'APRA Enclave Rulebook (Local VPC)'
-      : 'APRA Mortgage Underwriter (AU-SYD)';
-    const skillColor = activeTier === 'TIER_3_SOVEREIGN'
-      ? 'text-emerald-400 font-semibold'
-      : 'text-amber-400 font-semibold';
+    let skillText = 'Standard Base Agent (No Domain Rules)';
+    let skillColor = 'text-slate-500 font-normal';
+    if (controls.enterpriseDataEnabled) {
+      skillText = activeTier === 'TIER_3_SOVEREIGN'
+        ? 'APRA Enclave Rulebook (Local VPC)'
+        : 'APRA Mortgage Underwriter (AU-SYD)';
+      skillColor = activeTier === 'TIER_3_SOVEREIGN'
+        ? 'text-emerald-400 font-semibold'
+        : 'text-amber-400 font-semibold';
+    }
 
-    const toolText = activeTier === 'TIER_3_SOVEREIGN'
-      ? 'calculate_customer_lvr (Airgap Enclave)'
-      : 'calculate_customer_lvr (Local VM Engine)';
-    const toolColor = 'text-emerald-400 font-semibold';
+    let toolText = 'Disabled (Standard LLM Only)';
+    let toolColor = 'text-slate-500 font-normal';
+    if (controls.enterpriseDataEnabled) {
+      toolText = activeTier === 'TIER_3_SOVEREIGN'
+        ? 'calculate_customer_lvr (Airgap Enclave)'
+        : 'calculate_customer_lvr (Local VM Engine)';
+      toolColor = 'text-emerald-400 font-semibold';
+    }
 
-    const storageRestText = activeTier === 'TIER_3_SOVEREIGN'
-      ? 'Local Enclave Disk Mirror (/src/data)'
-      : 'gs://au-fsi-customer-assets/ (AU-SYD CMEK)';
-    const storageRestColor = activeTier === 'TIER_3_SOVEREIGN'
-      ? 'text-emerald-400 font-semibold'
-      : 'text-amber-400 font-semibold';
+    let storageRestText = activeTier === 'TIER_3_SOVEREIGN'
+      ? 'Local Redis Replica (/dev/shm)'
+      : 'Vertex AI Managed Sessions (AU-SYD)';
+    let storageRestColor = 'text-slate-400 font-normal';
+    if (controls.enterpriseDataEnabled) {
+      storageRestText = activeTier === 'TIER_3_SOVEREIGN'
+        ? 'Local Enclave Disk Mirror (/src/data)'
+        : 'gs://au-fsi-customer-assets/ (AU-SYD CMEK)';
+      storageRestColor = activeTier === 'TIER_3_SOVEREIGN'
+        ? 'text-emerald-400 font-semibold'
+        : 'text-amber-400 font-semibold';
+    }
+
+    const getModelDisplayName = (tier: string) => {
+      const configuredModel = controls.tierSettings?.[tier]?.model;
+      if (configuredModel) {
+        if (configuredModel === 'gemini-3.7-flash') return 'Gemini 3.7 Flash';
+        if (configuredModel === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
+        if (configuredModel === 'gemini-1.5-pro-002') return 'Gemini 1.5 Pro (002)';
+        if (configuredModel === 'gemini-1.5-flash-002') return 'Gemini 1.5 Flash (002)';
+        if (configuredModel === 'gemini-2.0-flash-001') return 'Gemini 2.0 Flash (001)';
+        if (configuredModel === 'gemini-2.0-pro-exp-02-05') return 'Gemini 2.0 Pro Experimental';
+        if (configuredModel === 'gemini-1.0-pro-002') return 'Gemini 1.0 Pro (002)';
+        if (configuredModel === 'gemini-1.5-flash-001') return 'Gemini 1.5 Flash (001)';
+        if (configuredModel.includes('gemma')) return 'Gemma 2 (Self-Hosted)';
+        return configuredModel;
+      }
+      if (tier === 'TIER_1_GLOBAL') return 'Gemini 3.7 Flash';
+      if (tier === 'TIER_2_REGIONAL') return 'Gemini 2.5 Flash';
+      return 'Gemma 2 (Self-Hosted)';
+    };
 
     switch (activeTier) {
       case 'TIER_2_REGIONAL':
@@ -107,8 +218,10 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           name: 'Regional Agent',
           runtime: 'Vertex AI Agent Engine (AU-SYD)',
           runtimeColor: 'text-amber-400 font-semibold',
-          inference: 'In-Country Vertex AI (AU-SYD)',
-          inferenceColor: 'text-amber-400 font-semibold',
+          modelLocation: 'Sydney (AU-SYD)',
+          modelLocationColor: 'text-amber-400 font-semibold',
+          model: getModelDisplayName('TIER_2_REGIONAL'),
+          modelColor: 'text-amber-400 font-semibold',
           memory: 'Vertex AI Managed Sessions (AU-SYD)',
           memoryColor: 'text-amber-400 font-semibold',
           piiCleanser: piiCleanserText,
@@ -127,11 +240,13 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
         };
       case 'TIER_3_SOVEREIGN':
         return {
-          name: 'Sovereign Enclave Agent',
+          name: 'On-Prem Agent',
           runtime: 'Private Isolated VPC Enclave',
           runtimeColor: 'text-emerald-400 font-semibold',
-          inference: 'Self-Hosted Gemma 2 (Local)',
-          inferenceColor: 'text-emerald-400 font-semibold',
+          modelLocation: 'Enclave Airgap (AU-SYD)',
+          modelLocationColor: 'text-emerald-400 font-semibold',
+          model: getModelDisplayName('TIER_3_SOVEREIGN'),
+          modelColor: 'text-emerald-400 font-semibold',
           memory: 'Tier 3 Local Standby Replica',
           memoryColor: 'text-emerald-400 font-semibold',
           piiCleanser: piiCleanserText,
@@ -154,8 +269,10 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           name: 'Global Frontier Agent',
           runtime: 'Vertex AI Agent Engine (AU-SYD)',
           runtimeColor: 'text-amber-400 font-semibold',
-          inference: 'Global Hyperscaler API',
-          inferenceColor: 'text-blue-400 font-semibold',
+          modelLocation: 'Global Multi-Region',
+          modelLocationColor: 'text-blue-400 font-semibold',
+          model: getModelDisplayName('TIER_1_GLOBAL'),
+          modelColor: 'text-blue-400 font-semibold',
           memory: 'Vertex AI Managed Sessions (AU-SYD)',
           memoryColor: 'text-amber-400 font-semibold',
           piiCleanser: piiCleanserText,
@@ -262,50 +379,247 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
             </div>
           </div>
 
-          {/* Integrated Architecture Elements for Active Tier (Color-coded by location) */}
-          <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-2 text-[11px] font-mono leading-tight">
-            <div className="flex items-start justify-between gap-2 text-slate-400">
-              <span className="text-slate-500 shrink-0">⚙️ Runtime:</span>
+          {/* Integrated Architecture Elements for Active Tier (Interactive Popups) */}
+          <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5 text-[11px] font-mono leading-tight">
+            {/* 1. Runtime */}
+            <div
+              onClick={() =>
+                onOpenArchitectureModal?.({
+                  type: 'function_desc',
+                  functionKey: 'runtime',
+                  title: '⚙️ Execution Runtime',
+                  icon: '⚙️',
+                  activeValue: agentChar.runtime,
+                  activeColor: agentChar.runtimeColor,
+                })
+              }
+              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+              title="Click to view Execution Runtime architecture & role"
+            >
+              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                <span>⚙️</span>
+                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                  Runtime:
+                </span>
+              </span>
               <span className={`text-right font-sans ${agentChar.runtimeColor}`}>
                 {agentChar.runtime}
               </span>
             </div>
-            <div className="flex items-start justify-between gap-2 text-slate-400">
-              <span className="text-slate-500 shrink-0">⚡ Inference:</span>
-              <span className={`text-right font-sans ${agentChar.inferenceColor}`}>
-                {agentChar.inference}
+
+            {/* 2. Model Location */}
+            <div
+              onClick={() =>
+                onOpenArchitectureModal?.({
+                  type: 'function_desc',
+                  functionKey: 'modelLocation',
+                  title: '📍 Model Location & Data Residency',
+                  icon: '📍',
+                  activeValue: agentChar.modelLocation,
+                  activeColor: agentChar.modelLocationColor,
+                })
+              }
+              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+              title="Click to view Model Location and Data Residency compliance"
+            >
+              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                <span>📍</span>
+                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                  Model Location:
+                </span>
+              </span>
+              <span className={`text-right font-sans ${agentChar.modelLocationColor}`}>
+                {agentChar.modelLocation}
               </span>
             </div>
-            <div className="flex items-start justify-between gap-2 text-slate-400">
-              <span className="text-slate-500 shrink-0">💾 Memory:</span>
+
+            {/* 3. Model */}
+            <div
+              onClick={() =>
+                onOpenArchitectureModal?.({
+                  type: 'function_desc',
+                  functionKey: 'model',
+                  title: '⚡ Foundation Model Tier',
+                  icon: '⚡',
+                  activeValue: agentChar.model,
+                  activeColor: agentChar.modelColor,
+                })
+              }
+              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+              title="Click to view Model selection & failover specifications"
+            >
+              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                <span>⚡</span>
+                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                  Model:
+                </span>
+              </span>
+              <span className={`text-right font-sans ${agentChar.modelColor}`}>
+                {agentChar.model}
+              </span>
+            </div>
+
+            {/* 4. Memory */}
+            <div
+              onClick={() =>
+                onOpenArchitectureModal?.({
+                  type: 'function_desc',
+                  functionKey: 'memory',
+                  title: '💾 Stateful Memory & Session Store',
+                  icon: '💾',
+                  activeValue: agentChar.memory,
+                  activeColor: agentChar.memoryColor,
+                })
+              }
+              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+              title="Click to view Memory persistence & replication architecture"
+            >
+              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                <span>💾</span>
+                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                  Memory:
+                </span>
+              </span>
               <span className={`text-right font-sans ${agentChar.memoryColor}`}>
                 {agentChar.memory}
               </span>
             </div>
+
+            {/* 5. PII Cleanser */}
             {controls.enablePiiTokenizer && (
-              <div className="flex items-start justify-between gap-2 text-slate-400 border-t border-slate-800/60 pt-1.5">
-                <span className="text-slate-500 shrink-0">🛡️ PII Cleanser:</span>
+              <div
+                onClick={() =>
+                  onOpenArchitectureModal?.({
+                    type: 'function_desc',
+                    functionKey: 'piiCleanser',
+                    title: '🛡️ PII Cleanser & Cryptographic Tokenizer',
+                    icon: '🛡️',
+                    activeValue: agentChar.piiCleanser,
+                    activeColor: agentChar.piiCleanserColor,
+                  })
+                }
+                className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                title="Click to view PII Cleanser entity recognition specifications"
+              >
+                <span className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1">
+                  <span>🛡️</span>
+                  <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                    PII Cleanser:
+                  </span>
+                </span>
                 <span className={`text-right font-sans ${agentChar.piiCleanserColor}`}>
                   {agentChar.piiCleanser}
                 </span>
               </div>
             )}
+
+            {/* 6. Skill */}
             {controls.enterpriseDataEnabled && (
               <>
-                <div className="flex items-start justify-between gap-2 text-slate-400 border-t border-slate-800/60 pt-1.5">
-                  <span className="text-slate-500 shrink-0">🧠 Skill:</span>
-                  <span className={`text-right font-sans ${agentChar.skillColor}`}>
-                    {agentChar.skill}
+                <div
+                  className={`flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group ${
+                    !controls.enablePiiTokenizer ? 'border-t border-slate-800/60 pt-1.5' : ''
+                  }`}
+                >
+                  <span
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'skill',
+                        title: '🧠 Sovereign Agent Skill',
+                        icon: '🧠',
+                        activeValue: agentChar.skill,
+                        activeColor: agentChar.skillColor,
+                      })
+                    }
+                    className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1 cursor-pointer"
+                    title="Click to view Skill architectural documentation"
+                  >
+                    <span>🧠</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                      Skill:
+                    </span>
                   </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenArchitectureModal?.({
+                        type: 'skill_rulebook',
+                        title: `🧠 ${agentChar.skill}`,
+                        icon: '🧠',
+                        activeValue: agentChar.skill,
+                        activeColor: agentChar.skillColor,
+                      });
+                    }}
+                    className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.skillColor}`}
+                    title="Click to view actual APRA CPS 234 Skill rulebook & guidelines"
+                  >
+                    {agentChar.skill} ↗
+                  </button>
                 </div>
-                <div className="flex items-start justify-between gap-2 text-slate-400">
-                  <span className="text-slate-500 shrink-0">🔧 Tool:</span>
-                  <span className={`text-right font-sans ${agentChar.toolColor}`}>
-                    {agentChar.tool}
+
+                {/* 7. Tool */}
+                <div className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group">
+                  <span
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'tool',
+                        title: '🔧 Deterministic Tool',
+                        icon: '🔧',
+                        activeValue: agentChar.tool,
+                        activeColor: agentChar.toolColor,
+                      })
+                    }
+                    className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                    title="Click to view Tool architectural documentation"
+                  >
+                    <span>🔧</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                      Tool:
+                    </span>
                   </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenArchitectureModal?.({
+                        type: 'tool_dataset',
+                        title: `🔧 calculate_customer_lvr`,
+                        icon: '🔧',
+                        activeValue: agentChar.tool,
+                        activeColor: agentChar.toolColor,
+                      });
+                    }}
+                    className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.toolColor}`}
+                    title="Click to view tool interface & live customer loan dataset"
+                  >
+                    {agentChar.tool} ↗
+                  </button>
                 </div>
-                <div className="flex items-start justify-between gap-2 text-slate-400">
-                  <span className="text-slate-500 shrink-0">📁 Storage (Rest):</span>
+
+                {/* 8. Storage (Rest) */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal?.({
+                      type: 'function_desc',
+                      functionKey: 'storageRest',
+                      title: '📁 Storage (Rest) Residency',
+                      icon: '📁',
+                      activeValue: agentChar.storageRest,
+                      activeColor: agentChar.storageRestColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view Storage at Rest data residency details"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                    <span>📁</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                      Storage (Rest):
+                    </span>
+                  </span>
                   <span className={`text-right font-sans ${agentChar.storageRestColor}`}>
                     {agentChar.storageRest}
                   </span>
@@ -315,132 +629,335 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           </div>
         </div>
 
-        {/* 1. Manual Tier Override & Fail Checkboxes */}
-        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-              Manual Sovereignty Override
-            </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Inject Fault</span>
-          </div>
-          <div className="space-y-2">
-            {[
-              { id: 'AUTO', label: 'Auto Cascade (Default)', desc: 'Tier 1 -> Tier 2 -> Tier 3' },
-              { id: 'TIER_1_GLOBAL', label: 'Lock Tier 1 (Global)', desc: 'Generative AI Global API' },
-              { id: 'TIER_2_REGIONAL', label: 'Lock Tier 2 (AU-SYD)', desc: 'Vertex AI Sydney Data Residency' },
-              { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (Airgap VPC)', desc: 'Private VPC Gemma-2 Open Weights' },
-            ].map((opt) => (
-              <div
-                key={opt.id}
-                onClick={() => handleForcedTierChange(opt.id as SimulationControls['forcedTier'])}
-                className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
-                  controls.forcedTier === opt.id
-                    ? 'bg-blue-600/10 border-blue-500/50 text-white'
-                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <input
-                    type="radio"
-                    name="forcedTier"
-                    checked={controls.forcedTier === opt.id}
-                    onChange={() => handleForcedTierChange(opt.id as SimulationControls['forcedTier'])}
-                    className="mt-1 accent-blue-500 cursor-pointer"
-                  />
-                  <div>
-                    <div className="text-xs font-semibold">{opt.label}</div>
-                    <div className="text-[10px] text-slate-400">{opt.desc}</div>
-                  </div>
-                </div>
+        {/* 1. Manual Tier Override & Fail Checkboxes (Collapsible, 5s Auto-Close) */}
+        <div
+          onMouseMove={() => isOverrideOpen && resetOverrideTimer()}
+          onClick={() => isOverrideOpen && resetOverrideTimer()}
+          className="rounded-xl bg-slate-950 border border-slate-800 transition-all duration-200 overflow-hidden"
+        >
+          {/* Collapsible Header */}
+          <div
+            onClick={handleToggleOverride}
+            className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-900/60 transition select-none group"
+            title={isOverrideOpen ? "Click to collapse panel" : "Click to expand manual sovereignty controls"}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-slate-400 group-hover:text-blue-400 transition text-xs">🎛️</span>
+              <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide truncate">
+                Manual Sovereignty Override
+              </h3>
+            </div>
+            
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Collapsed Status Summary Badge */}
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium border ${
+                controls.forcedTier === 'AUTO'
+                  ? (controls.failedTiers && controls.failedTiers.length > 0
+                      ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                      : 'bg-blue-500/10 border-blue-500/30 text-blue-300')
+                  : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+              }`}>
+                {controls.forcedTier === 'AUTO'
+                  ? (controls.failedTiers && controls.failedTiers.length > 0
+                      ? `Auto (${controls.failedTiers.length} Fault${controls.failedTiers.length > 1 ? 's' : ''})`
+                      : 'Auto Cascade')
+                  : controls.forcedTier === 'TIER_1_GLOBAL'
+                  ? 'Tier 1 Locked'
+                  : controls.forcedTier === 'TIER_2_REGIONAL'
+                  ? 'Tier 2 Locked'
+                  : 'Tier 3 Locked'}
+              </span>
 
-                {opt.id !== 'AUTO' && (
-                  <div
-                    className={`flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-800 shrink-0 ${
-                      controls.forcedTier !== 'AUTO' ? 'opacity-30 cursor-not-allowed' : ''
-                    }`}
-                    title={
-                      controls.forcedTier !== 'AUTO'
-                        ? 'Simulating failure is only enabled in Auto Cascade mode'
-                        : 'Inject simulated API fault for this tier'
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (controls.forcedTier === 'AUTO') {
-                        handleToggleFailTier(opt.id);
-                      }
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      id={`fail-${opt.id}`}
-                      disabled={controls.forcedTier !== 'AUTO'}
-                      checked={
-                        controls.forcedTier === 'AUTO' &&
-                        (controls.failedTiers?.includes(opt.id) || false)
-                      }
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        if (controls.forcedTier === 'AUTO') {
-                          handleToggleFailTier(opt.id);
-                        }
-                      }}
-                      className={`w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-rose-500 accent-rose-500 ${
-                        controls.forcedTier !== 'AUTO' ? 'cursor-not-allowed' : 'cursor-pointer'
-                      }`}
-                    />
-                    <label
-                      htmlFor={`fail-${opt.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`text-[11px] font-semibold select-none ${
-                        controls.forcedTier !== 'AUTO'
-                          ? 'text-slate-500 cursor-not-allowed'
-                          : controls.failedTiers?.includes(opt.id)
-                          ? 'text-rose-400 cursor-pointer'
-                          : 'text-slate-400 hover:text-slate-300 cursor-pointer'
-                      }`}
-                    >
-                      Fail
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
+              {/* Chevron */}
+              <svg
+                className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200 transition-transform duration-200 ${
+                  isOverrideOpen ? 'rotate-180 text-blue-400' : ''
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
+
+          {/* Expanded Content Body */}
+          {isOverrideOpen && (
+            <div className="p-3 pt-0 border-t border-slate-800/80 space-y-3 mt-1">
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-[10px] text-slate-400">Select active tier or inject simulated faults:</span>
+                <span className="text-[10px] text-slate-500 font-mono">Inject Fault</span>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { id: 'AUTO', label: 'Auto Cascade (Default)', desc: 'Tier 1 -> Tier 2 -> Tier 3' },
+                  { id: 'TIER_1_GLOBAL', label: 'Lock Tier 1 (Global)', desc: 'Generative AI Global API' },
+                  { id: 'TIER_2_REGIONAL', label: 'Lock Tier 2 (AU-SYD)', desc: 'Vertex AI Sydney Data Residency' },
+                  { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (Airgap VPC)', desc: 'Private VPC Gemma-2 Open Weights' },
+                ].map((opt) => (
+                  <div
+                    key={opt.id}
+                    onClick={() => {
+                      handleForcedTierChange(opt.id as SimulationControls['forcedTier']);
+                      resetOverrideTimer();
+                    }}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
+                      controls.forcedTier === opt.id
+                        ? 'bg-blue-600/10 border-blue-500/50 text-white'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="radio"
+                        name="forcedTier"
+                        checked={controls.forcedTier === opt.id}
+                        onChange={() => {
+                          handleForcedTierChange(opt.id as SimulationControls['forcedTier']);
+                          resetOverrideTimer();
+                        }}
+                        className="mt-1 accent-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <div className="text-xs font-semibold">{opt.label}</div>
+                        <div className="text-[10px] text-slate-400">{opt.desc}</div>
+                      </div>
+                    </div>
+
+                    {opt.id !== 'AUTO' && (
+                      <div
+                        className={`flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-800 shrink-0 ${
+                          controls.forcedTier !== 'AUTO' ? 'opacity-30 cursor-not-allowed' : ''
+                        }`}
+                        title={
+                          controls.forcedTier !== 'AUTO'
+                            ? 'Simulating failure is only enabled in Auto Cascade mode'
+                            : 'Inject simulated API fault for this tier'
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (controls.forcedTier === 'AUTO') {
+                            handleToggleFailTier(opt.id);
+                            resetOverrideTimer();
+                          }
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          id={`fail-${opt.id}`}
+                          disabled={controls.forcedTier !== 'AUTO'}
+                          checked={
+                            controls.forcedTier === 'AUTO' &&
+                            (controls.failedTiers?.includes(opt.id) || false)
+                          }
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (controls.forcedTier === 'AUTO') {
+                              handleToggleFailTier(opt.id);
+                              resetOverrideTimer();
+                            }
+                          }}
+                          className={`w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-rose-500 accent-rose-500 ${
+                            controls.forcedTier !== 'AUTO' ? 'cursor-not-allowed' : 'cursor-pointer'
+                          }`}
+                        />
+                        <label
+                          htmlFor={`fail-${opt.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`text-[11px] font-semibold select-none ${
+                            controls.forcedTier !== 'AUTO'
+                              ? 'text-slate-500 cursor-not-allowed'
+                              : controls.failedTiers?.includes(opt.id)
+                              ? 'text-rose-400 cursor-pointer'
+                              : 'text-slate-400 hover:text-slate-300 cursor-pointer'
+                          }`}
+                        >
+                          Fail
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* 2. System Resilience Telemetry */}
-        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-          <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-            Live Session Telemetry
-          </h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between items-center py-1 border-b border-slate-800">
-              <span className="text-slate-400">Total Chat Turns:</span>
-              <span className="font-mono text-white font-semibold">{totalTurns}</span>
+        {/* Demo Presentation Stages (Collapsible, 5s Auto-Close) */}
+        <div
+          onMouseMove={() => isStagesOpen && resetStagesTimer()}
+          onClick={() => isStagesOpen && resetStagesTimer()}
+          className="rounded-xl bg-slate-950 border border-indigo-500/30 shadow-lg shadow-indigo-950/20 transition-all duration-200 overflow-hidden"
+        >
+          {/* Collapsible Header */}
+          <div
+            onClick={handleToggleStages}
+            className="flex items-center justify-between p-3 cursor-pointer hover:bg-indigo-950/20 transition select-none group"
+            title={isStagesOpen ? "Click to collapse stages panel" : "Click to expand demo stages"}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0"></span>
+              <h3 className="text-xs font-semibold text-indigo-200 uppercase tracking-wide truncate">
+                Demo Presentation Stages
+              </h3>
             </div>
-            <div className="flex justify-between items-center py-1 border-b border-slate-800">
-              <span className="text-slate-400">Failover Transitions:</span>
-              <span className="font-mono text-amber-400 font-semibold">{failoverTurns} hops</span>
-            </div>
-            <div className="flex justify-between items-center py-1 border-b border-slate-800">
-              <span className="text-slate-400">Sticky Fallback Turns:</span>
-              <span className="font-mono text-blue-400 font-semibold">{stickyTurns}</span>
-            </div>
-            <div className="flex justify-between items-center py-1">
-              <span className="text-slate-400">Timeout Latency Avoided:</span>
-              <span className="font-mono text-emerald-400 font-bold">+{totalSavedMs} ms</span>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Collapsed Stage Status Pill */}
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium border ${
+                currentStage === 1
+                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
+                  : currentStage === 2
+                  ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
+                  : currentStage === 3
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-300'
+              }`}>
+                {currentStage === 1
+                  ? 'Stage 1: Core Memory'
+                  : currentStage === 2
+                  ? 'Stage 2: Zero-PII'
+                  : currentStage === 3
+                  ? 'Stage 3: Enterprise LVR'
+                  : 'Custom Mode'}
+              </span>
+
+              {/* Chevron */}
+              <svg
+                className={`w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-200 transition-transform duration-200 ${
+                  isStagesOpen ? 'rotate-180 text-indigo-300' : ''
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
             </div>
           </div>
+
+          {/* Expanded Content Body */}
+          {isStagesOpen && (
+            <div className="p-3 pt-0 border-t border-indigo-950/60 space-y-2.5 mt-1">
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-[10px] text-slate-400">1-Click demo scenario presets:</span>
+                <span className="text-[10px] text-indigo-400 font-mono">1-Click Presets</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStageSelect(1);
+                    resetStagesTimer();
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                    currentStage === 1
+                      ? 'bg-blue-600/25 border-blue-500 text-blue-200 shadow-md shadow-blue-900/30 ring-1 ring-blue-500/40 font-bold'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Stage 1: Core Memory & Failover (PII Off, Tools Off)"
+                >
+                  <span className="text-xs font-bold text-blue-400">Stage 1</span>
+                  <span className="text-[10px] font-semibold mt-0.5 leading-tight">Core Memory</span>
+                  <span className="text-[8px] opacity-70 mt-0.5">PII: Off • Tools: Off</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStageSelect(2);
+                    resetStagesTimer();
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                    currentStage === 2
+                      ? 'bg-purple-600/25 border-purple-500 text-purple-200 shadow-md shadow-purple-900/30 ring-1 ring-purple-500/40 font-bold'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Stage 2: Zero-PII Cryptographic Token Shield (PII On, Tools Off)"
+                >
+                  <span className="text-xs font-bold text-purple-400">Stage 2</span>
+                  <span className="text-[10px] font-semibold mt-0.5 leading-tight">Zero-PII</span>
+                  <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: Off</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStageSelect(3);
+                    resetStagesTimer();
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                    currentStage === 3
+                      ? 'bg-amber-600/25 border-amber-500 text-amber-200 shadow-md shadow-amber-900/30 ring-1 ring-amber-500/40 font-bold'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On)"
+                >
+                  <span className="text-xs font-bold text-amber-400">Stage 3</span>
+                  <span className="text-[10px] font-semibold mt-0.5 leading-tight">Enterprise LVR</span>
+                  <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On</span>
+                </button>
+              </div>
+
+              <div className="pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-tight">
+                {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF)"}
+                {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF)"}
+                {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON)"}
+                {currentStage === 0 && "⚙️ Custom Mode Active: Enterprise LVR Tools enabled with direct cleartext LLM processing (PII Shield: OFF)."}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Reset Session Button */}
-      <button
-        onClick={onResetChat}
-        className="w-full mt-4 py-2.5 px-4 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition shadow-sm"
-      >
-        Clear Chat &amp; Reset ADK Session State
-      </button>
+      {/* Bottom Actions: Reset Demo, Settings & Reset Session */}
+      <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-2 shrink-0">
+        {onResetDemo && (
+          <button
+            onClick={onResetDemo}
+            disabled={isResettingDemo}
+            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-950/40 border border-emerald-400/40 flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-[0.99]"
+            title="Reset Demo: Sets stages back to 1, clears all memory, and ensures Tier 3 Gemma enclave is active and reachable"
+          >
+            {isResettingDemo ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Resetting Demo...</span>
+              </>
+            ) : (
+              <>
+                <span>⚡</span>
+                <span>Reset Demo</span>
+              </>
+            )}
+          </button>
+        )}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 flex items-center justify-center gap-2 transition"
+            title="Open Regional Catalog, Enclave Management, and Live Telemetry Logs"
+          >
+            <span>⚙️</span>
+            <span>Settings &amp; Logs</span>
+          </button>
+        )}
+        <button
+          onClick={onResetChat}
+          className="w-full py-2 px-4 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition shadow-sm"
+          title="Clear chat transcript and reset session state"
+        >
+          <span>🔄</span>
+          <span>Reset Chat</span>
+        </button>
+      </div>
     </aside>
   );
 };

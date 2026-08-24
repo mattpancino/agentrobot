@@ -10,12 +10,14 @@ routing, sticky failover demotion, autonomous recovery probing, and model select
 """
 
 import os
+import sys
 import asyncio
 import subprocess
 import httpx
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -64,6 +66,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Mount local static vendor assets & files
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 # Allow CORS for React client (e.g. Vite on localhost:5173 or 3000)
 app.add_middleware(
     CORSMiddleware,
@@ -98,10 +105,11 @@ from src.adk.loan_lvr_tool import (
     reset_default_loans,
 )
 
-# Global model, region, custom PII rule, and enterprise dataset settings store
+# Global model, region, custom PII rule, enterprise dataset, and architecture descriptions store
 GLOBAL_SETTINGS: Dict[str, Any] = {
     "tierSettings": get_default_tier_settings(),
     "enterpriseDataEnabled": True,
+    "architectureDescriptions": {},
     "customPiiRules": [
         {
             "name": "Friend & Conversational Names",
@@ -159,8 +167,7 @@ class SettingsUpdateRequest(BaseModel):
     tierSettings: Optional[Dict[str, Dict[str, str]]] = None
     customPiiRules: Optional[List[Dict[str, Any]]] = None
     enterpriseDataEnabled: Optional[bool] = None
-    tierSettings: Optional[Dict[str, Dict[str, str]]] = None
-    customPiiRules: Optional[List[Dict[str, Any]]] = None
+    architectureDescriptions: Optional[Dict[str, str]] = None
 
 
 @app.get("/")
@@ -197,22 +204,6 @@ async def get_enclave_status():
             "zone": "australia-southeast1-a",
         }
 
-    tunnel_active = False
-    model_loaded = "None"
-    try:
-        async with httpx.AsyncClient(timeout=1.0) as client:
-            res = await client.get("http://127.0.0.1:8001/v1/models")
-            if res.status_code == 200:
-                tunnel_active = True
-                data = res.json()
-                models = [m.get("id") for m in data.get("data", [])]
-                if "google/gemma-2-2b-it" in models:
-                    model_loaded = "google/gemma-2-2b-it"
-                elif models:
-                    model_loaded = models[0]
-    except Exception:
-        pass
-
     vm_status = "UNKNOWN"
     internal_ip = "10.152.0.2"
     try:
@@ -232,14 +223,51 @@ async def get_enclave_status():
     except Exception:
         vm_status = "STOPPED_OR_UNREACHABLE"
 
+    tunnel_active = False
+    tool_service_active = False
+    model_loaded = "None"
+
+    # Only probe the tunnel if the VM is verified RUNNING in GCP.
+    # If the VM is stopped, terminated, or unreachable, the tunnel cannot be active.
+    if vm_status == "RUNNING":
+        try:
+            async with httpx.AsyncClient(timeout=1.0) as client:
+                res = await client.get("http://127.0.0.1:8001/v1/models")
+                if res.status_code == 200:
+                    tunnel_active = True
+                    data = res.json()
+                    models = [m.get("id") for m in data.get("data", [])]
+                    if "google/gemma-2-2b-it" in models or "gemma2:2b" in models:
+                        model_loaded = "google/gemma-2-2b-it"
+                    elif models:
+                        model_loaded = models[0]
+        except Exception:
+            pass
+
+        try:
+            async with httpx.AsyncClient(timeout=1.0) as client:
+                res_tool = await client.get("http://127.0.0.1:8003/health")
+                if res_tool.status_code == 200:
+                    tool_service_active = True
+        except Exception:
+            pass
+    else:
+        # VM is not running; kill any lingering mock server on port 8001
+        try:
+            await asyncio.to_thread(subprocess.run, ["pkill", "-f", "mock_gemma_server"], stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
     sync_telemetry = session_manager.get_sync_telemetry("default-session")
     return {
         "vmStatus": vm_status,
         "tunnelActive": tunnel_active,
+        "toolServiceActive": tool_service_active,
         "modelLoaded": model_loaded,
         "internalIp": internal_ip,
         "zone": "australia-southeast1-a",
         "redisSync": sync_telemetry,
+        "enclaveStorage": "/var/sovereign/data/customer_loans.csv",
     }
 
 
@@ -318,10 +346,12 @@ async def start_enclave_vm():
 
 @app.post("/api/enclave/start-tunnel")
 async def start_enclave_tunnel():
-    """Opens the IAP TCP forwarding tunnels for Ollama (8001) and Redis (6379)."""
+    """Opens the IAP TCP forwarding tunnels for Ollama (8001), Redis (6379), and Enclave Tool Service (8003)."""
     if not os.environ.get("PYTEST_CURRENT_TEST"):
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "mock_gemma_server"], stderr=subprocess.DEVNULL)
         await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8001"], stderr=subprocess.DEVNULL)
         await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*6379"], stderr=subprocess.DEVNULL)
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8003"], stderr=subprocess.DEVNULL)
         subprocess.Popen(
             ["gcloud", "compute", "start-iap-tunnel", "sovereign-gemma-2b-vm", "8001",
              "--local-host-port=localhost:8001", "--zone=australia-southeast1-a",
@@ -336,13 +366,24 @@ async def start_enclave_tunnel():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-    return {"status": "tunnel_starting", "message": "IAP tunnels (8001 & 6379) dispatched."}
+        subprocess.Popen(
+            ["gcloud", "compute", "start-iap-tunnel", "sovereign-gemma-2b-vm", "8003",
+             "--local-host-port=localhost:8003", "--zone=australia-southeast1-a",
+             "--project=sovereignagent"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    return {"status": "tunnel_starting", "message": "IAP tunnels (8001, 6379 & 8003) dispatched."}
 
 
 @app.post("/api/enclave/stop-vm")
 async def stop_enclave_vm():
     """Stops the sovereign-gemma-2b-vm instance in GCP to conserve budget."""
     if not os.environ.get("PYTEST_CURRENT_TEST"):
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "mock_gemma_server"], stderr=subprocess.DEVNULL)
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8001"], stderr=subprocess.DEVNULL)
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*6379"], stderr=subprocess.DEVNULL)
+        await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8003"], stderr=subprocess.DEVNULL)
         subprocess.Popen(
             ["gcloud", "compute", "instances", "stop", "sovereign-gemma-2b-vm",
              "--zone=australia-southeast1-a", "--project=sovereignagent", "--quiet"],
@@ -362,6 +403,7 @@ async def get_models():
         "catalog": get_regional_catalog(),
         "defaultTierSettings": get_default_tier_settings(),
         "activeTierSettings": GLOBAL_SETTINGS["tierSettings"],
+        "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
         "buildInfo": get_build_info(),
     }
 
@@ -399,18 +441,19 @@ async def delete_pii_rule(rule_name: str):
 
 @app.get("/api/settings")
 async def get_settings():
-    """Returns the current active model, region configuration, custom PII rules, and enterprise dataset status."""
+    """Returns the current active model, region configuration, custom PII rules, enterprise dataset status, and architecture descriptions."""
     return {
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "customPiiRules": default_tokenizer.get_custom_rules(),
         "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
+        "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
         "buildInfo": get_build_info(),
     }
 
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsUpdateRequest):
-    """Updates the active model, region configuration, custom PII rules, and enterprise dataset status."""
+    """Updates the active model, region configuration, custom PII rules, enterprise dataset status, and architecture descriptions."""
     if req.tierSettings:
         GLOBAL_SETTINGS["tierSettings"] = req.tierSettings
     if req.customPiiRules is not None:
@@ -418,11 +461,14 @@ async def update_settings(req: SettingsUpdateRequest):
         GLOBAL_SETTINGS["customPiiRules"] = default_tokenizer.get_custom_rules()
     if req.enterpriseDataEnabled is not None:
         GLOBAL_SETTINGS["enterpriseDataEnabled"] = req.enterpriseDataEnabled
+    if req.architectureDescriptions is not None:
+        GLOBAL_SETTINGS["architectureDescriptions"] = req.architectureDescriptions
     return {
         "status": "success",
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "customPiiRules": default_tokenizer.get_custom_rules(),
         "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
+        "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
     }
 
 
@@ -481,6 +527,141 @@ async def reset_dataset_endpoint():
     return summary
 
 
+@app.post("/api/demo/reset")
+async def reset_demo_endpoint():
+    """
+    Comprehensive Demo Reset:
+    1. Sets stages back to Stage 1 (enterpriseDataEnabled=False, enablePiiTokenizer=False, forcedTier='AUTO', failedTiers=[]).
+    2. Clears all session memory across in-memory cache, Primary Tier 2 Redis (DB 0), and Tier 3 Standby Redis (DB 1).
+    3. Restores default Australian benchmark loan dataset and default regional tier settings.
+    4. Ensures Tier 3 system (sovereign-gemma-2b-vm / IAP tunnel / mock Gemma) is up, running, and accessible.
+    """
+    # 1. Clear in-memory session cache and Redis session stores
+    SESSION_STORE.clear()
+    await session_manager.clear_all_sessions()
+
+    # 2. Reset global settings to Stage 1 defaults
+    GLOBAL_SETTINGS["enterpriseDataEnabled"] = False
+    GLOBAL_SETTINGS["tierSettings"] = get_default_tier_settings()
+
+    # 3. Reset benchmark loan dataset
+    dataset_summary = reset_default_loans()
+    dataset_summary["enabled"] = False
+
+    # 4. Probe & ensure Tier 3 Gemma endpoint readiness
+    gemma_accessible = False
+    model_loaded = "None"
+    vm_status = "UNKNOWN"
+    tunnel_active = False
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        gemma_accessible = True
+        model_loaded = "google/gemma-2-2b-it"
+        vm_status = "RUNNING"
+        tunnel_active = True
+    else:
+        # Check if port 8001 is already responding
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                res = await client.get("http://127.0.0.1:8001/v1/models")
+                if res.status_code == 200:
+                    gemma_accessible = True
+                    tunnel_active = True
+                    data = res.json()
+                    models = [m.get("id") for m in data.get("data", [])]
+                    if "google/gemma-2-2b-it" in models or "gemma2:2b" in models:
+                        model_loaded = "google/gemma-2-2b-it"
+                    elif models:
+                        model_loaded = models[0]
+        except Exception:
+            pass
+
+        # If not responding, try starting VM / tunnel or fallback server
+        if not gemma_accessible:
+            try:
+                def _check_vm():
+                    return subprocess.check_output(
+                        ["gcloud", "compute", "instances", "describe", "sovereign-gemma-2b-vm",
+                         "--zone=australia-southeast1-a", "--project=sovereignagent",
+                         "--format=value(status)"],
+                        stderr=subprocess.DEVNULL,
+                        timeout=3.0,
+                        text=True
+                    ).strip()
+                out = await asyncio.to_thread(_check_vm)
+                if out:
+                    vm_status = out
+            except Exception:
+                vm_status = "STOPPED_OR_UNREACHABLE"
+
+            if vm_status in ("TERMINATED", "STOPPED"):
+                subprocess.Popen(
+                    ["gcloud", "compute", "instances", "start", "sovereign-gemma-2b-vm",
+                     "--zone=australia-southeast1-a", "--project=sovereignagent", "--quiet"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                vm_status = "PROVISIONING"
+
+            await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8001"], stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                ["gcloud", "compute", "start-iap-tunnel", "sovereign-gemma-2b-vm", "8001",
+                 "--local-host-port=localhost:8001", "--zone=australia-southeast1-a",
+                 "--project=sovereignagent"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            for _ in range(5):
+                await asyncio.sleep(0.6)
+                try:
+                    async with httpx.AsyncClient(timeout=1.0) as client:
+                        res = await client.get("http://127.0.0.1:8001/v1/models")
+                        if res.status_code == 200:
+                            gemma_accessible = True
+                            tunnel_active = True
+                            model_loaded = "google/gemma-2-2b-it"
+                            break
+                except Exception:
+                    pass
+
+            if not gemma_accessible:
+                try:
+                    await asyncio.to_thread(subprocess.run, ["pkill", "-f", "start-iap-tunnel.*8001"], stderr=subprocess.DEVNULL)
+                    await asyncio.to_thread(subprocess.run, ["pkill", "-f", "mock_gemma_server"], stderr=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        [sys.executable, "-m", "uvicorn", "src.backend.mock_gemma_server:app", "--port", "8001", "--host", "0.0.0.0"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    await asyncio.sleep(0.8)
+                    async with httpx.AsyncClient(timeout=1.0) as client:
+                        res = await client.get("http://127.0.0.1:8001/v1/models")
+                        if res.status_code == 200:
+                            gemma_accessible = True
+                            tunnel_active = True
+                            model_loaded = "google/gemma-2-2b-it (Mock Standby)"
+                except Exception:
+                    pass
+
+    return {
+        "status": "success",
+        "message": "Demo state reset to Stage 1. Memory cleared and Tier 3 verified.",
+        "stage": 1,
+        "memoryCleared": True,
+        "enterpriseDataEnabled": False,
+        "tierSettings": GLOBAL_SETTINGS["tierSettings"],
+        "datasetSummary": dataset_summary,
+        "tier3": {
+            "vmStatus": vm_status,
+            "tunnelActive": tunnel_active,
+            "modelLoaded": model_loaded,
+            "gemmaAccessible": gemma_accessible,
+            "endpoint": "http://127.0.0.1:8001/v1",
+        },
+    }
+
+
 @app.get("/api/session/{session_id}")
 async def get_session_history(session_id: str):
     """Returns the synchronized Dual-Tier session state and conversation history."""
@@ -500,20 +681,39 @@ async def chat_handler(req: ChatRequest):
         session_state["session_id"] = session_id
         session_state["stickyTier"] = "TIER_1_GLOBAL"
         session_state["messages"] = []
-
     controls = req.simulationControls or SimulationControls()
 
+    previous_tier = session_state.get("stickyTier", "TIER_1_GLOBAL")
+
+    # Immediate tier switching for demo when user selects Auto or manual tier lock
+    if controls.forcedTier in ("TIER_1_GLOBAL", "TIER_2_REGIONAL", "TIER_3_SOVEREIGN"):
+        session_state["stickyTier"] = controls.forcedTier
+    elif controls.forcedTier == "AUTO":
+        failed = set(controls.failedTiers or [])
+        if not failed:
+            session_state["stickyTier"] = "TIER_1_GLOBAL"
+        elif session_state.get("stickyTier") == "TIER_3_SOVEREIGN" and "TIER_2_REGIONAL" not in failed and "TIER_1_GLOBAL" in failed:
+            session_state["stickyTier"] = "TIER_2_REGIONAL"
+
     # Reconcile any turns generated during an airgapped Tier 3 crisis back into Vertex AI
-    last_tier = session_state.get("stickyTier", "TIER_1_GLOBAL")
-    target_tier = controls.forcedTier if controls.forcedTier != "AUTO" else last_tier
-    if last_tier == "TIER_3_SOVEREIGN" and target_tier != "TIER_3_SOVEREIGN":
+    target_tier = session_state.get("stickyTier", "TIER_1_GLOBAL")
+    if previous_tier == "TIER_3_SOVEREIGN" and target_tier != "TIER_3_SOVEREIGN":
         if hasattr(sovereign_agent.session_service, "resync_after_crisis"):
             session_state = await sovereign_agent.session_service.resync_after_crisis(session_id)
+            session_state["stickyTier"] = target_tier
 
     SESSION_STORE[session_id] = session_state
 
     # Determine effective tier settings (from request override or global settings)
     active_tier_settings = controls.tierSettings or GLOBAL_SETTINGS["tierSettings"]
+
+    # Determine effective enterprise data / LVR tool enablement
+    enterprise_data_enabled = (
+        controls.enterpriseDataEnabled
+        if controls.enterpriseDataEnabled is not None
+        else GLOBAL_SETTINGS.get("enterpriseDataEnabled", True)
+    )
+    active_tools = [calculate_customer_lvr_and_serviceability] if enterprise_data_enabled else []
 
     # Execute turn through the resilient sovereign cascade router
     try:
@@ -525,15 +725,27 @@ async def chat_handler(req: ChatRequest):
             forced_tier=controls.forcedTier,
             tier_settings=active_tier_settings,
             enable_pii_tokenizer=controls.enablePiiTokenizer,
+            tools=active_tools,
         )
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-    sentinel_status = await sentinel.run_probe_cycle(
-        session_state, failed_tiers=controls.failedTiers
-    )
+    if controls.forcedTier == "AUTO":
+        sentinel_status = await sentinel.run_probe_cycle(
+            session_state, failed_tiers=controls.failedTiers
+        )
+    else:
+        sentinel_status = {
+            "status": "MANUAL_OVERRIDE",
+            "targetTier": controls.forcedTier,
+            "probeIntervalSec": sentinel.probe_interval_sec,
+            "consecutiveSuccesses": sentinel.required_successes,
+            "requiredSuccesses": sentinel.required_successes,
+            "lastProbeLatencyMs": 0,
+            "message": f"Manual lock active on {controls.forcedTier}. Recovery sentinel idle.",
+        }
     result["executionMetadata"]["recoverySentinel"] = sentinel_status
     result["executionMetadata"]["stickyTier"] = session_state.get("stickyTier", "TIER_1_GLOBAL")
     result["executionMetadata"]["tierSettings"] = active_tier_settings

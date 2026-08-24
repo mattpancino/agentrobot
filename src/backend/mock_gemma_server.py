@@ -11,6 +11,8 @@ Exposes standard `/v1/models` and `/v1/chat/completions` endpoints.
 import time
 import asyncio
 from typing import List, Dict, Any, Optional
+import os
+import subprocess
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from src.adk.prompt_processor import generate_command_response
@@ -22,6 +24,24 @@ app = FastAPI(
     description="Simulated vLLM OpenAI-compatible endpoint for airgapped AU-SYD Gemma-2 execution.",
     version="1.0.0",
 )
+
+
+def _is_vm_running() -> bool:
+    """Checks if the GCE Sovereign VM is running, or if mock mode is explicitly enabled in testing."""
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("ENABLE_MOCK_TIER3") == "1":
+        return True
+    try:
+        out = subprocess.check_output(
+            ["gcloud", "compute", "instances", "describe", "sovereign-gemma-2b-vm",
+             "--zone=australia-southeast1-a", "--project=sovereignagent",
+             "--format=value(status)"],
+            stderr=subprocess.DEVNULL,
+            timeout=3.0,
+            text=True
+        ).strip()
+        return out == "RUNNING"
+    except Exception:
+        return False
 
 
 class ChatMessage(BaseModel):
@@ -39,6 +59,11 @@ class ChatCompletionRequest(BaseModel):
 @app.get("/health")
 async def health_check():
     """Health probe endpoint verifying local VPC service readiness."""
+    if not _is_vm_running():
+        raise HTTPException(
+            status_code=503,
+            detail="Sovereign Enclave VM (sovereign-gemma-2b-vm) is stopped or terminated in GCP.",
+        )
     return {
         "status": "ok",
         "engine": "vLLM-OpenAI-Mock",
@@ -50,6 +75,11 @@ async def health_check():
 @app.get("/v1/models")
 async def list_models():
     """OpenAI-compatible model registry endpoint."""
+    if not _is_vm_running():
+        raise HTTPException(
+            status_code=503,
+            detail="Sovereign Enclave VM (sovereign-gemma-2b-vm) is stopped or terminated in GCP.",
+        )
     return {
         "object": "list",
         "data": [
@@ -131,6 +161,12 @@ async def create_chat_completion(request: ChatCompletionRequest):
     OpenAI/vLLM-compatible chat completion endpoint.
     Simulates airgapped AU-SYD execution with Gemma-2 formatting.
     """
+    if not _is_vm_running():
+        raise HTTPException(
+            status_code=503,
+            detail="Sovereign Enclave VM (sovereign-gemma-2b-vm) is stopped or terminated in GCP.",
+        )
+
     if "_broken_test" in request.model:
         raise HTTPException(
             status_code=500,

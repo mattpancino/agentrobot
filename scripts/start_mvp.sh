@@ -6,10 +6,17 @@ set -eo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "=== 1. Starting Mock Tier 3 Gemma Server on Port 8001 (Background) ==="
+echo "=== 1. Cleaning up any legacy mock servers & stale tunnels on port 8001 ==="
 pkill -f "mock_gemma_server" || true
-nohup ./.venv/bin/uvicorn src.backend.mock_gemma_server:app --port 8001 --host 0.0.0.0 > mock_gemma.log 2>&1 &
-echo "Mock Gemma vLLM Server started on port 8001 (PID: $!)"
+pkill -f "start-iap-tunnel.*8001" || true
+
+if [[ "$1" == "--mock" || "$1" == "--mock-tier3" ]]; then
+    echo "Starting Mock Tier 3 Gemma Server on Port 8001 (Offline Mock Mode)..."
+    nohup ./.venv/bin/uvicorn src.backend.mock_gemma_server:app --port 8001 --host 0.0.0.0 > mock_gemma.log 2>&1 &
+    echo "Mock Gemma vLLM Server started on port 8001 (PID: $!)"
+else
+    echo "Port 8001 reserved for Live Sovereign GCE VM (via IAP tunnel)."
+fi
 
 echo "=== 2. Starting Sovereign PII Tokenizer Microservice on Port 8002 (Background) ==="
 pkill -f "src.services.pii_tokenizer.main:app" || true
@@ -36,5 +43,5 @@ echo ""
 echo " Microservices Running:"
 echo "   • Sovereign-Stream Gateway & UI:  http://localhost:8088"
 echo "   • Sovereign PII Tokenizer Engine: http://localhost:8002 (/health, /v1/tokenize)"
-echo "   • Mock Tier 3 Gemma vLLM Enclave: http://localhost:8001"
+echo "   • Live Tier 3 Sovereign Enclave:  sovereign-gemma-2b-vm (via IAP Tunnel on 8001)"
 echo "====================================================================="

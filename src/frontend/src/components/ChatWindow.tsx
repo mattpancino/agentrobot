@@ -10,6 +10,94 @@ interface ChatWindowProps {
   enterpriseDataEnabled?: boolean;
 }
 
+interface PromptChipItem {
+  id: string;
+  title: string;
+  prompt: string;
+  followUpPrompt: string;
+}
+
+const MEMORY_CHIPS: PromptChipItem[] = [
+  {
+    id: 'cats',
+    title: 'Basic Memory (5 Cats)',
+    prompt: 'Give me the names of five cats.',
+    followUpPrompt: 'Which was the 3rd cat on that list?',
+  },
+  {
+    id: 'dogs',
+    title: 'Basic Memory (5 Dogs)',
+    prompt: 'Give me the names of five dogs and their breeds.',
+    followUpPrompt: 'What was the name and breed of the 2nd dog you mentioned?',
+  },
+  {
+    id: 'favorite-color',
+    title: 'Basic Memory (Personal Facts)',
+    prompt: 'Remember: my favorite color is emerald green and I live on a farm with 3 horses.',
+    followUpPrompt: 'What is my favorite color and how many horses do I have on my farm?',
+  },
+  {
+    id: 'australian-cities',
+    title: 'Basic Memory (General Knowledge)',
+    prompt: 'List 4 major Australian capital cities and their approximate populations.',
+    followUpPrompt: 'Which Australian city was listed 2nd and what was its population?',
+  },
+];
+
+const PII_CHIPS: PromptChipItem[] = [
+  {
+    id: 'parents-names',
+    title: 'PII Masking (Family Names)',
+    prompt: "My mother's name is Alice and my father's name is Bob.",
+    followUpPrompt: "What are my mother's and father's names?",
+  },
+  {
+    id: 'sarah-connor-id',
+    title: 'PII Masking (TFN & Medicare)',
+    prompt: 'Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.',
+    followUpPrompt: "What was Sarah Connor's Medicare card number and TFN?",
+  },
+  {
+    id: 'home-address',
+    title: 'PII Masking (Address & Co-Habitants)',
+    prompt: 'I live at 42 Wallaby Way Sydney with my brother Mark.',
+    followUpPrompt: 'Where do I live and who lives with me?',
+  },
+  {
+    id: 'account-transfer',
+    title: 'PII Masking (Account Transfer)',
+    prompt: "Transfer $500 from John Smith's account 123-456 to Jane Doe.",
+    followUpPrompt: 'Who was the sender and recipient of the $500 transfer?',
+  },
+];
+
+const LVR_CHIPS: PromptChipItem[] = [
+  {
+    id: 'sarah-jenkins-lvr',
+    title: 'LVR & LMI Calculation (Sarah Jenkins)',
+    prompt: 'Calculate LVR, DTI, and LMI requirements for Sarah Jenkins (CUST-8821)',
+    followUpPrompt: 'If Sarah Jenkins pays down $50,000 off her loan balance, what is her new LVR and does she still need LMI?',
+  },
+  {
+    id: 'david-zhang-apra',
+    title: 'APRA +3% Stress Test (David Zhang)',
+    prompt: 'Run APRA +3.0% mortgage serviceability stress test on David Zhang (CUST-1042)',
+    followUpPrompt: "What was David Zhang's stressed monthly repayment and monthly surplus buffer under APRA +3%?",
+  },
+  {
+    id: 'emma-watson-risk',
+    title: 'High LVR Default Risk (Emma Watson)',
+    prompt: 'Audit Emma Watson (CUST-3310) for high LVR default risk and buffer breach',
+    followUpPrompt: "Compare Emma Watson's LVR risk tier against Sarah Jenkins",
+  },
+  {
+    id: 'marcus-equity-release',
+    title: 'Commercial Equity Release (Marcus Aurelius)',
+    prompt: 'Marcus Aurelius (CUST-4491) wants to borrow an extra $200,000 against his $2.1M property. Re-evaluate his LVR and APRA buffer.',
+    followUpPrompt: 'Is Marcus Aurelius still within the prime compliant risk tier after the extra borrowing?',
+  },
+];
+
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   messages,
   isLoading,
@@ -23,6 +111,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const effectiveTab = enablePiiTokenizer ? activeTab : 'user';
+
+  // Determine active prompt chips set based on (enablePiiTokenizer, enterpriseDataEnabled)
+  const activeChips: PromptChipItem[] = enterpriseDataEnabled
+    ? LVR_CHIPS
+    : enablePiiTokenizer
+    ? PII_CHIPS
+    : MEMORY_CHIPS;
+
+  // Mode metadata for placeholder and clean description
+  const modeMetadata = enterpriseDataEnabled
+    ? {
+        description: 'Demonstrates Enterprise LVR & APRA stress testing calculations with multi-tier memory.',
+        placeholder: 'Ask about customer loans (e.g. Calculate LVR for Sarah Jenkins CUST-8821, or David Zhang APRA stress test)...',
+      }
+    : enablePiiTokenizer
+    ? {
+        description: 'Demonstrates Zero-PII Egress Tokenization and cleartext memory recall across tiers.',
+        placeholder: "Type sensitive prompt (e.g. My mother's name is Alice, my father's name is Bob, TFN 123 456 782)...",
+      }
+    : {
+        description: 'Demonstrates basic conversational memory across Tier 1 (Global), Tier 2 (AU-SYD), and Tier 3 (Airgap VPC).',
+        placeholder: 'Ask a memory or general knowledge question (e.g. Give me the names of five cats / dogs)...',
+      };
+
+  // Find if latest user turn matches any starter chip to surface a dynamic follow-up memory recall chip
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+  const matchedStarterChip = lastUserMsg
+    ? activeChips.find(
+        (chip) =>
+          lastUserMsg.content.toLowerCase().includes(chip.prompt.toLowerCase().slice(0, 15)) ||
+          chip.prompt.toLowerCase().includes(lastUserMsg.content.toLowerCase().slice(0, 15))
+      )
+    : null;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -39,32 +160,76 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setExpandedLogs((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const highlightTokens = (text: string) => {
-    if (!text) return null;
-    const parts = text.split(/(\[\[PII_[A-Z0-9_]+\]\])/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('[[PII_') && part.endsWith(']]')) {
-        const entType = part.replace(/^\[\[PII_/, '').split('_')[0];
-        let colorClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
-        if (entType.includes('AU') || entType.includes('TFN') || entType.includes('BSB') || entType.includes('MEDICARE')) {
-          colorClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-        } else if (entType.includes('PERSON')) {
-          colorClass = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+      const highlightTokens = (text: string) => {
+        if (!text) return null;
+        const parts = text.split(/(\[\[PII_[A-Z0-9_]+\]\])/g);
+        return parts.map((part, i) => {
+          if (part.startsWith('[[PII_') && part.endsWith(']]')) {
+            const entType = part.replace(/^\[\[PII_/, '').split('_')[0];
+            let colorClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+            if (entType.includes('AU') || entType.includes('TFN') || entType.includes('BSB') || entType.includes('MEDICARE')) {
+              colorClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+            } else if (entType.includes('PERSON')) {
+              colorClass = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+            }
+            return (
+              <span
+                key={i}
+                className={`inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded border font-semibold mx-0.5 ${colorClass}`}
+                title={`PII Token: ${part}`}
+              >
+                <span>🛡️</span>
+                <span>{part}</span>
+              </span>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        });
+      };
+
+      const renderMarkdownContent = (text: string, enableTokens = false, isUser = false) => {
+        if (!text || typeof text !== 'string') return null;
+        const win = window as any;
+        if (win.marked && typeof win.marked.parse === 'function') {
+          try {
+            win.marked.setOptions({
+              gfm: true,
+              breaks: true,
+            });
+            let parsedHtml = win.marked.parse(text);
+            if (win.DOMPurify && typeof win.DOMPurify.sanitize === 'function') {
+              parsedHtml = win.DOMPurify.sanitize(parsedHtml, {
+                ADD_ATTR: ['target', 'rel'],
+              });
+            }
+            if (enableTokens) {
+              parsedHtml = parsedHtml.replace(/\[\[PII_([A-Z0-9_]+)\]\]/g, (match: string, entType: string) => {
+                let colorClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+                if (
+                  entType.includes('AU') ||
+                  entType.includes('TFN') ||
+                  entType.includes('BSB') ||
+                  entType.includes('MEDICARE')
+                ) {
+                  colorClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                } else if (entType.includes('PERSON')) {
+                  colorClass = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+                }
+                return `<span class="inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded border font-semibold mx-0.5 ${colorClass}" title="PII Token: ${match}"><span>🛡️</span><span>${match}</span></span>`;
+              });
+            }
+            const bubbleClass = isUser ? 'markdown-content-user' : 'markdown-content';
+            return <div className={bubbleClass} dangerouslySetInnerHTML={{ __html: parsedHtml }} />;
+          } catch (err) {
+            console.error('Markdown rendering error:', err);
+          }
         }
         return (
-          <span
-            key={i}
-            className={`inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded border font-semibold mx-0.5 ${colorClass}`}
-            title={`PII Token: ${part}`}
-          >
-            <span>🛡️</span>
-            <span>{part}</span>
-          </span>
+          <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isUser ? 'font-sans' : 'font-sans'}`}>
+            {enableTokens ? highlightTokens(text) : text}
+          </div>
         );
-      }
-      return <span key={i}>{part}</span>;
-    });
-  };
+      };
 
   const renderCollapsibleTelemetry = (msgId: string, meta?: ExecutionMetadata) => {
     if (!meta) return null;
@@ -303,41 +468,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {/* Transcript Scroll Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-4 text-slate-400">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-2xl text-blue-400">
+          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-4 text-slate-400 py-6">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-2xl text-blue-400 shadow-md">
               🦘
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white mb-1">
-                Project Sovereign-Stream Sales &amp; Exec Demo
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white">
+                Project Sovereign-Stream
               </h3>
-              <p className="text-xs text-slate-400">
-                Experience seamless 3-tier generative AI failover across Global Gemini, Regional AU-SYD Vertex AI, and Airgapped VPC Gemma with Zero-PII Egress Protection.
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                {modeMetadata.description}
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-2 w-full pt-2">
-              {(enterpriseDataEnabled
-                ? [
-                    "📊 Calculate LVR, DTI, and LMI requirements for Sarah Jenkins (CUST-8821)",
-                    "🚨 Run APRA +3.0% mortgage serviceability stress test on David Zhang (CUST-1042)",
-                    "🏦 Assess Emma Watson (CUST-3310) for high LVR default risk and buffer breach",
-                    "Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.",
-                    "What are our primary data governance obligations under APRA CPS 234?",
-                  ]
-                : [
-                    "Transfer $500 from John Smith's account 123-456 to Jane Doe.",
-                    "Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.",
-                    "What are our primary data governance obligations under APRA CPS 234?",
-                    "Provide an incident response checklist for cross-border data transfer anomalies.",
-                    "How do we prove zero PII egress when running sensitive FSI workloads?",
-                  ]
-              ).map((sample) => (
+
+            {/* Simplified Suggestion Grid: Title (Intent) + Prompt */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-2">
+              {activeChips.map((chip) => (
                 <button
-                  key={sample}
-                  onClick={() => onSendMessage(sample)}
-                  className="p-3 text-left rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition"
+                  key={chip.id}
+                  onClick={() => onSendMessage(chip.prompt)}
+                  className="p-3.5 text-left rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-850 transition group shadow-sm flex flex-col space-y-1.5"
                 >
-                  "{sample}"
+                  <div className="text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition">
+                    {chip.title}
+                  </div>
+                  <div className="text-xs text-slate-300 font-sans leading-relaxed">
+                    "{chip.prompt}"
+                  </div>
                 </button>
               ))}
             </div>
@@ -369,18 +526,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wide">
                         💬 Canonical Cleartext (Vault View)
                       </div>
-                      <div className="whitespace-pre-wrap font-sans text-sm">{msg.content}</div>
+                      {renderMarkdownContent(msg.content, false, false)}
                     </div>
                     {/* Right: Shield Tokenized Context */}
                     <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-800/50 text-xs text-purple-200 space-y-1">
                       <div className="text-[10px] font-bold text-purple-400 uppercase tracking-wide">
                         🛡️ Model-Facing Context (Zero-Egress View)
                       </div>
-                      <div className="whitespace-pre-wrap font-mono text-xs">
-                        {highlightTokens(
-                          (msg.role === 'user' ? tokenizedUserPrompt : tokenizedResp) || msg.content
-                        )}
-                      </div>
+                      {renderMarkdownContent(
+                        (msg.role === 'user' ? tokenizedUserPrompt : tokenizedResp) || msg.content,
+                        true,
+                        false
+                      )}
                     </div>
                   </div>
                   {msg.role === 'assistant' && renderCollapsibleTelemetry(msg.id, msg.metadata)}
@@ -402,9 +559,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none'
                   }`}
                 >
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap font-sans">
-                    {effectiveTab === 'shield' ? highlightTokens(displayContent) : displayContent}
-                  </div>
+                  {renderMarkdownContent(
+                    displayContent,
+                    effectiveTab === 'shield',
+                    msg.role === 'user' && effectiveTab !== 'shield'
+                  )}
                   {msg.role === 'assistant' && renderCollapsibleTelemetry(msg.id, msg.metadata)}
                   <div className="text-[10px] text-slate-400/80 mt-2 text-right">
                     {msg.timestamp}
@@ -426,38 +585,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Action Chips Bar (When Enterprise Data / Trix is enabled) */}
-      {enterpriseDataEnabled && (
-        <div className="px-4 py-2 bg-slate-950/80 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto text-xs">
-          <span className="text-slate-500 shrink-0 font-mono text-[11px] flex items-center gap-1">
-            <span>⚡</span> Quick Queries:
-          </span>
+      {/* Persistent Quick Action Chips Ribbon - Always Available */}
+      <div className="px-4 py-2 bg-slate-950/90 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
+        <span className="text-slate-500 shrink-0 text-[11px] font-semibold flex items-center gap-1">
+          <span>⚡</span> Prompts:
+        </span>
+
+        {/* Dynamic Memory Follow-Up Recall Chip if User recently asked a starter question */}
+        {matchedStarterChip && (
           <button
             type="button"
-            onClick={() => onSendMessage("Calculate LVR, DTI, and LMI requirements for Sarah Jenkins (CUST-8821)")}
-            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-[11px] flex items-center gap-1.5 shadow-sm"
+            onClick={() => onSendMessage(matchedStarterChip.followUpPrompt)}
+            className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white border border-emerald-500/40 whitespace-nowrap transition text-xs font-semibold shrink-0 animate-pulse"
           >
-            <span>📊</span>
-            <span>Sarah Jenkins LVR &amp; LMI (CUST-8821)</span>
+            Follow-Up: "{matchedStarterChip.followUpPrompt}"
           </button>
+        )}
+
+        {/* Standard Category Chips */}
+        {activeChips.map((chip) => (
           <button
+            key={chip.id}
             type="button"
-            onClick={() => onSendMessage("Run APRA +3.0% mortgage serviceability stress test on David Zhang (CUST-1042)")}
-            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-[11px] flex items-center gap-1.5 shadow-sm"
+            onClick={() => onSendMessage(chip.prompt)}
+            className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-xs shrink-0"
           >
-            <span>🚨</span>
-            <span>David Zhang APRA +3% (CUST-1042)</span>
+            {chip.title}
           </button>
-          <button
-            type="button"
-            onClick={() => onSendMessage("Audit Emma Watson (CUST-3310) for high LVR default risk and buffer breach")}
-            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-[11px] flex items-center gap-1.5 shadow-sm"
-          >
-            <span>🏦</span>
-            <span>Emma Watson LVR Risk (CUST-3310)</span>
-          </button>
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* Input Box */}
       <form onSubmit={handleSubmit} className="p-4 bg-slate-900 border-t border-slate-800">
@@ -467,11 +623,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
-            placeholder={
-              enterpriseDataEnabled
-                ? "Ask about customer loans (e.g. Calculate LVR for Sarah Jenkins CUST-8821, or David Zhang APRA stress test)..."
-                : "Type your prompt (e.g. sensitive FSI query with John Smith, account 123-456)..."
-            }
+            placeholder={modeMetadata.placeholder}
             className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
           />
           <button

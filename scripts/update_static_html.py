@@ -79,7 +79,7 @@ old_char_switch = '''        switch (activeTier) {
             };
           case 'TIER_3_SOVEREIGN':
             return {
-              name: 'Sovereign Enclave Agent',
+              name: 'On-Prem Agent',
               runtime: 'Private Isolated VPC Enclave',
               runtimeColor: 'text-emerald-400 font-semibold',
               inference: 'Self-Hosted Gemma 2 (Local)',
@@ -159,7 +159,7 @@ new_char_switch = '''        const skillText = activeTier === 'TIER_3_SOVEREIGN'
             };
           case 'TIER_3_SOVEREIGN':
             return {
-              name: 'Sovereign Enclave Agent',
+              name: 'On-Prem Agent',
               runtime: 'Private Isolated VPC Enclave',
               runtimeColor: 'text-emerald-400 font-semibold',
               inference: 'Self-Hosted Gemma 2 (Local)',

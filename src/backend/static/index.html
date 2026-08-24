@@ -4,10 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Project Sovereign-Stream • 3-Tier Resilient AI Failover Demo</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <script src="/static/vendor/react.production.min.js"></script>
+  <script src="/static/vendor/react-dom.production.min.js"></script>
+  <script src="/static/vendor/babel.min.js"></script>
+  <script src="/static/vendor/tailwindcss.min.js"></script>
+  <script src="/static/vendor/marked.min.js"></script>
+  <script src="/static/vendor/purify.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
@@ -20,244 +22,384 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+
+    /* Markdown Bubble Styling */
+    .markdown-content {
+      color: #f1f5f9;
+      line-height: 1.625;
+      font-size: 0.875rem;
+    }
+    .markdown-content p {
+      margin-bottom: 0.75rem;
+    }
+    .markdown-content p:last-child {
+      margin-bottom: 0;
+    }
+    .markdown-content h1,
+    .markdown-content h2,
+    .markdown-content h3,
+    .markdown-content h4 {
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+    }
+    .markdown-content h1 { font-size: 1.25rem; }
+    .markdown-content h2 { font-size: 1.125rem; }
+    .markdown-content h3 { font-size: 1rem; }
+    .markdown-content h4 { font-size: 0.875rem; }
+
+    .markdown-content ul {
+      list-style-type: disc;
+      padding-left: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .markdown-content ol {
+      list-style-type: decimal;
+      padding-left: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .markdown-content li {
+      margin-bottom: 0.25rem;
+    }
+    .markdown-content li:last-child {
+      margin-bottom: 0;
+    }
+
+    .markdown-content strong {
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .markdown-content em {
+      font-style: italic;
+      color: #cbd5e1;
+    }
+
+    .markdown-content hr {
+      border: none;
+      border-top: 1px solid #334155;
+      margin: 1rem 0;
+    }
+
+    .markdown-content blockquote {
+      border-left: 3px solid #3b82f6;
+      padding-left: 0.75rem;
+      margin: 0.75rem 0;
+      color: #94a3b8;
+      font-style: italic;
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 0 0.375rem 0.375rem 0;
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
+    }
+
+    /* Financial Tables & Data Grids */
+    .markdown-content table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 0.875rem 0;
+      font-size: 0.8125rem;
+      background: rgba(2, 6, 23, 0.7);
+      border-radius: 0.625rem;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .markdown-content th {
+      background: #0f172a;
+      color: #93c5fd;
+      font-weight: 600;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+      border-right: 1px solid rgba(51, 65, 85, 0.4);
+    }
+    .markdown-content th:last-child {
+      border-right: none;
+    }
+    .markdown-content td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+      border-right: 1px solid rgba(51, 65, 85, 0.3);
+      color: #e2e8f0;
+    }
+    .markdown-content td:last-child {
+      border-right: none;
+    }
+    .markdown-content tr:last-child td {
+      border-bottom: none;
+    }
+    .markdown-content tr:hover td {
+      background: rgba(30, 41, 59, 0.4);
+    }
+
+    /* Code */
+    .markdown-content code {
+      background: #020617;
+      border: 1px solid #334155;
+      color: #67e8f9;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-family: 'JetBrains Mono', monospace, ui-monospace;
+      font-size: 0.8125rem;
+    }
+    .markdown-content pre {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      margin: 0.75rem 0;
+    }
+    .markdown-content pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: #34d399;
+      font-size: 0.8125rem;
+      display: block;
+    }
+
+    .markdown-content a {
+      color: #60a5fa;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .markdown-content a:hover {
+      color: #93c5fd;
+    }
+
+    /* User Bubble Markdown Variant (on Blue background) */
+    .markdown-content-user {
+      color: #ffffff;
+      line-height: 1.625;
+      font-size: 0.875rem;
+    }
+    .markdown-content-user p { margin-bottom: 0.5rem; }
+    .markdown-content-user p:last-child { margin-bottom: 0; }
+    .markdown-content-user strong { color: #ffffff; font-weight: 700; }
+    .markdown-content-user code {
+      background: rgba(30, 58, 138, 0.7);
+      border: 1px solid rgba(147, 197, 253, 0.3);
+      color: #e0f2fe;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+    }
+    .markdown-content-user pre {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(147, 197, 253, 0.2);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+    }
+    .markdown-content-user pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: #a7f3d0;
+    }
+    .markdown-content-user a {
+      color: #bfdbfe;
+      text-decoration: underline;
+    }
+    .markdown-content-user ul {
+      list-style-type: disc;
+      padding-left: 1.25rem;
+    }
+    .markdown-content-user ol {
+      list-style-type: decimal;
+      padding-left: 1.25rem;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
-
-    function TelemetryHeader({ lastMetadata, buildInfo, datasetSummary, enterpriseDataEnabled, onOpenSettings, onResetChat }) {
-      const isDatasetActive = (enterpriseDataEnabled && datasetSummary?.enabled !== false) || datasetSummary?.enabled === true;
-      if (!lastMetadata) {
-        return (
-          <header className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
-                <span className="font-bold text-sm tracking-tight text-white">Project Sovereign-Stream</span>
-              </div>
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
-                ADK 3-Tier Sovereign Cascade
-              </span>
-              {isDatasetActive && (
-                <button
-                  onClick={onOpenSettings}
-                  className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 text-xs font-mono border border-amber-500/40 flex items-center gap-1.5 hover:bg-amber-500/25 transition shadow-sm"
-                  title="Active Australian Loan Book Ingested & Active • Click to manage Trix datasets"
-                >
-                  <span>📊</span>
-                  <span className="font-semibold text-amber-200">Active Loan Book:</span>
-                  <span>{datasetSummary?.rowCount || 5} Mortgages</span>
-                  <span className="hidden xl:inline text-[11px] text-amber-400/80">(AU-SYD CMEK)</span>
-                </button>
-              )}
-              {buildInfo && (
-                <>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Active Git Branch">
-                    <span className="text-slate-400">Branch:</span>
-                    <span className="text-emerald-400 font-semibold">{buildInfo.branch}</span>
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Server Build Timestamp">
-                    <span className="text-slate-400">Build:</span>
-                    <span className="text-slate-300">{buildInfo.buildTime}</span>
-                  </span>
-                </>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-slate-400 font-mono hidden sm:inline">
-                Ready for executive demonstration • Send a prompt below
-              </div>
-              {onResetChat && (
-                <button
-                  onClick={onResetChat}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
-                  title="Clear chat transcript and reset session state"
-                >
-                  <span>🔄</span>
-                  <span>Reset Chat</span>
-                </button>
-              )}
-              {onOpenSettings && (
-                <button
-                  onClick={onOpenSettings}
-                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/40 flex items-center gap-1.5 transition whitespace-nowrap"
-                  title="Open Regional Catalog, Enclave Management, and Live Telemetry Logs"
-                >
-                  <span>⚙️</span>
-                  <span>Settings &amp; Logs</span>
-                </button>
-              )}
-            </div>
-          </header>
-        );
+  <script>
+    window.addEventListener('error', function(e) {
+      console.error('Window Error:', e);
+      var root = document.getElementById('root');
+      if (root && (!root.innerHTML || root.innerHTML.trim() === '')) {
+        var detail = (e.error && (e.error.stack || e.error.message)) || e.message || 'Script execution failed';
+        root.innerHTML = '<div style="min-height:100vh;background:#020617;display:flex;align-items:center;justify-content:center;padding:24px;color:#f8fafc;font-family:system-ui,sans-serif;">' +
+          '<div style="max-width:600px;width:100%;background:#0f172a;border:1px solid #f43f5e;border-radius:16px;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">' +
+          '<div style="display:flex;align-items:center;gap:12px;color:#f43f5e;margin-bottom:12px;">' +
+          '<span style="font-size:24px;">⚠️</span><h1 style="font-size:16px;font-weight:700;margin:0;">Client Startup Error</h1></div>' +
+          '<div style="font-family:monospace;font-size:11px;background:#020617;padding:12px;border-radius:8px;border:1px solid #334155;color:#cbd5e1;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;max-height:240px;overflow-y:auto;">' +
+          detail + '</div>' +
+          '<button onclick="localStorage.clear();window.location.reload();" style="background:#e11d48;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;">Clear Cache &amp; Reload</button>' +
+          '</div></div>';
       }
+    });
+  </script>
 
-      const { activeTier, modelUsed, executionLocation, latencyMs, routingMode, recoverySentinel } = lastMetadata;
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-      const getTierBadge = () => {
-        switch (activeTier) {
-          case 'TIER_1_GLOBAL':
-            return {
-              icon: '🌐',
-              label: 'Tier 1 • Global Public',
-              color: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-            };
-          case 'TIER_2_REGIONAL':
-            return {
-              icon: '🦘',
-              label: 'Tier 2 • Regional AU-SYD',
-              color: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
-            };
-          case 'TIER_3_SOVEREIGN':
-            return {
-              icon: '🔒',
-              label: 'Tier 3 • Airgapped VPC',
-              color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
-            };
-          default:
-            return {
-              icon: '🌐',
-              label: 'Tier 1 • Global Public',
-              color: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-            };
-        }
-      };
+    const DEFAULT_ARCHITECTURE_DESCRIPTIONS = {
+      runtime:
+        'Executes the agent core logic, session orchestration, and stateful turn loop within governed boundary isolation (Vertex AI Agent Engine in AU-SYD vs. Private Airgapped VPC Enclave).',
+      modelLocation:
+        'Defines physical data residency and geographical jurisdiction for model inference (e.g. Global Multi-Region API, Sydney australia-southeast1, or Local On-Prem Enclave).',
+      model:
+        'The active Large Language Model executing token generation (e.g., Gemini 3.7 Flash frontier model, Gemini 2.5 Flash regional model, or self-hosted Gemma 2 open weights).',
+      memory:
+        'The stateful conversation persistence layer ensuring session context continuity across failover hops (dual-tier replicating Redis store & Vertex AI Managed Sessions).',
+      piiCleanser:
+        'Deterministic zero-egress privacy engine intercepting and pseudonymizing sensitive entities (TFNs, Medicare, BSB, Customer Names) before prompt transit.',
+      skill:
+        'Domain-specific reasoning directives and regulatory rulebooks (such as APRA CPS 234 & APS 220 compliance frameworks) guiding agent actions and decision criteria.',
+      tool:
+        'Deterministic typed Python functions enabling exact mathematical computations, portfolio calculations, and structured dataset queries without LLM hallucination.',
+      storageRest:
+        'Governed data storage residency at rest (CMEK-encrypted Cloud Storage gs://au-fsi-customer-assets/ and local airgapped disk mirrors at /src/data).',
+    };
 
-      const badge = getTierBadge();
+    const ARCHITECTURE_FUNCTION_METADATA = {
+      runtime: {
+        label: 'Execution Runtime',
+        icon: '⚙️',
+        category: 'Compute & Orchestration',
+        technicalDoc:
+          'Provides the sandboxed execution environment for the agent orchestrator. In Tier 1 and 2, leverages Vertex AI Agent Engine with regional compliance. In Tier 3, executes on isolated Compute Engine / GKE nodes in an airgapped VPC.',
+      },
+      modelLocation: {
+        label: 'Model Location & Data Residency',
+        icon: '📍',
+        category: 'Jurisdictional Sovereignty',
+        technicalDoc:
+          'Enforces sovereign boundary compliance. Under Australian APRA CPS 234 regulations, customer financial context must be restricted to Australian data centers (australia-southeast1) or on-prem enclave storage.',
+      },
+      model: {
+        label: 'Foundation Model',
+        icon: '⚡',
+        category: 'LLM Intelligence',
+        technicalDoc:
+          'Dynamically routed LLM tier. When higher-tier API quotas fail or cross-border connections sever, the routing engine switches models down the cascade without losing context.',
+      },
+      memory: {
+        label: 'Stateful Memory & Session Store',
+        icon: '💾',
+        category: 'State Persistence',
+        technicalDoc:
+          'Dual-tier session synchronization mechanism. Every conversation turn is written to both the hot primary session store and an asynchronous replication standby replica to guarantee instant recovery upon failover.',
+      },
+      piiCleanser: {
+        label: 'PII Cleanser & Cryptographic Tokenizer',
+        icon: '🛡️',
+        category: 'Zero-Trust Privacy',
+        technicalDoc:
+          'High-performance tokenization sidecar utilizing Microsoft Presidio and spaCy NER. Tokenizes Tax File Numbers, Medicare numbers, and personal identities with session-isolated salts before sending queries to LLMs.',
+      },
+      skill: {
+        label: 'Sovereign Agent Skill',
+        icon: '🧠',
+        category: 'Domain Directives & Governance',
+        technicalDoc:
+          'Encapsulates regulatory rulebooks (e.g. APRA CPS 234 Underwriter) and procedural instructions that ensure the agent adheres strictly to institutional credit risk and compliance guidelines.',
+      },
+      tool: {
+        label: 'Deterministic Tool',
+        icon: '🔧',
+        category: 'Mathematical Tooling',
+        technicalDoc:
+          'Institutional Python calculations (LVR, DTI, monthly amortization, APRA +3% rate shock buffers) invoked deterministically to avoid mathematical hallucination.',
+      },
+      storageRest: {
+        label: 'Storage at Rest Residency',
+        icon: '📁',
+        category: 'Data Governance',
+        technicalDoc:
+          'Secures enterprise datasets and audit logs. Governed by Customer-Managed Encryption Keys (CMEK) in regional cloud storage, mirrored locally in airgapped enclaves.',
+      },
+    };
 
+
+    function TelemetryHeader() {
       return (
-        <header className="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 sticky top-0 z-20 shadow-md">
-          <div className="flex items-center flex-wrap gap-3">
-            <span className="font-bold text-sm text-white tracking-tight">Project Sovereign-Stream</span>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${badge.color}`}>
-              <span>{badge.icon}</span>
-              <span>{badge.label}</span>
-            </span>
-            <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
-              Model: <span className="text-white font-semibold">{modelUsed}</span>
-            </span>
-            {isDatasetActive && (
-              <button
-                onClick={onOpenSettings}
-                className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 text-xs font-mono border border-amber-500/40 flex items-center gap-1.5 hover:bg-amber-500/25 transition shadow-sm"
-                title="Active Australian Loan Book Ingested & Active • Click to manage Trix datasets"
-              >
-                <span>📊</span>
-                <span className="font-semibold text-amber-200">Active Loan Book:</span>
-                <span>{datasetSummary?.rowCount || 5} Mortgages</span>
-                <span className="hidden xl:inline text-[11px] text-amber-400/80">(AU-SYD CMEK)</span>
-              </button>
-            )}
-            {buildInfo && (
-              <>
-                <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700 flex items-center gap-1.5" title="Active Git Branch">
-                  <span className="text-slate-400">Branch:</span>
-                  <span className="text-emerald-400 font-semibold">{buildInfo.branch}</span>
-                </span>
-                <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700 hidden sm:flex items-center gap-1.5" title="Server Build Timestamp">
-                  <span className="text-slate-400">Build:</span>
-                  <span className="text-slate-300">{buildInfo.buildTime}</span>
-                </span>
-              </>
-            )}
-            <span className="text-xs text-slate-400 font-mono hidden xl:inline">
-              {executionLocation}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono flex items-center gap-2">
-              <span className="text-slate-400">TTFT Latency:</span>
-              <span className={`font-bold ${latencyMs < 700 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {latencyMs}ms
-              </span>
-              {routingMode === 'STICKY_FALLBACK' && (
-                <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-sans font-semibold">
-                  Sticky (0ms penalty)
-                </span>
-              )}
-            </div>
-
-            {recoverySentinel && (
-              <div
-                className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-2 border ${
-                  recoverySentinel.status === 'FORCE_FAILED'
-                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
-                    : recoverySentinel.status === 'PROBING_BACKGROUND'
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 animate-pulse'
-                    : recoverySentinel.status === 'PROMOTED_RESTORED'
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                    : 'bg-slate-800 border-slate-700 text-slate-400'
-                }`}
-                title={recoverySentinel.message}
-              >
-                {recoverySentinel.status === 'FORCE_FAILED' && (
-                  <span className="flex items-center gap-1.5">
-                    <span>🚨 Forced Fault:</span>
-                    <span className="font-mono text-rose-200">
-                      {recoverySentinel.failedTiers && recoverySentinel.failedTiers.length > 0
-                        ? recoverySentinel.failedTiers
-                            .map((t) =>
-                              t === 'TIER_1_GLOBAL'
-                                ? 'Tier 1 (Global)'
-                                : t === 'TIER_2_REGIONAL'
-                                ? 'Tier 2 (AU-SYD)'
-                                : 'Tier 3 (VPC)'
-                            )
-                            .join(' + ') + ' Failed'
-                        : 'Chaos Fault Active'}
-                    </span>
-                  </span>
-                )}
-                {recoverySentinel.status === 'PROBING_BACKGROUND' && (
-                  <span>🔄 Sentinel Probing: {recoverySentinel.consecutiveSuccesses}/{recoverySentinel.requiredSuccesses} Healthy</span>
-                )}
-                {recoverySentinel.status === 'PROMOTED_RESTORED' && (
-                  <span>✅ Global Restored: Auto-Promoted</span>
-                )}
-                {recoverySentinel.status === 'IDLE_HEALTHY' && (
-                  <span>🟢 Global Healthy</span>
-                )}
-                {recoverySentinel.status === 'PROBE_FAILED_HYSTERESIS_RESET' && (
-                  <span>⚠️ Sentinel: Probe reset (SLA breach)</span>
-                )}
-              </div>
-            )}
-
-            {onResetChat && (
-              <button
-                onClick={onResetChat}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
-                title="Clear chat transcript and reset session state"
-              >
-                <span>🔄</span>
-                <span className="hidden sm:inline">Reset</span>
-              </button>
-            )}
-
-            {onOpenSettings && (
-              <button
-                onClick={onOpenSettings}
-                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/40 flex items-center gap-1.5 transition whitespace-nowrap"
-                title="Open Regional Catalog, Enclave Management, and Live Telemetry Logs"
-              >
-                <span>⚙️</span>
-                <span>Settings &amp; Logs</span>
-              </button>
-            )}
-          </div>
+        <header className="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-md">
+          <h1 className="text-base md:text-lg font-bold tracking-tight text-white font-sans bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+            Sovereign Agent Demo
+          </h1>
         </header>
       );
     }
 
-    function ChaosPanel({ controls, onChange, metadataList, onResetChat }) {
-      const totalTurns = metadataList.length;
-      const failoverTurns = metadataList.filter((m) => m.failoverOccurred).length;
-      const stickyTurns = metadataList.filter((m) => m.routingMode === 'STICKY_FALLBACK').length;
-      const totalSavedMs = metadataList.reduce((acc, m) => acc + (m.wastedLatencyAvoidedMs || 0), 0);
+    function ChaosPanel({ controls, onChange, onResetChat, onResetDemo, isResettingDemo, onOpenSettings, onSelectStage, onOpenArchitectureModal }) {
+      // Collapsible panels state (default closed, 5s inactivity auto-close)
+      const [isOverrideOpen, setIsOverrideOpen] = useState(false);
+      const [isStagesOpen, setIsStagesOpen] = useState(false);
+
+      const overrideTimerRef = useRef(null);
+      const stagesTimerRef = useRef(null);
+
+      const resetOverrideTimer = () => {
+        if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+        overrideTimerRef.current = setTimeout(() => {
+          setIsOverrideOpen(false);
+        }, 5000);
+      };
+
+      const resetStagesTimer = () => {
+        if (stagesTimerRef.current) clearTimeout(stagesTimerRef.current);
+        stagesTimerRef.current = setTimeout(() => {
+          setIsStagesOpen(false);
+        }, 5000);
+      };
+
+      const handleToggleOverride = () => {
+        setIsOverrideOpen((prev) => {
+          const next = !prev;
+          if (next) resetOverrideTimer();
+          else if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+          return next;
+        });
+      };
+
+      const handleToggleStages = () => {
+        setIsStagesOpen((prev) => {
+          const next = !prev;
+          if (next) resetStagesTimer();
+          else if (stagesTimerRef.current) clearTimeout(stagesTimerRef.current);
+          return next;
+        });
+      };
+
+      useEffect(() => {
+        return () => {
+          if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+          if (stagesTimerRef.current) clearTimeout(stagesTimerRef.current);
+        };
+      }, []);
+
+      const currentStage =
+        controls.enablePiiTokenizer && controls.enterpriseDataEnabled
+          ? 3
+          : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+          ? 2
+          : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+          ? 1
+          : 0;
+
+      const handleStageSelect = (stage) => {
+        if (onSelectStage) {
+          onSelectStage(stage);
+        } else {
+          if (stage === 1) {
+            onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+          } else if (stage === 2) {
+            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+          } else if (stage === 3) {
+            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
+          }
+          if (onResetChat) onResetChat();
+        }
+      };
 
       const handleForcedTierChange = (tier) => {
         onChange({
@@ -297,7 +439,7 @@
 
       const getAgentCharacter = () => {
         let piiCleanserText = 'Disabled (Bypassed)';
-        let piiCleanserColor = 'text-slate-500 font-semibold';
+        let piiCleanserColor = 'text-slate-500 font-normal';
         if (controls.enablePiiTokenizer) {
           if (activeTier === 'TIER_3_SOVEREIGN') {
             piiCleanserText = 'Enclave Sidecar (AU-SYD)';
@@ -311,24 +453,57 @@
           }
         }
 
-        const skillText = activeTier === 'TIER_3_SOVEREIGN'
-          ? 'APRA Enclave Rulebook (Local VPC)'
-          : 'APRA Mortgage Underwriter (AU-SYD)';
-        const skillColor = activeTier === 'TIER_3_SOVEREIGN'
-          ? 'text-emerald-400 font-semibold'
-          : 'text-amber-400 font-semibold';
+        let skillText = 'Standard Base Agent (No Domain Rules)';
+        let skillColor = 'text-slate-500 font-normal';
+        if (controls.enterpriseDataEnabled) {
+          skillText = activeTier === 'TIER_3_SOVEREIGN'
+            ? 'APRA Enclave Rulebook (Local VPC)'
+            : 'APRA Mortgage Underwriter (AU-SYD)';
+          skillColor = activeTier === 'TIER_3_SOVEREIGN'
+            ? 'text-emerald-400 font-semibold'
+            : 'text-amber-400 font-semibold';
+        }
 
-        const toolText = activeTier === 'TIER_3_SOVEREIGN'
-          ? 'calculate_customer_lvr (Airgap Enclave)'
-          : 'calculate_customer_lvr (Local VM Engine)';
-        const toolColor = 'text-emerald-400 font-semibold';
+        let toolText = 'Disabled (Standard LLM Only)';
+        let toolColor = 'text-slate-500 font-normal';
+        if (controls.enterpriseDataEnabled) {
+          toolText = activeTier === 'TIER_3_SOVEREIGN'
+            ? 'calculate_customer_lvr (Airgap Enclave)'
+            : 'calculate_customer_lvr (Local VM Engine)';
+          toolColor = 'text-emerald-400 font-semibold';
+        }
 
-        const storageRestText = activeTier === 'TIER_3_SOVEREIGN'
-          ? 'Local Enclave Disk Mirror (/src/data)'
-          : 'gs://au-fsi-customer-assets/ (AU-SYD CMEK)';
-        const storageRestColor = activeTier === 'TIER_3_SOVEREIGN'
-          ? 'text-emerald-400 font-semibold'
-          : 'text-amber-400 font-semibold';
+        let storageRestText = activeTier === 'TIER_3_SOVEREIGN'
+          ? 'Local Redis Replica (/dev/shm)'
+          : 'Vertex AI Managed Sessions (AU-SYD)';
+        let storageRestColor = 'text-slate-400 font-normal';
+        if (controls.enterpriseDataEnabled) {
+          storageRestText = activeTier === 'TIER_3_SOVEREIGN'
+            ? 'Local Enclave Disk Mirror (/src/data)'
+            : 'gs://au-fsi-customer-assets/ (AU-SYD CMEK)';
+          storageRestColor = activeTier === 'TIER_3_SOVEREIGN'
+            ? 'text-emerald-400 font-semibold'
+            : 'text-amber-400 font-semibold';
+        }
+
+        const getModelDisplayName = (tier) => {
+          const configuredModel = controls.tierSettings?.[tier]?.model;
+          if (configuredModel) {
+            if (configuredModel === 'gemini-3.7-flash') return 'Gemini 3.7 Flash';
+            if (configuredModel === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
+            if (configuredModel === 'gemini-1.5-pro-002') return 'Gemini 1.5 Pro (002)';
+            if (configuredModel === 'gemini-1.5-flash-002') return 'Gemini 1.5 Flash (002)';
+            if (configuredModel === 'gemini-2.0-flash-001') return 'Gemini 2.0 Flash (001)';
+            if (configuredModel === 'gemini-2.0-pro-exp-02-05') return 'Gemini 2.0 Pro Experimental';
+            if (configuredModel === 'gemini-1.0-pro-002') return 'Gemini 1.0 Pro (002)';
+            if (configuredModel === 'gemini-1.5-flash-001') return 'Gemini 1.5 Flash (001)';
+            if (configuredModel.includes('gemma')) return 'Gemma 2 (Self-Hosted)';
+            return configuredModel;
+          }
+          if (tier === 'TIER_1_GLOBAL') return 'Gemini 3.7 Flash';
+          if (tier === 'TIER_2_REGIONAL') return 'Gemini 2.5 Flash';
+          return 'Gemma 2 (Self-Hosted)';
+        };
 
         switch (activeTier) {
           case 'TIER_2_REGIONAL':
@@ -336,8 +511,10 @@
               name: 'Regional Agent',
               runtime: 'Vertex AI Agent Engine (AU-SYD)',
               runtimeColor: 'text-amber-400 font-semibold',
-              inference: 'In-Country Vertex AI (AU-SYD)',
-              inferenceColor: 'text-amber-400 font-semibold',
+              modelLocation: 'Sydney (AU-SYD)',
+              modelLocationColor: 'text-amber-400 font-semibold',
+              model: getModelDisplayName('TIER_2_REGIONAL'),
+              modelColor: 'text-amber-400 font-semibold',
               memory: 'Vertex AI Managed Sessions (AU-SYD)',
               memoryColor: 'text-amber-400 font-semibold',
               piiCleanser: piiCleanserText,
@@ -356,11 +533,13 @@
             };
           case 'TIER_3_SOVEREIGN':
             return {
-              name: 'Sovereign Enclave Agent',
+              name: 'On-Prem Agent',
               runtime: 'Private Isolated VPC Enclave',
               runtimeColor: 'text-emerald-400 font-semibold',
-              inference: 'Self-Hosted Gemma 2 (Local)',
-              inferenceColor: 'text-emerald-400 font-semibold',
+              modelLocation: 'Enclave Airgap (AU-SYD)',
+              modelLocationColor: 'text-emerald-400 font-semibold',
+              model: getModelDisplayName('TIER_3_SOVEREIGN'),
+              modelColor: 'text-emerald-400 font-semibold',
               memory: 'Tier 3 Local Standby Replica',
               memoryColor: 'text-emerald-400 font-semibold',
               piiCleanser: piiCleanserText,
@@ -383,8 +562,10 @@
               name: 'Global Frontier Agent',
               runtime: 'Vertex AI Agent Engine (AU-SYD)',
               runtimeColor: 'text-amber-400 font-semibold',
-              inference: 'Global Hyperscaler API',
-              inferenceColor: 'text-blue-400 font-semibold',
+              modelLocation: 'Global Multi-Region',
+              modelLocationColor: 'text-blue-400 font-semibold',
+              model: getModelDisplayName('TIER_1_GLOBAL'),
+              modelColor: 'text-blue-400 font-semibold',
               memory: 'Vertex AI Managed Sessions (AU-SYD)',
               memoryColor: 'text-amber-400 font-semibold',
               piiCleanser: piiCleanserText,
@@ -490,50 +671,257 @@
                 </div>
               </div>
 
-              {/* Integrated Architecture Elements for Active Tier (Color-coded by location) */}
-              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-2 text-[11px] font-mono leading-tight">
-                <div className="flex items-start justify-between gap-2 text-slate-400">
-                  <span className="text-slate-500 shrink-0">⚙️ Runtime:</span>
+              {/* Integrated Architecture Elements for Active Tier (Interactive Popups) */}
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5 text-[11px] font-mono leading-tight">
+                {/* 1. Runtime */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'runtime',
+                      title: '⚙️ Execution Runtime',
+                      icon: '⚙️',
+                      activeValue: agentChar.runtime,
+                      activeColor: agentChar.runtimeColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view Execution Runtime architecture & role"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                    <span>⚙️</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                      Runtime:
+                    </span>
+                  </span>
                   <span className={`text-right font-sans ${agentChar.runtimeColor}`}>
                     {agentChar.runtime}
                   </span>
                 </div>
-                <div className="flex items-start justify-between gap-2 text-slate-400">
-                  <span className="text-slate-500 shrink-0">⚡ Inference:</span>
-                  <span className={`text-right font-sans ${agentChar.inferenceColor}`}>
-                    {agentChar.inference}
+
+                {/* 2. Model Location */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'modelLocation',
+                      title: '📍 Model Location & Data Residency',
+                      icon: '📍',
+                      activeValue: agentChar.modelLocation,
+                      activeColor: agentChar.modelLocationColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view Model Location and Data Residency compliance"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                    <span>📍</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                      Model Location:
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.modelLocationColor}`}>
+                    {agentChar.modelLocation}
                   </span>
                 </div>
-                <div className="flex items-start justify-between gap-2 text-slate-400">
-                  <span className="text-slate-500 shrink-0">💾 Memory:</span>
+
+                {/* 3. Model */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'model',
+                      title: '⚡ Foundation Model Tier',
+                      icon: '⚡',
+                      activeValue: agentChar.model,
+                      activeColor: agentChar.modelColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view Model selection & failover specifications"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                    <span>⚡</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                      Model:
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.modelColor}`}>
+                    {agentChar.model}
+                  </span>
+                </div>
+
+                {/* 4. Memory */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'memory',
+                      title: '💾 Stateful Memory & Session Store',
+                      icon: '💾',
+                      activeValue: agentChar.memory,
+                      activeColor: agentChar.memoryColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view Memory persistence & replication architecture"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                    <span>💾</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                      Memory:
+                    </span>
+                  </span>
                   <span className={`text-right font-sans ${agentChar.memoryColor}`}>
                     {agentChar.memory}
                   </span>
                 </div>
+
+                {/* 5. PII Cleanser */}
                 {controls.enablePiiTokenizer && (
-                  <div className="flex items-start justify-between gap-2 text-slate-400 border-t border-slate-800/60 pt-1.5">
-                    <span className="text-slate-500 shrink-0">🛡️ PII Cleanser:</span>
+                  <div
+                    onClick={() =>
+                      onOpenArchitectureModal &&
+                      onOpenArchitectureModal({
+                        type: 'function_desc',
+                        functionKey: 'piiCleanser',
+                        title: '🛡️ PII Cleanser & Cryptographic Tokenizer',
+                        icon: '🛡️',
+                        activeValue: agentChar.piiCleanser,
+                        activeColor: agentChar.piiCleanserColor,
+                      })
+                    }
+                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                    title="Click to view PII Cleanser entity recognition specifications"
+                  >
+                    <span className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1">
+                      <span>🛡️</span>
+                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                        PII Cleanser:
+                      </span>
+                    </span>
                     <span className={`text-right font-sans ${agentChar.piiCleanserColor}`}>
                       {agentChar.piiCleanser}
                     </span>
                   </div>
                 )}
+
+                {/* 6. Skill */}
                 {controls.enterpriseDataEnabled && (
                   <>
-                    <div className="flex items-start justify-between gap-2 text-slate-400 border-t border-slate-800/60 pt-1.5">
-                      <span className="text-slate-500 shrink-0">🧠 Skill:</span>
-                      <span className={`text-right font-sans ${agentChar.skillColor}`}>
-                        {agentChar.skill}
+                    <div
+                      className={`flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group ${
+                        !controls.enablePiiTokenizer ? 'border-t border-slate-800/60 pt-1.5' : ''
+                      }`}
+                    >
+                      <span
+                        onClick={() =>
+                          onOpenArchitectureModal &&
+                          onOpenArchitectureModal({
+                            type: 'function_desc',
+                            functionKey: 'skill',
+                            title: '🧠 Sovereign Agent Skill',
+                            icon: '🧠',
+                            activeValue: agentChar.skill,
+                            activeColor: agentChar.skillColor,
+                          })
+                        }
+                        className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1 cursor-pointer"
+                        title="Click to view Skill architectural documentation"
+                      >
+                        <span>🧠</span>
+                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                          Skill:
+                        </span>
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenArchitectureModal &&
+                            onOpenArchitectureModal({
+                              type: 'skill_rulebook',
+                              title: `🧠 ${agentChar.skill}`,
+                              icon: '🧠',
+                              activeValue: agentChar.skill,
+                              activeColor: agentChar.skillColor,
+                            });
+                        }}
+                        className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.skillColor}`}
+                        title="Click to view actual APRA CPS 234 Skill rulebook & guidelines"
+                      >
+                        {agentChar.skill} ↗
+                      </button>
                     </div>
-                    <div className="flex items-start justify-between gap-2 text-slate-400">
-                      <span className="text-slate-500 shrink-0">🔧 Tool:</span>
-                      <span className={`text-right font-sans ${agentChar.toolColor}`}>
-                        {agentChar.tool}
+
+                    {/* 7. Tool */}
+                    <div className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group">
+                      <span
+                        onClick={() =>
+                          onOpenArchitectureModal &&
+                          onOpenArchitectureModal({
+                            type: 'function_desc',
+                            functionKey: 'tool',
+                            title: '🔧 Deterministic Tool',
+                            icon: '🔧',
+                            activeValue: agentChar.tool,
+                            activeColor: agentChar.toolColor,
+                          })
+                        }
+                        className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                        title="Click to view Tool architectural documentation"
+                      >
+                        <span>🔧</span>
+                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                          Tool:
+                        </span>
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenArchitectureModal &&
+                            onOpenArchitectureModal({
+                              type: 'tool_dataset',
+                              title: `🔧 calculate_customer_lvr`,
+                              icon: '🔧',
+                              activeValue: agentChar.tool,
+                              activeColor: agentChar.toolColor,
+                            });
+                        }}
+                        className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.toolColor}`}
+                        title="Click to view tool interface & live customer loan dataset"
+                      >
+                        {agentChar.tool} ↗
+                      </button>
                     </div>
-                    <div className="flex items-start justify-between gap-2 text-slate-400">
-                      <span className="text-slate-500 shrink-0">📁 Storage (Rest):</span>
+
+                    {/* 8. Storage (Rest) */}
+                    <div
+                      onClick={() =>
+                        onOpenArchitectureModal &&
+                        onOpenArchitectureModal({
+                          type: 'function_desc',
+                          functionKey: 'storageRest',
+                          title: '📁 Storage (Rest) Residency',
+                          icon: '📁',
+                          activeValue: agentChar.storageRest,
+                          activeColor: agentChar.storageRestColor,
+                        })
+                      }
+                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                      title="Click to view Storage at Rest data residency details"
+                    >
+                      <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                        <span>📁</span>
+                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                          Storage (Rest):
+                        </span>
+                      </span>
                       <span className={`text-right font-sans ${agentChar.storageRestColor}`}>
                         {agentChar.storageRest}
                       </span>
@@ -543,131 +931,335 @@
               </div>
             </div>
 
-            {/* 1. Manual Tier Override & Fail Checkboxes */}
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-                  Manual Sovereignty Override
-                </h3>
-                <span className="text-[10px] text-slate-500 font-mono">Inject Fault</span>
-              </div>
-              <div className="space-y-2">
-                {[
-                  { id: 'AUTO', label: 'Auto Cascade (Default)', desc: 'Tier 1 -> Tier 2 -> Tier 3' },
-                  { id: 'TIER_1_GLOBAL', label: 'Lock Tier 1 (Global)', desc: 'Generative AI Global API' },
-                  { id: 'TIER_2_REGIONAL', label: 'Lock Tier 2 (AU-SYD)', desc: 'Vertex AI Sydney Data Residency' },
-                  { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (Airgap VPC)', desc: 'Private VPC Gemma-2 Open Weights' },
-                ].map((opt) => (
-                  <div
-                    key={opt.id}
-                    onClick={() => handleForcedTierChange(opt.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
-                      controls.forcedTier === opt.id
-                        ? 'bg-blue-600/10 border-blue-500/50 text-white'
-                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+            {/* 1. Manual Tier Override & Fail Checkboxes (Collapsible, 5s Auto-Close) */}
+            <div
+              onMouseMove={() => isOverrideOpen && resetOverrideTimer()}
+              onClick={() => isOverrideOpen && resetOverrideTimer()}
+              className="rounded-xl bg-slate-950 border border-slate-800 transition-all duration-200 overflow-hidden"
+            >
+              {/* Collapsible Header */}
+              <div
+                onClick={handleToggleOverride}
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-900/60 transition select-none group"
+                title={isOverrideOpen ? "Click to collapse panel" : "Click to expand manual sovereignty controls"}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-slate-400 group-hover:text-blue-400 transition text-xs">🎛️</span>
+                  <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide truncate">
+                    Manual Sovereignty Override
+                  </h3>
+                </div>
+                
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Collapsed Status Summary Badge */}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium border ${
+                    controls.forcedTier === 'AUTO'
+                      ? (controls.failedTiers && controls.failedTiers.length > 0
+                          ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                          : 'bg-blue-500/10 border-blue-500/30 text-blue-300')
+                      : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                  }`}>
+                    {controls.forcedTier === 'AUTO'
+                      ? (controls.failedTiers && controls.failedTiers.length > 0
+                          ? `Auto (${controls.failedTiers.length} Fault${controls.failedTiers.length > 1 ? 's' : ''})`
+                          : 'Auto Cascade')
+                      : controls.forcedTier === 'TIER_1_GLOBAL'
+                      ? 'Tier 1 Locked'
+                      : controls.forcedTier === 'TIER_2_REGIONAL'
+                      ? 'Tier 2 Locked'
+                      : 'Tier 3 Locked'}
+                  </span>
+
+                  {/* Chevron */}
+                  <svg
+                    className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-200 transition-transform duration-200 ${
+                      isOverrideOpen ? 'rotate-180 text-blue-400' : ''
                     }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
                   >
-                    <div className="flex items-start gap-2.5">
-                      <input
-                        type="radio"
-                        name="forcedTier"
-                        checked={controls.forcedTier === opt.id}
-                        onChange={() => handleForcedTierChange(opt.id)}
-                        className="mt-1 accent-blue-500 cursor-pointer"
-                      />
-                      <div>
-                        <div className="text-xs font-semibold">{opt.label}</div>
-                        <div className="text-[10px] text-slate-400">{opt.desc}</div>
-                      </div>
-                    </div>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
 
-                    {opt.id !== 'AUTO' && (
-                      <div
-                        className={`flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-800 shrink-0 ${
-                          controls.forcedTier !== 'AUTO' ? 'opacity-30 cursor-not-allowed' : ''
-                        }`}
-                        title={
-                          controls.forcedTier !== 'AUTO'
-                            ? 'Simulating failure is only enabled in Auto Cascade mode'
-                            : 'Inject simulated API fault for this tier'
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (controls.forcedTier === 'AUTO') {
-                            handleToggleFailTier(opt.id);
-                          }
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          id={`fail-${opt.id}`}
-                          disabled={controls.forcedTier !== 'AUTO'}
-                          checked={
-                            controls.forcedTier === 'AUTO' &&
-                            (controls.failedTiers?.includes(opt.id) || false)
-                          }
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            if (controls.forcedTier === 'AUTO') {
-                              handleToggleFailTier(opt.id);
-                            }
-                          }}
-                          className={`w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-rose-500 accent-rose-500 ${
-                            controls.forcedTier !== 'AUTO' ? 'cursor-not-allowed' : 'cursor-pointer'
-                          }`}
-                        />
-                        <label
-                          htmlFor={`fail-${opt.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`text-[11px] font-semibold select-none ${
-                            controls.forcedTier !== 'AUTO'
-                              ? 'text-slate-500 cursor-not-allowed'
-                              : controls.failedTiers?.includes(opt.id)
-                              ? 'text-rose-400 cursor-pointer'
-                              : 'text-slate-400 hover:text-slate-300 cursor-pointer'
-                          }`}
-                        >
-                          Fail
-                        </label>
-                      </div>
-                    )}
+              {/* Expanded Content Body */}
+              {isOverrideOpen && (
+                <div className="p-3 pt-0 border-t border-slate-800/80 space-y-3 mt-1">
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-[10px] text-slate-400">Select active tier or inject simulated faults:</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Inject Fault</span>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    {[
+                      { id: 'AUTO', label: 'Auto Cascade (Default)', desc: 'Tier 1 -> Tier 2 -> Tier 3' },
+                      { id: 'TIER_1_GLOBAL', label: 'Lock Tier 1 (Global)', desc: 'Generative AI Global API' },
+                      { id: 'TIER_2_REGIONAL', label: 'Lock Tier 2 (AU-SYD)', desc: 'Vertex AI Sydney Data Residency' },
+                      { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (Airgap VPC)', desc: 'Private VPC Gemma-2 Open Weights' },
+                    ].map((opt) => (
+                      <div
+                        key={opt.id}
+                        onClick={() => {
+                          handleForcedTierChange(opt.id);
+                          resetOverrideTimer();
+                        }}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
+                          controls.forcedTier === opt.id
+                            ? 'bg-blue-600/10 border-blue-500/50 text-white'
+                            : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="radio"
+                            name="forcedTier"
+                            checked={controls.forcedTier === opt.id}
+                            onChange={() => {
+                              handleForcedTierChange(opt.id);
+                              resetOverrideTimer();
+                            }}
+                            className="mt-1 accent-blue-500 cursor-pointer"
+                          />
+                          <div>
+                            <div className="text-xs font-semibold">{opt.label}</div>
+                            <div className="text-[10px] text-slate-400">{opt.desc}</div>
+                          </div>
+                        </div>
 
-            {/* 2. System Resilience Telemetry */}
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-              <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-                Live Session Telemetry
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-slate-800">
-                  <span className="text-slate-400">Total Chat Turns:</span>
-                  <span className="font-mono text-white font-semibold">{totalTurns}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800">
-                  <span className="text-slate-400">Failover Transitions:</span>
-                  <span className="font-mono text-amber-400 font-semibold">{failoverTurns} hops</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800">
-                  <span className="text-slate-400">Sticky Fallback Turns:</span>
-                  <span className="font-mono text-blue-400 font-semibold">{stickyTurns}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-slate-400">Timeout Latency Avoided:</span>
-                  <span className="font-mono text-emerald-400 font-bold">+{totalSavedMs} ms</span>
+                        {opt.id !== 'AUTO' && (
+                          <div
+                            className={`flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-800 shrink-0 ${
+                              controls.forcedTier !== 'AUTO' ? 'opacity-30 cursor-not-allowed' : ''
+                            }`}
+                            title={
+                              controls.forcedTier !== 'AUTO'
+                                ? 'Simulating failure is only enabled in Auto Cascade mode'
+                                : 'Inject simulated API fault for this tier'
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (controls.forcedTier === 'AUTO') {
+                                handleToggleFailTier(opt.id);
+                                resetOverrideTimer();
+                              }
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              id={`fail-${opt.id}`}
+                              disabled={controls.forcedTier !== 'AUTO'}
+                              checked={
+                                controls.forcedTier === 'AUTO' &&
+                                (controls.failedTiers?.includes(opt.id) || false)
+                              }
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (controls.forcedTier === 'AUTO') {
+                                handleToggleFailTier(opt.id);
+                                resetOverrideTimer();
+                              }
+                            }}
+                            className={`w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-rose-500 accent-rose-500 ${
+                              controls.forcedTier !== 'AUTO' ? 'cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                          />
+                          <label
+                            htmlFor={`fail-${opt.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`text-[11px] font-semibold select-none ${
+                              controls.forcedTier !== 'AUTO'
+                                ? 'text-slate-500 cursor-not-allowed'
+                                : controls.failedTiers?.includes(opt.id)
+                                ? 'text-rose-400 cursor-pointer'
+                                : 'text-slate-400 hover:text-slate-300 cursor-pointer'
+                            }`}
+                          >
+                            Fail
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <button
-            onClick={onResetChat}
-            className="w-full mt-4 py-2.5 px-4 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition shadow-sm"
+          {/* Demo Presentation Stages (Collapsible, 5s Auto-Close) */}
+          <div
+            onMouseMove={() => isStagesOpen && resetStagesTimer()}
+            onClick={() => isStagesOpen && resetStagesTimer()}
+            className="rounded-xl bg-slate-950 border border-indigo-500/30 shadow-lg shadow-indigo-950/20 transition-all duration-200 overflow-hidden"
           >
-            Clear Chat &amp; Reset ADK Session State
-          </button>
+            {/* Collapsible Header */}
+            <div
+              onClick={handleToggleStages}
+              className="flex items-center justify-between p-3 cursor-pointer hover:bg-indigo-950/20 transition select-none group"
+              title={isStagesOpen ? "Click to collapse stages panel" : "Click to expand demo stages"}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0"></span>
+                <h3 className="text-xs font-semibold text-indigo-200 uppercase tracking-wide truncate">
+                  Demo Presentation Stages
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Collapsed Stage Status Pill */}
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium border ${
+                  currentStage === 1
+                    ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
+                    : currentStage === 2
+                    ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
+                    : currentStage === 3
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-300'
+                }`}>
+                  {currentStage === 1
+                    ? 'Stage 1: Core Memory'
+                    : currentStage === 2
+                    ? 'Stage 2: Zero-PII'
+                    : currentStage === 3
+                    ? 'Stage 3: Enterprise LVR'
+                    : 'Custom Mode'}
+                </span>
+
+                {/* Chevron */}
+                <svg
+                  className={`w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-200 transition-transform duration-200 ${
+                    isStagesOpen ? 'rotate-180 text-indigo-300' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Expanded Content Body */}
+            {isStagesOpen && (
+              <div className="p-3 pt-0 border-t border-indigo-950/60 space-y-2.5 mt-1">
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-[10px] text-slate-400">1-Click demo scenario presets:</span>
+                  <span className="text-[10px] text-indigo-400 font-mono">1-Click Presets</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStageSelect(1);
+                      resetStagesTimer();
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                      currentStage === 1
+                        ? 'bg-blue-600/25 border-blue-500 text-blue-200 shadow-md shadow-blue-900/30 ring-1 ring-blue-500/40 font-bold'
+                        : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Stage 1: Core Memory & Failover (PII Off, Tools Off)"
+                  >
+                    <span className="text-xs font-bold text-blue-400">Stage 1</span>
+                    <span className="text-[10px] font-semibold mt-0.5 leading-tight">Core Memory</span>
+                    <span className="text-[8px] opacity-70 mt-0.5">PII: Off • Tools: Off</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStageSelect(2);
+                      resetStagesTimer();
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                      currentStage === 2
+                        ? 'bg-purple-600/25 border-purple-500 text-purple-200 shadow-md shadow-purple-900/30 ring-1 ring-purple-500/40 font-bold'
+                        : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Stage 2: Zero-PII Cryptographic Token Shield (PII On, Tools Off)"
+                  >
+                    <span className="text-xs font-bold text-purple-400">Stage 2</span>
+                    <span className="text-[10px] font-semibold mt-0.5 leading-tight">Zero-PII</span>
+                    <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: Off</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStageSelect(3);
+                      resetStagesTimer();
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                      currentStage === 3
+                        ? 'bg-amber-600/25 border-amber-500 text-amber-200 shadow-md shadow-amber-900/30 ring-1 ring-amber-500/40 font-bold'
+                        : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On)"
+                  >
+                    <span className="text-xs font-bold text-amber-400">Stage 3</span>
+                    <span className="text-[10px] font-semibold mt-0.5 leading-tight">Enterprise LVR</span>
+                    <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On</span>
+                  </button>
+                </div>
+
+                <div className="pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-tight">
+                  {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF)"}
+                  {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF)"}
+                  {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON)"}
+                  {currentStage === 0 && "⚙️ Custom Mode Active: Enterprise LVR Tools enabled with direct cleartext LLM processing (PII Shield: OFF)."}
+                </div>
+              </div>
+            )}
+          </div>
+          </div>
+
+          {/* Bottom Actions: Reset Demo, Settings & Reset Session */}
+          <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-2 shrink-0">
+            {onResetDemo && (
+              <button
+                onClick={onResetDemo}
+                disabled={isResettingDemo}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-950/40 border border-emerald-400/40 flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-[0.99]"
+                title="Reset Demo: Sets stages back to 1, clears all memory, and ensures Tier 3 Gemma enclave is active and reachable"
+              >
+                {isResettingDemo ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>Resetting Demo...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>⚡</span>
+                    <span>Reset Demo</span>
+                  </>
+                )}
+              </button>
+            )}
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 flex items-center justify-center gap-2 transition"
+                title="Open Regional Catalog, Enclave Management, and Live Telemetry Logs"
+              >
+                <span>⚙️</span>
+                <span>Settings &amp; Logs</span>
+              </button>
+            )}
+            <button
+              onClick={onResetChat}
+              className="w-full py-2 px-4 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition shadow-sm"
+              title="Clear chat transcript and reset session state"
+            >
+              <span>🔄</span>
+              <span>Reset Chat</span>
+            </button>
+          </div>
         </aside>
       );
     }
@@ -681,7 +1273,14 @@ function SettingsModal({
   controls,
   onUpdateControls,
   onDatasetUpdate,
-}) => {
+  architectureDescriptions,
+  onSaveArchitectureDescriptions,
+  initialTab,
+}) {
+  const [archDescriptions, setArchDescriptions] = useState(
+    architectureDescriptions || DEFAULT_ARCHITECTURE_DESCRIPTIONS
+  );
+  const [archSavedMsg, setArchSavedMsg] = useState(null);
   const [activeTab, setActiveTab] = useState('tiers');
   const [localSettings, setLocalSettings] = useState(tierSettings);
   const [customRules, setCustomRules] = useState([]);
@@ -746,7 +1345,13 @@ function SettingsModal({
 
   useEffect(() => {
     setLocalSettings(tierSettings);
-  }, [tierSettings, isOpen]);
+    if (architectureDescriptions) {
+      setArchDescriptions(architectureDescriptions);
+    }
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [tierSettings, architectureDescriptions, isOpen, initialTab]);
 
   useEffect(() => {
     if (isOpen) {
@@ -906,7 +1511,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
     }
   };
 
-  const handleIngest = async (csvContent, sourceUrl?) => {
+  const handleIngest = async (csvContent, sourceUrl = null) => {
     try {
       setDatasetLoading(true);
       setDatasetMsg(null);
@@ -1029,7 +1634,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
   };
 
   const handleResetDefaults = () => {
-    const defaults: TierSettingsMap = {
+    const defaults = {
       TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
       TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
       TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
@@ -1037,12 +1642,32 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
     setLocalSettings(defaults);
   };
 
+  const handleSaveArchitecture = () => {
+    if (onSaveArchitectureDescriptions) {
+      onSaveArchitectureDescriptions(archDescriptions);
+    }
+    setArchSavedMsg('Architecture descriptions successfully saved.');
+    setTimeout(() => setArchSavedMsg(null), 3000);
+  };
+
+  const handleResetArchitectureDefaults = () => {
+    setArchDescriptions(DEFAULT_ARCHITECTURE_DESCRIPTIONS);
+    if (onSaveArchitectureDescriptions) {
+      onSaveArchitectureDescriptions(DEFAULT_ARCHITECTURE_DESCRIPTIONS);
+    }
+    setArchSavedMsg('Reset all function descriptions to default specifications.');
+    setTimeout(() => setArchSavedMsg(null), 3000);
+  };
+
   const handleSave = () => {
     onSaveSettings(localSettings);
+    if (onSaveArchitectureDescriptions) {
+      onSaveArchitectureDescriptions(archDescriptions);
+    }
     onClose();
   };
 
-  const tierMetadata: Record<string, { title; desc; badge; color }> = {
+  const tierMetadata = {
     TIER_1_GLOBAL: {
       title: 'Tier 1 • Global Frontier Tier',
       desc: 'Primary high-throughput API routing for standard non-regulated processing.',
@@ -1224,6 +1849,26 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
             }`}
           >
             <span>📜</span> Live Enclave Telemetry Logs
+          </button>
+          <button
+            onClick={() => setActiveTab('architecture')}
+            className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'architecture'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>🏛️</span> Architecture &amp; Function Info
+          </button>
+          <button
+            onClick={() => setActiveTab('architecture')}
+            className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'architecture'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>🏛️</span> Architecture &amp; Function Info
           </button>
         </div>
 
@@ -1430,9 +2075,9 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   <div className="space-y-1">
                     <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Local Enclave Mirror</span>
                     <span className="text-emerald-300 font-semibold text-[11px] block">
-                      /src/data/customer_loans.csv
+                      /var/sovereign/data/customer_loans.csv
                     </span>
-                    <span className="text-slate-400 text-[10px]">Airgapped Enclave Synchronized</span>
+                    <span className="text-slate-400 text-[10px]">sovereign-gemma-2b-vm (Port 8003)</span>
                   </div>
                   <div className="space-y-1">
                     <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Active Working Memory</span>
@@ -2439,6 +3084,87 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
   );
 }
 
+    const MEMORY_CHIPS = [
+      {
+        id: 'cats',
+        title: 'Basic Memory (5 Cats)',
+        prompt: 'Give me the names of five cats.',
+        followUpPrompt: 'Which was the 3rd cat on that list?',
+      },
+      {
+        id: 'dogs',
+        title: 'Basic Memory (5 Dogs)',
+        prompt: 'Give me the names of five dogs and their breeds.',
+        followUpPrompt: 'What was the name and breed of the 2nd dog you mentioned?',
+      },
+      {
+        id: 'favorite-color',
+        title: 'Basic Memory (Personal Facts)',
+        prompt: 'Remember: my favorite color is emerald green and I live on a farm with 3 horses.',
+        followUpPrompt: 'What is my favorite color and how many horses do I have on my farm?',
+      },
+      {
+        id: 'australian-cities',
+        title: 'Basic Memory (General Knowledge)',
+        prompt: 'List 4 major Australian capital cities and their approximate populations.',
+        followUpPrompt: 'Which Australian city was listed 2nd and what was its population?',
+      },
+    ];
+
+    const PII_CHIPS = [
+      {
+        id: 'parents-names',
+        title: 'PII Masking (Family Names)',
+        prompt: "My mother's name is Alice and my father's name is Bob.",
+        followUpPrompt: "What are my mother's and father's names?",
+      },
+      {
+        id: 'sarah-connor-id',
+        title: 'PII Masking (TFN & Medicare)',
+        prompt: 'Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit.',
+        followUpPrompt: "What was Sarah Connor's Medicare card number and TFN?",
+      },
+      {
+        id: 'home-address',
+        title: 'PII Masking (Address & Co-Habitants)',
+        prompt: 'I live at 42 Wallaby Way Sydney with my brother Mark.',
+        followUpPrompt: 'Where do I live and who lives with me?',
+      },
+      {
+        id: 'account-transfer',
+        title: 'PII Masking (Account Transfer)',
+        prompt: "Transfer $500 from John Smith's account 123-456 to Jane Doe.",
+        followUpPrompt: 'Who was the sender and recipient of the $500 transfer?',
+      },
+    ];
+
+    const LVR_CHIPS = [
+      {
+        id: 'sarah-jenkins-lvr',
+        title: 'LVR & LMI Calculation (Sarah Jenkins)',
+        prompt: 'Calculate LVR, DTI, and LMI requirements for Sarah Jenkins (CUST-8821)',
+        followUpPrompt: 'If Sarah Jenkins pays down $50,000 off her loan balance, what is her new LVR and does she still need LMI?',
+      },
+      {
+        id: 'david-zhang-apra',
+        title: 'APRA +3% Stress Test (David Zhang)',
+        prompt: 'Run APRA +3.0% mortgage serviceability stress test on David Zhang (CUST-1042)',
+        followUpPrompt: "What was David Zhang's stressed monthly repayment and monthly surplus buffer under APRA +3%?",
+      },
+      {
+        id: 'emma-watson-risk',
+        title: 'High LVR Default Risk (Emma Watson)',
+        prompt: 'Audit Emma Watson (CUST-3310) for high LVR default risk and buffer breach',
+        followUpPrompt: "Compare Emma Watson's LVR risk tier against Sarah Jenkins",
+      },
+      {
+        id: 'marcus-equity-release',
+        title: 'Commercial Equity Release (Marcus Aurelius)',
+        prompt: 'Marcus Aurelius (CUST-4491) wants to borrow an extra $200,000 against his $2.1M property. Re-evaluate his LVR and APRA buffer.',
+        followUpPrompt: 'Is Marcus Aurelius still within the prime compliant risk tier after the extra borrowing?',
+      },
+    ];
+
     function ChatWindow({ messages, isLoading, onSendMessage, enablePiiTokenizer = true, enterpriseDataEnabled = false }) {
       const [input, setInput] = useState('');
       const [activeTab, setActiveTab] = useState('user');
@@ -2447,6 +3173,39 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       const messagesEndRef = React.useRef(null);
 
       const effectiveTab = enablePiiTokenizer ? activeTab : 'user';
+
+      // Determine active prompt chips set based on (enablePiiTokenizer, enterpriseDataEnabled)
+      const activeChips = enterpriseDataEnabled
+        ? LVR_CHIPS
+        : enablePiiTokenizer
+        ? PII_CHIPS
+        : MEMORY_CHIPS;
+
+      // Mode metadata for placeholder and clean description
+      const modeMetadata = enterpriseDataEnabled
+        ? {
+            description: 'Demonstrates Enterprise LVR & APRA stress testing calculations with multi-tier memory.',
+            placeholder: 'Ask about customer loans (e.g. Calculate LVR for Sarah Jenkins CUST-8821, or David Zhang APRA stress test)...',
+          }
+        : enablePiiTokenizer
+        ? {
+            description: 'Demonstrates Zero-PII Egress Tokenization and cleartext memory recall across tiers.',
+            placeholder: "Type sensitive prompt (e.g. My mother's name is Alice, my father's name is Bob, TFN 123 456 782)...",
+          }
+        : {
+            description: 'Demonstrates basic conversational memory across Tier 1 (Global), Tier 2 (AU-SYD), and Tier 3 (Airgap VPC).',
+            placeholder: 'Ask a memory or general knowledge question (e.g. Give me the names of five cats / dogs)...',
+          };
+
+      // Find if latest user turn matches any starter chip to surface a dynamic follow-up memory recall chip
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+      const matchedStarterChip = lastUserMsg
+        ? activeChips.find(
+            (chip) =>
+              lastUserMsg.content.toLowerCase().includes(chip.prompt.toLowerCase().slice(0, 15)) ||
+              chip.prompt.toLowerCase().includes(lastUserMsg.content.toLowerCase().slice(0, 15))
+          )
+        : null;
 
       const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -2494,6 +3253,49 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         });
       };
 
+      const renderMarkdownContent = (text, enableTokens = false, isUser = false) => {
+        if (!text || typeof text !== 'string') return null;
+        if (window.marked && typeof window.marked.parse === 'function') {
+          try {
+            window.marked.setOptions({
+              gfm: true,
+              breaks: true,
+            });
+            let parsedHtml = window.marked.parse(text);
+            if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+              parsedHtml = window.DOMPurify.sanitize(parsedHtml, {
+                ADD_ATTR: ['target', 'rel'],
+              });
+            }
+            if (enableTokens) {
+              parsedHtml = parsedHtml.replace(/\[\[PII_([A-Z0-9_]+)\]\]/g, (match, entType) => {
+                let colorClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+                if (
+                  entType.includes('AU') ||
+                  entType.includes('TFN') ||
+                  entType.includes('BSB') ||
+                  entType.includes('MEDICARE')
+                ) {
+                  colorClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                } else if (entType.includes('PERSON')) {
+                  colorClass = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+                }
+                return `<span class="inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded border font-semibold mx-0.5 ${colorClass}" title="PII Token: ${match}"><span>🛡️</span><span>${match}</span></span>`;
+              });
+            }
+            const bubbleClass = isUser ? 'markdown-content-user' : 'markdown-content';
+            return <div className={bubbleClass} dangerouslySetInnerHTML={{ __html: parsedHtml }} />;
+          } catch (err) {
+            console.error('Markdown rendering error:', err);
+          }
+        }
+        return (
+          <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isUser ? 'font-sans' : 'font-sans'}`}>
+            {enableTokens ? highlightTokens(text) : text}
+          </div>
+        );
+      };
+
       const renderCollapsibleTelemetry = (msgId, meta) => {
         if (!meta) return null;
         const isExpanded = !!expandedLogs[msgId];
@@ -2529,14 +3331,15 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         }
 
         return (
-          <div className="mt-2.5 pt-2 border-t border-slate-800/80">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`px-2 py-0.5 rounded border font-semibold text-xs flex items-center gap-1 ${badgeColor}`}>
+          <div className="mt-3 pt-3 border-t border-slate-800/80">
+            {/* Accordion Toggle Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2 py-0.5 rounded-full border font-semibold flex items-center gap-1 ${badgeColor}`}>
                   <span>{icon}</span>
                   <span>{label}</span>
                 </span>
-                <span className="font-mono text-[11px] text-slate-400">{modelUsed}</span>
+                <span className="text-slate-400 font-mono text-[11px]">{modelUsed}</span>
                 <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
                   {latencyMs}ms
                 </span>
@@ -2577,6 +3380,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
               </button>
             </div>
 
+            {/* Collapsible Expanded Log Window */}
             {isExpanded && (
               <div className="mt-3 p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-3 transition-all">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -2607,6 +3411,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                     )}
                   </div>
 
+                  {/* Zero-PII Egress Shield Telemetry Card */}
                   {piiTelemetry && piiTelemetry.enabled && (
                     <div className="p-2.5 rounded-lg bg-purple-950/30 border border-purple-800/60 space-y-2 col-span-1 md:col-span-2">
                       <div className="text-purple-300 font-bold flex items-center justify-between">
@@ -2617,7 +3422,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                       </div>
                       <div className="text-slate-300 text-xs flex flex-wrap items-center gap-2">
                         <span className="text-slate-400">Intercepted Entities ({piiTelemetry.entitiesIntercepted}):</span>
-                        {piiTelemetry.entities && piiTelemetry.entities.map((ent, idx) => (
+                        {piiTelemetry.entities.map((ent, idx) => (
                           <span key={idx} className="px-2 py-0.5 rounded bg-slate-900 border border-purple-500/30 text-purple-300 font-mono text-[10px]">
                             {ent.type}: <span className="text-white">{ent.maskedSnippet}</span> → <span className="text-amber-300">{ent.token}</span>
                           </span>
@@ -2645,7 +3450,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 <div>
                   <div className="text-amber-400 font-bold mb-1.5">// Failover Hop Sequence:</div>
                   <div className="space-y-1.5">
-                    {failoverLog && failoverLog.map((hop, idx) => (
+                    {failoverLog.map((hop, idx) => (
                       <div
                         key={idx}
                         className={`p-2 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-1 border ${
@@ -2678,7 +3483,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       };
 
       return (
-        <main className="flex-1 flex flex-col justify-between bg-slate-950 h-full min-w-0 overflow-hidden relative">
+        <main className="flex-1 flex flex-col justify-between bg-slate-950 h-full min-w-0 overflow-hidden">
           {/* Dual Context Inspector Tab Bar - Conditional on Sovereign PII Cleanser */}
           {enablePiiTokenizer && (
             <div className="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-2.5 flex items-center justify-between gap-4">
@@ -2727,35 +3532,32 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 max-w-xl mx-auto space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-xl text-blue-400 mb-2 shadow-lg shadow-blue-500/10">
-                  🛡️
+              <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-4 text-slate-400 py-6">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-2xl text-blue-400 shadow-md">
+                  🦘
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white mb-1">
-                    Welcome to Project Sovereign-Stream
-                  </h2>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Test live 3-tier sovereign AI failover with Zero-PII Egress Protection. Select one of the executive sample prompts below, or type your own query.
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-white">
+                    Project Sovereign-Stream
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    {modeMetadata.description}
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg pt-2">
-                  {[
-                    { title: 'Transfer PII Query', prompt: "Transfer $500 from John Smith's account 123-456 to Jane Doe." },
-                    { title: 'AU Identity Audit', prompt: "Customer Sarah Connor with TFN 123 456 782 and Medicare 2123 45670 1 requested balance audit." },
-                    { title: 'APRA CPS 234 Compliance', prompt: 'How does Sovereign-Stream adhere to APRA CPS 234 requirements?' },
-                    { title: 'Zero PII Egress', prompt: 'Explain the zero PII egress architecture for FSI workloads' },
-                  ].map((item, idx) => (
+
+                {/* Simplified Suggestion Grid: Title (Intent) + Prompt */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-2">
+                  {activeChips.map((chip) => (
                     <button
-                      key={idx}
-                      onClick={() => onSendMessage(item.prompt)}
-                      className="p-3 rounded-xl bg-slate-900/80 hover:bg-slate-900 border border-slate-800/80 hover:border-blue-500/40 text-left transition group"
+                      key={chip.id}
+                      onClick={() => onSendMessage(chip.prompt)}
+                      className="p-3.5 text-left rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-850 transition group shadow-sm flex flex-col space-y-1.5"
                     >
-                      <div className="text-xs font-semibold text-white group-hover:text-blue-400 transition">
-                        {item.title}
+                      <div className="text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition">
+                        {chip.title}
                       </div>
-                      <div className="text-[10px] text-slate-400 line-clamp-1 mt-1 font-mono">
-                        "{item.prompt}"
+                      <div className="text-xs text-slate-300 font-sans leading-relaxed">
+                        "{chip.prompt}"
                       </div>
                     </button>
                   ))}
@@ -2787,17 +3589,17 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                           <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wide">
                             💬 Canonical Cleartext (Vault View)
                           </div>
-                          <div className="whitespace-pre-wrap font-sans text-sm">{msg.content}</div>
+                          {renderMarkdownContent(msg.content, false, false)}
                         </div>
                         <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-800/50 text-xs text-purple-200 space-y-1">
                           <div className="text-[10px] font-bold text-purple-400 uppercase tracking-wide">
                             🛡️ Model-Facing Context (Zero-Egress View)
                           </div>
-                          <div className="whitespace-pre-wrap font-mono text-xs">
-                            {highlightTokens(
-                              (msg.role === 'user' ? tokenizedUserPrompt : tokenizedResp) || msg.content
-                            )}
-                          </div>
+                          {renderMarkdownContent(
+                            (msg.role === 'user' ? tokenizedUserPrompt : tokenizedResp) || msg.content,
+                            true,
+                            false
+                          )}
                         </div>
                       </div>
                       {msg.role === 'assistant' && renderCollapsibleTelemetry(msg.id, msg.metadata)}
@@ -2819,9 +3621,11 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                           : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none'
                       }`}
                     >
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap font-sans">
-                        {effectiveTab === 'shield' ? highlightTokens(displayContent) : displayContent}
-                      </div>
+                      {renderMarkdownContent(
+                        displayContent,
+                        effectiveTab === 'shield',
+                        msg.role === 'user' && effectiveTab !== 'shield'
+                      )}
                       {msg.role === 'assistant' && renderCollapsibleTelemetry(msg.id, msg.metadata)}
                       <div className="text-[10px] text-slate-400/80 mt-2 text-right">
                         {msg.timestamp}
@@ -2843,6 +3647,36 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Persistent Quick Action Chips Ribbon - Always Available */}
+          <div className="px-4 py-2 bg-slate-950/90 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
+            <span className="text-slate-500 shrink-0 text-[11px] font-semibold flex items-center gap-1">
+              <span>⚡</span> Prompts:
+            </span>
+
+            {/* Dynamic Memory Follow-Up Recall Chip if User recently asked a starter question */}
+            {matchedStarterChip && (
+              <button
+                type="button"
+                onClick={() => onSendMessage(matchedStarterChip.followUpPrompt)}
+                className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white border border-emerald-500/40 whitespace-nowrap transition text-xs font-semibold shrink-0 animate-pulse"
+              >
+                Follow-Up: "{matchedStarterChip.followUpPrompt}"
+              </button>
+            )}
+
+            {/* Standard Category Chips */}
+            {activeChips.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => onSendMessage(chip.prompt)}
+                className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 whitespace-nowrap transition text-xs shrink-0"
+              >
+                {chip.title}
+              </button>
+            ))}
+          </div>
+
           <form onSubmit={handleSubmit} className="p-4 bg-slate-900 border-t border-slate-800">
             <div className="max-w-4xl mx-auto flex items-center gap-3">
               <input
@@ -2850,7 +3684,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
-                placeholder="Type your sensitive query (e.g. John Smith, account 123-456, TFN 123 456 782)..."
+                placeholder={modeMetadata.placeholder}
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
               <button
@@ -2899,6 +3733,357 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       );
     }
 
+
+    function ArchitectureInfoModal({ modalState, onClose, descriptions, datasetSummary, onOpenSettings }) {
+      const [searchQuery, setSearchQuery] = useState('');
+      if (!modalState) return null;
+      const { type, functionKey, title, icon, activeValue, activeColor } = modalState;
+
+      // 1. SMALL FLOATING FUNCTION DESCRIPTION POPUP
+      if (type === 'function_desc' && functionKey) {
+        const descText = (descriptions && descriptions[functionKey]) || DEFAULT_ARCHITECTURE_DESCRIPTIONS[functionKey];
+        const meta = ARCHITECTURE_FUNCTION_METADATA[functionKey];
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={onClose}
+          >
+            <div
+              className="w-full max-w-sm bg-slate-900/95 border border-slate-700/90 rounded-2xl shadow-2xl shadow-black/70 p-4 space-y-2.5 animate-in zoom-in-95 duration-150 backdrop-blur-md text-slate-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{icon || meta?.icon || '⚙️'}</span>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-sans">
+                    {title || meta?.label || 'Function Description'}
+                  </h3>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 text-xs transition"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                {descText}
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={onClose}
+        >
+          <div
+            className="w-full max-w-3xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/95 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{icon || (type === 'tool_dataset' ? '🔧' : type === 'skill_rulebook' ? '🧠' : '⚙️')}</span>
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    {title || (functionKey && ARCHITECTURE_FUNCTION_METADATA[functionKey]?.label) || 'Architecture Component'}
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    {type === 'tool_dataset' && 'Deterministic Tool Interface & Live Loan Dataset Preview'}
+                    {type === 'skill_rulebook' && 'APRA CPS 234 / APS 220 Sovereign Skill Specification'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Close popup (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 text-slate-200">
+              {/* 2. TOOL DATASET POPUP */}
+              {type === 'tool_dataset' && (
+                <div className="space-y-5">
+                  <div className="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-3 font-mono">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 font-bold text-sm">calculate_customer_lvr</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          DETERMINISTIC PYTHON TOOL
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">{activeValue || 'Airgap Enclave / Local VM Engine'}</span>
+                    </div>
+                    <div className="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                      <span className="text-purple-400">def</span> <span className="text-emerald-300 font-semibold">calculate_customer_lvr_and_serviceability</span>(<span className="text-amber-300">customer_id</span>: <span className="text-blue-300">str</span>, <span className="text-file_path">file_path</span>: <span className="text-blue-300">str</span> = <span className="text-emerald-200">"/var/sovereign/data/customer_loans.csv"</span>) -&gt; <span className="text-blue-300">Dict[str, Any]</span>:
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                      Computes exact Loan-to-Value Ratio (LVR), Lenders Mortgage Insurance (LMI) 80% boundary, Debt-to-Income (DTI), base amortized monthly repayment, and APRA +3.0% rate shock stress buffers with zero LLM hallucination.
+                    </p>
+                  </div>
+
+                  {datasetSummary && datasetSummary.stats && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1 font-mono">
+                        <span className="text-[10px] text-slate-500 block uppercase">Total Portfolio</span>
+                        <span className="text-sm font-bold text-white">
+                          ${datasetSummary.stats.totalLoanBookAud?.toLocaleString()} AUD
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1 font-mono">
+                        <span className="text-[10px] text-slate-500 block uppercase">Average LVR</span>
+                        <span className="text-sm font-bold text-amber-400">
+                          {datasetSummary.stats.averageLvrPercent}%
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1 font-mono">
+                        <span className="text-[10px] text-slate-500 block uppercase">High LVR (&gt;80%)</span>
+                        <span className="text-sm font-bold text-rose-400">
+                          {datasetSummary.stats.highLvrAccountsCount} Accounts
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1 font-mono">
+                        <span className="text-[10px] text-slate-500 block uppercase">Stress Failures</span>
+                        <span className="text-sm font-bold text-purple-400">
+                          {datasetSummary.stats.apraStressFailuresCount} Accounts
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>📊 Ingested Customer Loan Records</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400">
+                          {datasetSummary?.rows?.length || 0} Records
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search borrower or ID..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 w-full sm:w-64"
+                      />
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto overflow-x-auto border border-slate-800 rounded-lg">
+                      <table className="w-full text-left text-xs font-mono">
+                        <thead className="bg-slate-900 text-slate-400 text-[10px] uppercase sticky top-0 border-b border-slate-800">
+                          <tr>
+                            <th className="p-2">Customer ID</th>
+                            <th className="p-2">Borrower</th>
+                            <th className="p-2">Property Value</th>
+                            <th className="p-2">Loan Balance</th>
+                            <th className="p-2">LVR (%)</th>
+                            <th className="p-2">LMI Status</th>
+                            <th className="p-2">APRA Stress (+3%)</th>
+                            <th className="p-2">Risk Tier</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                          {datasetSummary?.rows && datasetSummary.rows.length > 0 ? (
+                            datasetSummary.rows
+                              .filter((r) => {
+                                if (!searchQuery) return true;
+                                const q = searchQuery.toLowerCase();
+                                return (
+                                  r.customerId?.toLowerCase().includes(q) ||
+                                  r.customerName?.toLowerCase().includes(q)
+                                );
+                              })
+                              .map((r, idx) => {
+                                const isHighLvr = (r.lvrPercent || 0) > 80.0;
+                                const isStressPass = r.apraStressTestPassed;
+                                return (
+                                  <tr key={idx} className="hover:bg-slate-900/60 transition">
+                                    <td className="p-2 font-bold text-blue-400">{r.customerId}</td>
+                                    <td className="p-2 text-white font-sans">{r.customerName}</td>
+                                    <td className="p-2">${r.propertyValueAud?.toLocaleString()}</td>
+                                    <td className="p-2 font-semibold text-slate-200">${r.loanBalanceAud?.toLocaleString()}</td>
+                                    <td className={`p-2 font-bold ${isHighLvr ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                      {r.lvrPercent?.toFixed(2)}%
+                                    </td>
+                                    <td className="p-2">
+                                      {isHighLvr ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                          LMI Required
+                                        </span>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                          Exempt
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-2">
+                                      {isStressPass ? (
+                                        <span className="text-emerald-400 font-semibold">✓ Pass (+${r.monthlySurplusBufferAud?.toFixed(0)}/mo)</span>
+                                      ) : (
+                                        <span className="text-rose-400 font-semibold">✕ Fail</span>
+                                      )}
+                                    </td>
+                                    <td className="p-2">
+                                      <span
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                                          r.riskTier === 'PRIME_COMPLIANT'
+                                            ? 'bg-blue-500/10 text-blue-300'
+                                            : 'bg-rose-500/10 text-rose-300'
+                                        }`}
+                                      >
+                                        {r.riskTier || 'PRIME'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                          ) : (
+                            <tr>
+                              <td colSpan={8} className="p-4 text-center text-slate-500">
+                                No customer records loaded. Check dataset ingestion in Settings.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onOpenSettings) onOpenSettings('dataset');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-semibold border border-amber-500/40 flex items-center gap-2 transition"
+                    >
+                      <span>📊</span>
+                      <span>Manage Dataset &amp; Ingest CSVs in Settings</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. SKILL RULEBOOK POPUP */}
+              {type === 'skill_rulebook' && (
+                <div className="space-y-5">
+                  <div className="p-4 rounded-xl bg-slate-950 border border-purple-500/30 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-white font-sans">
+                          {activeValue || 'APRA Enclave Rulebook (Local VPC)'}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono">
+                          APRA CPS 234 / APS 220
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-emerald-400">Jurisdiction: AU-SYD Domestic</span>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                      The active sovereign skill defines strict regulatory guardrails, calculation mandates, and deterministic risk boundaries ensuring institutional compliance across all execution tiers.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                    <div className="text-xs font-bold text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
+                      <span>📜</span>
+                      <span>Core Regulatory Directives &amp; Guardrails</span>
+                    </div>
+                    <ul className="space-y-2 text-xs text-slate-300 font-sans">
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-bold shrink-0">1.</span>
+                        <span>
+                          <strong className="text-white">APRA CPS 234 Clause 23 (Data Residency):</strong> Customer financial data, income statements, and loan balances must not egress outside Australian jurisdictional boundaries.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-bold shrink-0">2.</span>
+                        <span>
+                          <strong className="text-white">Deterministic Tool Mandate:</strong> The agent is forbidden from estimating loan calculations via LLM completion. All figures must be computed via <code className="text-emerald-300 font-mono text-[11px]">calculate_customer_lvr</code>.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-bold shrink-0">3.</span>
+                        <span>
+                          <strong className="text-white">Zero-PII Tokenization:</strong> Sensitive identifiers are replaced with pseudonymized tokens (<code className="text-purple-300 font-mono text-[11px]">[[PII_PERSON_001]]</code>) prior to external model routing.
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 font-mono">
+                    <div className="text-xs font-bold text-amber-300 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+                      <span>📐</span>
+                      <span>Mathematical Underwriting Rulebook</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">1. Loan-to-Value Ratio (LVR)</div>
+                        <div className="text-emerald-300 font-bold">LVR = (Loan Balance / Property Value) × 100</div>
+                        <div className="text-[10px] text-slate-400 font-sans">
+                          Threshold: If LVR &gt; 80.0%, Lenders Mortgage Insurance (LMI) is mandatory.
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">2. APRA +3.0% Stress Buffer</div>
+                        <div className="text-amber-300 font-bold">Stressed Rate = Base Rate + 3.00%</div>
+                        <div className="text-[10px] text-slate-400 font-sans">
+                          Buffer: (Gross Monthly Income - Expenses - Stressed P&amp;I) must be &ge; $0.00.
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">3. Debt-to-Income (DTI)</div>
+                        <div className="text-blue-300 font-bold">DTI = Total Debt / Gross Annual Income</div>
+                        <div className="text-[10px] text-slate-400 font-sans">
+                          High-Risk Flag: DTI &ge; 6.0x triggers macroprudential credit review.
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">4. Monthly Amortization</div>
+                        <div className="text-purple-300 font-bold">M = P × [r(1+r)ⁿ] / [(1+r)ⁿ - 1]</div>
+                        <div className="text-[10px] text-slate-400 font-sans">
+                          Exact monthly principal and interest payment calculation.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
     function App() {
       const [sessionId, setSessionId] = useState(() => {
         const stored = localStorage.getItem('sovereign_session_id');
@@ -2913,6 +4098,20 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       const [isLoading, setIsLoading] = useState(false);
       const [isSettingsOpen, setIsSettingsOpen] = useState(false);
       const [catalog, setCatalog] = useState([]);
+      const [datasetSummary, setDatasetSummary] = useState(null);
+      const [settingsInitialTab, setSettingsInitialTab] = useState(undefined);
+      const [architectureDescriptions, setArchitectureDescriptions] = useState(() => {
+        try {
+          const saved = localStorage.getItem('sovereign_architecture_descriptions');
+          if (saved) {
+            return { ...DEFAULT_ARCHITECTURE_DESCRIPTIONS, ...JSON.parse(saved) };
+          }
+        } catch (e) {
+          console.error('Failed to parse cached architecture descriptions:', e);
+        }
+        return DEFAULT_ARCHITECTURE_DESCRIPTIONS;
+      });
+      const [activeArchitectureModal, setActiveArchitectureModal] = useState(null);
       const [tierSettings, setTierSettings] = useState({
         TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
         TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
@@ -2922,6 +4121,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         failedTiers: [],
         forcedTier: 'AUTO',
         enablePiiTokenizer: true,
+        enterpriseDataEnabled: true,
         tierSettings: {
           TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
           TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
@@ -2930,6 +4130,20 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       });
 
       useEffect(() => {
+        // Load dataset summary info
+        fetch('/api/dataset')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data) {
+              setDatasetSummary(data);
+              setControls((prev) => ({
+                ...prev,
+                enterpriseDataEnabled: data.enabled !== undefined ? data.enabled : true,
+              }));
+            }
+          })
+          .catch((err) => console.error('Failed to load dataset info:', err));
+
         // Load synchronized session history if available
         fetch(`/api/session/${sessionId}`)
           .then((res) => res.json())
@@ -2953,6 +4167,12 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
             if (data.activeTierSettings) {
               setTierSettings(data.activeTierSettings);
               setControls((prev) => ({ ...prev, tierSettings: data.activeTierSettings }));
+            }
+            if (data.architectureDescriptions) {
+              setArchitectureDescriptions((prev) => ({
+                ...prev,
+                ...data.architectureDescriptions,
+              }));
             }
             if (data.buildInfo) {
               setBuildInfo(data.buildInfo);
@@ -2979,6 +4199,30 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         } catch (err) {
           console.error('Failed to sync tier settings to backend:', err);
         }
+      };
+
+      const handleSaveArchitectureDescriptions = async (updated) => {
+        setArchitectureDescriptions(updated);
+        try {
+          localStorage.setItem('sovereign_architecture_descriptions', JSON.stringify(updated));
+        } catch (e) {
+          console.error('Failed to cache architecture descriptions:', e);
+        }
+
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ architectureDescriptions: updated }),
+          });
+        } catch (err) {
+          console.error('Failed to sync architecture descriptions to backend:', err);
+        }
+      };
+
+      const handleOpenSettings = (tab) => {
+        setSettingsInitialTab(tab || 'tiers');
+        setIsSettingsOpen(true);
       };
 
       const lastMetadata = metadataHistory[metadataHistory.length - 1];
@@ -3055,6 +4299,8 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         }
       };
 
+      const [isResettingDemo, setIsResettingDemo] = useState(false);
+
       const handleResetChat = () => {
         setMessages([]);
         setMetadataHistory([]);
@@ -3063,28 +4309,134 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         setSessionId(newId);
       };
 
+      const handleResetDemo = async () => {
+        setIsResettingDemo(true);
+        try {
+          // 1. Clear frontend chat & metadata state
+          setMessages([]);
+          setMetadataHistory([]);
+          const newId = `session-${Date.now()}`;
+          localStorage.setItem('sovereign_session_id', newId);
+          setSessionId(newId);
+
+          // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Auto routing, no failed tiers)
+          setControls((prev) => ({
+            ...prev,
+            enablePiiTokenizer: false,
+            enterpriseDataEnabled: false,
+            forcedTier: 'AUTO',
+            failedTiers: [],
+          }));
+
+          // 3. Call backend endpoint to clear Redis / memory, reset defaults, and verify Tier 3 / Gemma
+          const res = await fetch('/api/demo/reset', { method: 'POST' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.datasetSummary) {
+              setDatasetSummary(data.datasetSummary);
+            }
+            if (data.tierSettings) {
+              setTierSettings(data.tierSettings);
+              setControls((prev) => ({ ...prev, tierSettings: data.tierSettings }));
+            }
+          }
+        } catch (err) {
+          console.error('Failed to reset demo:', err);
+        } finally {
+          setIsResettingDemo(false);
+        }
+      };
+
+      const handleSelectStage = async (stage) => {
+        handleResetChat();
+        const isPii = stage === 2 || stage === 3;
+        const isEnterprise = stage === 3;
+
+        setControls((prev) => ({
+          ...prev,
+          enablePiiTokenizer: isPii,
+          enterpriseDataEnabled: isEnterprise,
+          forcedTier: 'AUTO',
+          failedTiers: [],
+        }));
+
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enterpriseDataEnabled: isEnterprise }),
+          });
+          await fetch('/api/dataset/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: isEnterprise }),
+          });
+        } catch (err) {
+          console.error('Failed to sync stage settings:', err);
+        }
+      };
+
+      const isEnterpriseActive = controls.enterpriseDataEnabled ?? datasetSummary?.enabled ?? false;
+
       return (
         <div className="h-screen overflow-hidden flex flex-col bg-slate-950 font-sans text-slate-100">
           <TelemetryHeader
             lastMetadata={lastMetadata}
             buildInfo={buildInfo}
+            datasetSummary={datasetSummary}
+            enterpriseDataEnabled={isEnterpriseActive}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onResetChat={handleResetChat}
           />
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <ChaosPanel
               controls={controls}
               onChange={(newControls) => setControls({ ...newControls, tierSettings })}
-              metadataList={metadataHistory}
               onResetChat={handleResetChat}
+              onResetDemo={handleResetDemo}
+              isResettingDemo={isResettingDemo}
+              onOpenSettings={(tab) => handleOpenSettings(tab)}
+              onSelectStage={handleSelectStage}
+              onOpenArchitectureModal={setActiveArchitectureModal}
             />
             <ChatWindow
               messages={messages}
               isLoading={isLoading}
               onSendMessage={handleSendMessage}
               enablePiiTokenizer={controls.enablePiiTokenizer}
+              enterpriseDataEnabled={isEnterpriseActive}
             />
           </div>
+
+          {/* Metadata Footer */}
+          <footer className="bg-slate-900 border-t border-slate-800 px-6 py-2.5 flex flex-wrap items-center gap-3 shrink-0 z-20 text-xs font-mono">
+            <div className="flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+              <span className="font-bold text-xs tracking-tight text-white font-sans">Project Sovereign-Stream</span>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
+              ADK 3-Tier Sovereign Cascade
+            </span>
+            {buildInfo && (
+              <>
+                <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Active Git Branch">
+                  <span className="text-slate-400">Branch:</span>
+                  <span className="text-emerald-400 font-semibold">{buildInfo.branch}</span>
+                </span>
+                <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Server Build Timestamp">
+                  <span className="text-slate-400">Build:</span>
+                  <span className="text-slate-300">{buildInfo.buildTime}</span>
+                </span>
+              </>
+            )}
+          </footer>
+
+          <ArchitectureInfoModal
+            modalState={activeArchitectureModal}
+            onClose={() => setActiveArchitectureModal(null)}
+            descriptions={architectureDescriptions}
+            datasetSummary={datasetSummary}
+            onOpenSettings={(tab) => handleOpenSettings(tab)}
+          />
 
           <SettingsModal
             isOpen={isSettingsOpen}
@@ -3094,12 +4446,68 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
             onSaveSettings={handleSaveSettings}
             controls={controls}
             onUpdateControls={(newControls) => setControls(newControls)}
+            onDatasetUpdate={(updated) => setDatasetSummary(updated)}
+            architectureDescriptions={architectureDescriptions}
+            onSaveArchitectureDescriptions={handleSaveArchitectureDescriptions}
+            initialTab={settingsInitialTab}
           />
         </div>
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+      }
+      componentDidCatch(error, info) {
+        console.error('ErrorBoundary caught:', error, info);
+      }
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-100 font-sans">
+              <div className="max-w-xl w-full bg-slate-900 border border-rose-500/50 rounded-2xl p-6 shadow-2xl space-y-4">
+                <div className="flex items-center gap-3 text-rose-400">
+                  <span className="text-2xl">⚠️</span>
+                  <h1 className="text-base font-bold">Application Error Encountered</h1>
+                </div>
+                <p className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded-lg border border-slate-800 break-words whitespace-pre-wrap">
+                  {this.state.error?.toString() || 'Unknown runtime error'}
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      localStorage.clear();
+                      window.location.reload();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition"
+                  >
+                    Clear Local Cache &amp; Reload
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                  >
+                    Reload Page
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    );
   </script>
 </body>
 </html>

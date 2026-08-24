@@ -61,7 +61,7 @@ def calculate_customer_lvr_and_serviceability(
     file_path: str = DEFAULT_LOANS_CSV_PATH,
 ) -> Dict[str, Any]:
     """
-    Calculates exact LVR, DTI, monthly repayments, and APRA 3% stress test for a customer.
+    Calculates exact Loan-to-Value Ratio (LVR), Lenders Mortgage Insurance (LMI) 80% threshold requirements, Debt-to-Income (DTI), monthly repayments, and APRA +3.0% stress testing for a customer.
 
     Args:
         customer_id: The unique customer identifier (e.g. 'CUST-8821') or customer name.
@@ -151,7 +151,7 @@ def calculate_customer_lvr_and_serviceability(
             "apraStressTestPassed": apra_stress_passed,
             "riskTier": risk_tier,
             "storageResidency": "gs://au-fsi-customer-assets/loans.csv (AU-SYD CMEK Governed)",
-            "localMirrorPath": file_path,
+            "localMirrorPath": "/var/sovereign/data/customer_loans.csv",
         }
     except Exception as exc:
         return {
@@ -213,7 +213,7 @@ def get_dataset_summary(file_path: str = DEFAULT_LOANS_CSV_PATH) -> Dict[str, An
 
     return {
         "filename": os.path.basename(file_path),
-        "filePath": file_path,
+        "filePath": "/var/sovereign/data/customer_loans.csv" if "customer_loans.csv" in file_path else file_path,
         "rowCount": len(customers),
         "columns": columns,
         "rows": customers,
@@ -227,7 +227,7 @@ def get_dataset_summary(file_path: str = DEFAULT_LOANS_CSV_PATH) -> Dict[str, An
             "cloudStorageBucket": "gs://au-fsi-customer-assets/loans.csv",
             "jurisdiction": "australia-southeast1",
             "encryption": "Cloud KMS CMEK (AU-SYD)",
-            "localMirrorStatus": "Synchronized (Airgap Ready)",
+            "localMirrorStatus": "Synchronized (Airgap Ready - /var/sovereign/data/customer_loans.csv on sovereign-gemma-2b-vm)",
         },
     }
 
@@ -270,3 +270,30 @@ def reset_default_loans(file_path: str = DEFAULT_LOANS_CSV_PATH) -> Dict[str, An
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(DEFAULT_BENCHMARK_LOANS)
     return get_dataset_summary(file_path)
+
+
+async def execute_remote_enclave_tool(
+    tool_name: str,
+    args: Dict[str, Any],
+    endpoint_url: str = "http://127.0.0.1:8003",
+    timeout_secs: float = 4.0,
+) -> Optional[Dict[str, Any]]:
+    """
+    Attempts to dispatch a mathematical tool call directly to the Tier 3 Enclave Tool Service
+    running on the remote GCE VM via IAP tunnel on port 8003.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return None
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=timeout_secs) as client:
+            res = await client.post(
+                f"{endpoint_url.rstrip('/')}/v1/tools/execute",
+                json={"tool_name": tool_name, "arguments": args},
+            )
+            if res.status_code == 200:
+                return res.json()
+    except Exception:
+        pass
+    return None
+

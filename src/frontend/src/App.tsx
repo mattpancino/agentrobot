@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react';
-import { ChatMessage, ExecutionMetadata, SimulationControls, RegionInfo, TierSettingsMap, BuildInfo, DatasetSummary } from './types';
+import {
+  ChatMessage,
+  ExecutionMetadata,
+  SimulationControls,
+  RegionInfo,
+  TierSettingsMap,
+  BuildInfo,
+  DatasetSummary,
+  ArchitectureDescriptionMap,
+  ArchitectureModalState,
+} from './types';
+import { DEFAULT_ARCHITECTURE_DESCRIPTIONS } from './defaultArchitectureDescriptions';
 import { TelemetryHeader } from './components/TelemetryHeader';
 import { ChaosPanel } from './components/ChaosPanel';
 import { ChatWindow } from './components/ChatWindow';
 import { SettingsModal } from './components/SettingsModal';
+import { ArchitectureInfoModal } from './components/ArchitectureInfoModal';
 
 export default function App() {
   const [sessionId, setSessionId] = useState<string>(() => {
@@ -18,8 +30,21 @@ export default function App() {
   const [buildInfo, setBuildInfo] = useState<BuildInfo | undefined>(undefined);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [catalog, setCatalog] = useState<RegionInfo[]>([]);
   const [datasetSummary, setDatasetSummary] = useState<DatasetSummary | null>(null);
+  const [architectureDescriptions, setArchitectureDescriptions] = useState<ArchitectureDescriptionMap>(() => {
+    try {
+      const saved = localStorage.getItem('sovereign_architecture_descriptions');
+      if (saved) {
+        return { ...DEFAULT_ARCHITECTURE_DESCRIPTIONS, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.error('Failed to parse cached architecture descriptions:', e);
+    }
+    return DEFAULT_ARCHITECTURE_DESCRIPTIONS;
+  });
+  const [activeArchitectureModal, setActiveArchitectureModal] = useState<ArchitectureModalState | null>(null);
   const [tierSettings, setTierSettings] = useState<TierSettingsMap>({
     TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
     TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
@@ -74,6 +99,12 @@ export default function App() {
           setTierSettings(data.activeTierSettings);
           setControls((prev) => ({ ...prev, tierSettings: data.activeTierSettings }));
         }
+        if (data.architectureDescriptions) {
+          setArchitectureDescriptions((prev) => ({
+            ...prev,
+            ...data.architectureDescriptions,
+          }));
+        }
         if (data.buildInfo) {
           setBuildInfo(data.buildInfo);
         } else {
@@ -99,6 +130,30 @@ export default function App() {
     } catch (err) {
       console.error('Failed to sync tier settings to backend:', err);
     }
+  };
+
+  const handleSaveArchitectureDescriptions = async (updated: ArchitectureDescriptionMap) => {
+    setArchitectureDescriptions(updated);
+    try {
+      localStorage.setItem('sovereign_architecture_descriptions', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to cache architecture descriptions:', e);
+    }
+
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ architectureDescriptions: updated }),
+      });
+    } catch (err) {
+      console.error('Failed to sync architecture descriptions to backend:', err);
+    }
+  };
+
+  const handleOpenSettings = (tab?: string) => {
+    setSettingsInitialTab(tab || 'tiers');
+    setIsSettingsOpen(true);
   };
 
   const lastMetadata = metadataHistory[metadataHistory.length - 1];
@@ -178,12 +233,81 @@ export default function App() {
     }
   };
 
+  const [isResettingDemo, setIsResettingDemo] = useState<boolean>(false);
+
   const handleResetChat = () => {
     setMessages([]);
     setMetadataHistory([]);
     const newId = `session-${Date.now()}`;
     localStorage.setItem('sovereign_session_id', newId);
     setSessionId(newId);
+  };
+
+  const handleResetDemo = async () => {
+    setIsResettingDemo(true);
+    try {
+      // 1. Clear frontend chat & metadata state
+      setMessages([]);
+      setMetadataHistory([]);
+      const newId = `session-${Date.now()}`;
+      localStorage.setItem('sovereign_session_id', newId);
+      setSessionId(newId);
+
+      // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Auto routing, no failed tiers)
+      setControls((prev) => ({
+        ...prev,
+        enablePiiTokenizer: false,
+        enterpriseDataEnabled: false,
+        forcedTier: 'AUTO',
+        failedTiers: [],
+      }));
+
+      // 3. Call backend endpoint to clear Redis / memory, reset defaults, and verify Tier 3 / Gemma
+      const res = await fetch('/api/demo/reset', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.datasetSummary) {
+          setDatasetSummary(data.datasetSummary);
+        }
+        if (data.tierSettings) {
+          setTierSettings(data.tierSettings);
+          setControls((prev) => ({ ...prev, tierSettings: data.tierSettings }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reset demo:', err);
+    } finally {
+      setIsResettingDemo(false);
+    }
+  };
+
+  const handleSelectStage = async (stage: number) => {
+    handleResetChat();
+    const isPii = stage === 2 || stage === 3;
+    const isEnterprise = stage === 3;
+
+    setControls((prev) => ({
+      ...prev,
+      enablePiiTokenizer: isPii,
+      enterpriseDataEnabled: isEnterprise,
+      forcedTier: 'AUTO',
+      failedTiers: [],
+    }));
+
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enterpriseDataEnabled: isEnterprise }),
+      });
+      await fetch('/api/dataset/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: isEnterprise }),
+      });
+    } catch (err) {
+      console.error('Failed to sync stage settings:', err);
+    }
   };
 
   const isEnterpriseActive = controls.enterpriseDataEnabled ?? datasetSummary?.enabled ?? false;
@@ -195,8 +319,7 @@ export default function App() {
         buildInfo={buildInfo}
         datasetSummary={datasetSummary}
         enterpriseDataEnabled={isEnterpriseActive}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onResetChat={handleResetChat}
+        onOpenSettings={() => handleOpenSettings()}
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <ChaosPanel
@@ -204,6 +327,11 @@ export default function App() {
           onChange={(newControls) => setControls({ ...newControls, tierSettings })}
           metadataList={metadataHistory}
           onResetChat={handleResetChat}
+          onResetDemo={handleResetDemo}
+          isResettingDemo={isResettingDemo}
+          onOpenSettings={(tab) => handleOpenSettings(tab)}
+          onSelectStage={handleSelectStage}
+          onOpenArchitectureModal={setActiveArchitectureModal}
         />
         <ChatWindow
           messages={messages}
@@ -213,6 +341,38 @@ export default function App() {
           enterpriseDataEnabled={isEnterpriseActive}
         />
       </div>
+
+      {/* Metadata Footer */}
+      <footer className="bg-slate-900 border-t border-slate-800 px-6 py-2.5 flex flex-wrap items-center gap-3 shrink-0 z-20 text-xs font-mono">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+          <span className="font-bold text-xs tracking-tight text-white font-sans">Project Sovereign-Stream</span>
+        </div>
+        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-mono border border-slate-700">
+          ADK 3-Tier Sovereign Cascade
+        </span>
+        {buildInfo && (
+          <>
+            <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Active Git Branch">
+              <span className="text-slate-400">Branch:</span>
+              <span className="text-emerald-400 font-semibold">{buildInfo.branch}</span>
+            </span>
+            <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1.5" title="Server Build Timestamp">
+              <span className="text-slate-400">Build:</span>
+              <span className="text-slate-300">{buildInfo.buildTime}</span>
+            </span>
+          </>
+        )}
+      </footer>
+
+      {/* Dynamic Architecture / Tool / Skill Modal */}
+      <ArchitectureInfoModal
+        modalState={activeArchitectureModal}
+        onClose={() => setActiveArchitectureModal(null)}
+        descriptions={architectureDescriptions}
+        datasetSummary={datasetSummary}
+        onOpenSettings={(tab) => handleOpenSettings(tab)}
+      />
 
       <SettingsModal
         isOpen={isSettingsOpen}
@@ -226,6 +386,9 @@ export default function App() {
           setDatasetSummary(updated);
           setControls((prev) => ({ ...prev, enterpriseDataEnabled: updated.enabled }));
         }}
+        architectureDescriptions={architectureDescriptions}
+        onSaveArchitectureDescriptions={handleSaveArchitectureDescriptions}
+        initialTab={settingsInitialTab}
       />
     </div>
   );

@@ -47,16 +47,19 @@ if [ ! -f "${SSH_KEY}" ]; then
     ssh-keygen -t ed25519 -f "${SSH_KEY}" -N "" -C "sovereign-tunnel@demo" -q
 fi
 
-# Start background IAP tunnel forwarding local port 8001 to VM port 8001
-echo " -> Opening encrypted IAP TCP tunnel (localhost:8001 -> ${VM_NAME}:8001)..."
+# Start background SSH tunnel forwarding local port 8001 to VM port 8001 and port 8003 to VM port 8003
+echo " -> Opening encrypted tunnels (8001 -> Ollama, 8003 -> Enclave Tool Service)..."
+pkill -f "ssh.*8001:localhost:8001" || true
 pkill -f "start-iap-tunnel.*8001" || true
-nohup gcloud compute start-iap-tunnel "${VM_NAME}" 8001 \
-    --local-host-port=localhost:8001 \
+pkill -f "start-iap-tunnel.*8003" || true
+nohup gcloud compute ssh "${VM_NAME}" \
     --zone="${ZONE}" \
-    --project="${PROJECT_ID}" > iap_tunnel.log 2>&1 &
+    --project="${PROJECT_ID}" \
+    --ssh-key-file="${SSH_KEY}" \
+    -- -N -L 8001:localhost:8001 -L 8003:localhost:8003 > ssh_tunnel.log 2>&1 &
 
 # Verify endpoint readiness
-echo " -> Verifying Gemma 2 model endpoint connectivity..."
+echo " -> Verifying Gemma 2 model and Enclave Tool endpoint connectivity..."
 for i in {1..10}; do
     if curl -s -f http://127.0.0.1:8001/v1/models >/dev/null 2>&1; then
         echo " -> SUCCESS: Local tunnel to Gemma 2 (2B) is connected!"
