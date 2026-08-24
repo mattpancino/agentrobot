@@ -76,9 +76,9 @@ echo "====================================================================="
 echo " 3. Launching Sovereign-Stream API Gateway & Demo UI on Port 8088..."
 echo "====================================================================="
 
-pkill -f "src.backend.main:app" || true
-PYTHONPATH=. ./.venv/bin/uvicorn src.backend.main:app --port 8088 --host 0.0.0.0 > gateway.log 2>&1 &
+nohup ./.venv/bin/uvicorn src.backend.main:app --port 8088 --host 0.0.0.0 > gateway.log 2>&1 &
 GATEWAY_PID=$!
+disown -a
 
 sleep 2
 
