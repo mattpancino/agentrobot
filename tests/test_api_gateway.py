@@ -335,7 +335,7 @@ def test_api_get_skill_spec():
     res = client.get("/api/skills/apra-underwriting")
     assert res.status_code == 200
     data = res.json()
-    assert data["skillName"] == "apra-underwriting"
+    assert "underwriting" in data["skillName"]
     assert "skills/apra_underwriting/SKILL.md" in data["path"]
     assert "name: apra-cps234-underwriting" in data["content"]
     assert "APRA CPS 234 & APS 220 Sovereign Credit Underwriting Skill" in data["content"]

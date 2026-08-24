@@ -56,11 +56,44 @@ export interface ExecutionMetadata {
   recoverySentinel?: RecoverySentinelStatus;
   tierSettings?: Record<string, { region: string; model: string }>;
   tier3Synced?: boolean;
-  tier3SyncStatus?: string;
   replicationLogs?: string[];
   piiTelemetry?: PIITelemetry;
   tokenizedPrompt?: string;
   tokenizedResponse?: string;
+  skillProvenance?: {
+    tier: string;
+    source: 'MANAGED_CLOUD_REGISTRY' | 'BAKED_ENCLAVE_DISK';
+    provenanceLabel: string;
+    storageLocation: string;
+    cordCutReady: boolean;
+    version: string;
+  };
+}
+
+export interface SkillProvenanceTelemetry {
+  status: string;
+  cloudRegistry: {
+    tierSuitability: string[];
+    registryType: string;
+    jurisdiction: string;
+    cmekEncryption: { status: string; key: string };
+    skillName: string;
+    version: string;
+    lineCount: number;
+    sha256: string;
+    storageLocation: string;
+  };
+  enclaveBaked: {
+    tierSuitability: string[];
+    storageType: string;
+    enclaveHost: string;
+    jurisdiction: string;
+    bakedFilePath: string;
+    cordCutReady: boolean;
+    lineCount: number;
+    status: string;
+    lastSynced: string;
+  };
 }
 
 export interface RedisSyncTelemetry {

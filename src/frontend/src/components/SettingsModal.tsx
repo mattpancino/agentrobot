@@ -458,8 +458,8 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
     },
     TIER_3_SOVEREIGN: {
-      title: 'Tier 3 • Airgapped VPC Sovereign Tier',
-      desc: 'Private VPC enclave for offline failover with zero external internet egress.',
+      title: 'Tier 3 • Sovereign On-Prem (Airgapped VPC)',
+      desc: 'Private on-prem VPC for offline failover with zero external internet egress.',
       badge: 'TIER 3',
       color: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
     },
@@ -666,7 +666,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                       {/* Region Selector */}
                       <div>
                         <label className="block text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1.5">
-                          Assigned Region / Enclave
+                          Assigned Region / Deployment
                         </label>
                         <select
                           value={setting.region}
@@ -840,7 +840,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                     <span className="text-slate-400 text-[10px]">australia-southeast1 (Cloud KMS CMEK)</span>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Local Enclave Mirror</span>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">// Local On-Prem Disk Mirror</span>
                     <span className="text-emerald-300 font-semibold text-[11px] block">
                       /var/sovereign/data/customer_loans.csv
                     </span>

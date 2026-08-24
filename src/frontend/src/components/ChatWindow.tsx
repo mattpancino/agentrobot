@@ -131,7 +131,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         placeholder: "Type sensitive prompt (e.g. My mother's name is Alice, my father's name is Bob, TFN 123 456 782)...",
       }
     : {
-        description: 'Demonstrates basic conversational memory across Tier 1 (Global), Tier 2 (AU-SYD), and Tier 3 (Airgap VPC).',
+        description: 'Demonstrates basic conversational memory across Tier 1 (Global), Tier 2 (AU-SYD), and Tier 3 (On-Prem).',
         placeholder: 'Ask a memory or general knowledge question (e.g. Give me the names of five cats / dogs)...',
       };
 
@@ -262,7 +262,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     } else if (activeTier === 'TIER_3_SOVEREIGN') {
       badgeColor = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
       icon = '🔒';
-      label = 'Tier 3 Airgap (VPC)';
+      label = 'Tier 3 (On-Prem)';
     }
 
     return (
@@ -370,7 +370,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <div className="text-emerald-400 font-bold flex items-center justify-between">
                   <span>// Tier 3 Sovereign Redis Session Sync:</span>
                   <span className={`px-2 py-0.5 rounded text-[10px] ${tier3Synced ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300'}`}>
-                    {tier3Synced ? '✔ Synced with Tier 3 Airgap' : '⚠ Sync Pending'}
+                    {tier3Synced ? '✔ Synced with Tier 3 (On-Prem)' : '⚠ Sync Pending'}
                   </span>
                 </div>
                 <div className="text-slate-300">

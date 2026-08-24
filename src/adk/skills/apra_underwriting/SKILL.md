@@ -46,5 +46,5 @@ tools:
   Full PII tokenization applied before prompt transit. Tool calls execute locally in Sydney runtime.
 - **Tier 2 (Regional AU-SYD Vertex AI):**
   Strict Australian jurisdictional boundary. Session context replicated in local Redis.
-- **Tier 3 (Sovereign Airgapped Enclave VM):**
+- **Tier 3 (Sovereign Airgapped On-Prem VM):**
   Zero external internet access. Self-hosted Gemma 2 model and local CSV data store (`/var/sovereign/data/customer_loans.csv`) with offline tool execution.

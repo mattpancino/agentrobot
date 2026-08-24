@@ -239,10 +239,10 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
     },
     {
         "regionId": "airgap-vpc-sovereign",
-        "name": "Private Sovereign Enclave (Airgapped VPC / On-Prem)",
+        "name": "Private Sovereign (On-Prem)",
         "tier": "TIER_3_SOVEREIGN",
-        "sovereigntyClassification": "Airgapped Sovereign VPC",
-        "description": "Customer-managed private VPC or on-premise enclave running local vLLM/Ollama without internet egress.",
+        "sovereigntyClassification": "Airgapped Sovereign (On-Prem)",
+        "description": "Customer-managed private VPC or on-premise infrastructure running local vLLM/Ollama without internet egress.",
         "models": [
             {
                 "id": "google/gemma-2-2b-it",

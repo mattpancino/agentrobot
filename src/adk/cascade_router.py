@@ -109,6 +109,7 @@ class ExecutionMetadata(BaseModel):
     piiTelemetry: Optional[Dict[str, Any]] = None
     tokenizedPrompt: Optional[str] = None
     tokenizedResponse: Optional[str] = None
+    skillProvenance: Optional[Dict[str, Any]] = None
 
 
 class SovereignCascadeRouter:
@@ -148,8 +149,8 @@ class SovereignCascadeRouter:
             "TIER_3_SOVEREIGN": TierConfig(
                 tier_id="TIER_3_SOVEREIGN",
                 model_name=t3_model,
-                location="Private VPC Enclave (Airgapped Sovereign / On-Prem)",
-                sovereignty_classification="Airgapped Sovereign VPC",
+                location="Private VPC (On-Prem)",
+                sovereignty_classification="Airgapped Sovereign (On-Prem)",
                 timeout_ms=60000,
                 is_vpc_endpoint=True,
                 endpoint_url=t3_endpoint,
@@ -584,6 +585,14 @@ class SovereignCascadeRouter:
             piiTelemetry=telemetry.model_dump() if telemetry else None,
             tokenizedPrompt=tokenized_prompt if use_pii else None,
             tokenizedResponse=raw_model_response if use_pii else None,
+            skillProvenance={
+                "tier": active_tier_id,
+                "source": "MANAGED_CLOUD_REGISTRY" if active_tier_id in ("TIER_1_GLOBAL", "TIER_2_REGIONAL") else "BAKED_ENCLAVE_DISK",
+                "provenanceLabel": "Cloud Registry (AU-SYD CMEK)" if active_tier_id in ("TIER_1_GLOBAL", "TIER_2_REGIONAL") else "Baked Enclave Disk (/var/sovereign/skills)",
+                "storageLocation": "gs://au-fsi-sovereign-skills/apra_underwriting/SKILL.md" if active_tier_id in ("TIER_1_GLOBAL", "TIER_2_REGIONAL") else "/var/sovereign/skills/apra_underwriting/SKILL.md",
+                "cordCutReady": True,
+                "version": "1.2.0",
+            },
         )
 
         return {

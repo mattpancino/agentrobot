@@ -23,6 +23,11 @@ pkill -f "src.services.pii_tokenizer.main:app" || true
 nohup ./.venv/bin/uvicorn src.services.pii_tokenizer.main:app --port 8002 --host 0.0.0.0 > pii_tokenizer.log 2>&1 &
 echo "Sovereign PII Tokenizer Microservice started on port 8002 (PID: $!)"
 
+echo "=== 2b. Starting Sovereign Enclave Tool & Baked Skill Service on Port 8003 (Background) ==="
+pkill -f "src.services.enclave_tool_service.main:app" || true
+nohup ./.venv/bin/uvicorn src.services.enclave_tool_service.main:app --port 8003 --host 0.0.0.0 > enclave_tool.log 2>&1 &
+echo "Sovereign Enclave Tool Service started on port 8003 (PID: $!)"
+
 echo "=== 3. Starting ADK Sovereign-Stream API Gateway & MVP UI on Port 8088 ==="
 pkill -f "src.backend.main:app" || true
 nohup ./.venv/bin/uvicorn src.backend.main:app --port 8088 --host 0.0.0.0 > gateway.log 2>&1 &

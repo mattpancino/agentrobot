@@ -149,7 +149,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
     let piiCleanserColor = 'text-slate-500 font-normal';
     if (controls.enablePiiTokenizer) {
       if (activeTier === 'TIER_3_SOVEREIGN') {
-        piiCleanserText = 'Enclave Sidecar (AU-SYD)';
+        piiCleanserText = 'Local Sidecar (On-Prem)';
         piiCleanserColor = 'text-emerald-400 font-semibold';
       } else if (activeTier === 'TIER_2_REGIONAL') {
         piiCleanserText = 'Cloud Run (AU-SYD Domestic)';
@@ -164,10 +164,10 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
     let skillColor = 'text-slate-500 font-normal';
     if (controls.enterpriseDataEnabled) {
       skillText = activeTier === 'TIER_3_SOVEREIGN'
-        ? 'APRA Enclave Rulebook (Local VPC)'
-        : 'APRA Mortgage Underwriter (AU-SYD)';
+        ? 'Baked Enclave: APRA Rulebook (Cord-Cut Ready ✓)'
+        : 'Cloud Registry: APRA Underwriter (AU-SYD CMEK)';
       skillColor = activeTier === 'TIER_3_SOVEREIGN'
-        ? 'text-emerald-400 font-semibold'
+        ? 'text-purple-300 font-semibold'
         : 'text-amber-400 font-semibold';
     }
 
@@ -175,18 +175,18 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
     let toolColor = 'text-slate-500 font-normal';
     if (controls.enterpriseDataEnabled) {
       toolText = activeTier === 'TIER_3_SOVEREIGN'
-        ? 'calculate_customer_lvr (Airgap Enclave)'
+        ? 'calculate_customer_lvr (On-Prem)'
         : 'calculate_customer_lvr (Local VM Engine)';
       toolColor = 'text-emerald-400 font-semibold';
     }
 
     let storageRestText = activeTier === 'TIER_3_SOVEREIGN'
-      ? 'Local Redis Replica (/dev/shm)'
+      ? 'Local Redis Replica (On-Prem)'
       : 'Vertex AI Managed Sessions (AU-SYD)';
     let storageRestColor = 'text-slate-400 font-normal';
     if (controls.enterpriseDataEnabled) {
       storageRestText = activeTier === 'TIER_3_SOVEREIGN'
-        ? 'Local Enclave Disk Mirror (/src/data)'
+        ? 'Local Disk Mirror (/src/data) (On-Prem)'
         : 'gs://au-fsi-customer-assets/ (AU-SYD CMEK)';
       storageRestColor = activeTier === 'TIER_3_SOVEREIGN'
         ? 'text-emerald-400 font-semibold'
@@ -241,13 +241,13 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
       case 'TIER_3_SOVEREIGN':
         return {
           name: 'On-Prem Agent',
-          runtime: 'Private Isolated VPC Enclave',
+          runtime: 'Private Isolated VPC (On-Prem)',
           runtimeColor: 'text-emerald-400 font-semibold',
-          modelLocation: 'Enclave Airgap (AU-SYD)',
+          modelLocation: 'Airgapped (On-Prem)',
           modelLocationColor: 'text-emerald-400 font-semibold',
           model: getModelDisplayName('TIER_3_SOVEREIGN'),
           modelColor: 'text-emerald-400 font-semibold',
-          memory: 'Tier 3 Local Standby Replica',
+          memory: 'Local Standby Replica (On-Prem)',
           memoryColor: 'text-emerald-400 font-semibold',
           piiCleanser: piiCleanserText,
           piiCleanserColor: piiCleanserColor,
@@ -695,7 +695,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   { id: 'AUTO', label: 'Auto Cascade (Default)', desc: 'Tier 1 -> Tier 2 -> Tier 3' },
                   { id: 'TIER_1_GLOBAL', label: 'Lock Tier 1 (Global)', desc: 'Generative AI Global API' },
                   { id: 'TIER_2_REGIONAL', label: 'Lock Tier 2 (AU-SYD)', desc: 'Vertex AI Sydney Data Residency' },
-                  { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (Airgap VPC)', desc: 'Private VPC Gemma-2 Open Weights' },
+                  { id: 'TIER_3_SOVEREIGN', label: 'Lock Tier 3 (On-Prem)', desc: 'Private On-Prem Gemma-2 Open Weights' },
                 ].map((opt) => (
                   <div
                     key={opt.id}

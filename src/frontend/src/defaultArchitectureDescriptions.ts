@@ -3,9 +3,9 @@ import { ArchitectureDescriptionMap, ArchitectureFunctionKey } from './types';
 
 export const DEFAULT_ARCHITECTURE_DESCRIPTIONS: ArchitectureDescriptionMap = {
   runtime:
-    'Executes the agent core logic, session orchestration, and stateful turn loop within governed boundary isolation (Vertex AI Agent Engine in AU-SYD vs. Private Airgapped VPC Enclave).',
+    'Executes the agent core logic, session orchestration, and stateful turn loop within governed boundary isolation (Vertex AI Agent Engine in AU-SYD vs. Private On-Prem VPC).',
   modelLocation:
-    'Defines physical data residency and geographical jurisdiction for model inference (e.g. Global Multi-Region API, Sydney australia-southeast1, or Local On-Prem Enclave).',
+    'Defines physical data residency and geographical jurisdiction for model inference (e.g. Global Multi-Region API, Sydney australia-southeast1, or Local On-Prem).',
   model:
     'The active Large Language Model executing token generation (e.g., Gemini 3.7 Flash frontier model, Gemini 2.5 Flash regional model, or self-hosted Gemma 2 open weights).',
   memory:
@@ -17,7 +17,7 @@ export const DEFAULT_ARCHITECTURE_DESCRIPTIONS: ArchitectureDescriptionMap = {
   tool:
     'Deterministic typed Python functions enabling exact mathematical computations, portfolio calculations, and structured dataset queries without LLM hallucination.',
   storageRest:
-    'Governed data storage residency at rest (CMEK-encrypted Cloud Storage gs://au-fsi-customer-assets/ and local airgapped disk mirrors at /src/data).',
+    'Governed data storage residency at rest (CMEK-encrypted Cloud Storage gs://au-fsi-customer-assets/ and local on-prem disk mirrors at /src/data).',
 };
 
 export const ARCHITECTURE_FUNCTION_METADATA: Record<
@@ -29,14 +29,14 @@ export const ARCHITECTURE_FUNCTION_METADATA: Record<
     icon: '⚙️',
     category: 'Compute & Orchestration',
     technicalDoc:
-      'Provides the sandboxed execution environment for the agent orchestrator. In Tier 1 and 2, leverages Vertex AI Agent Engine with regional compliance. In Tier 3, executes on isolated Compute Engine / GKE nodes in an airgapped VPC.',
+      'Provides the sandboxed execution environment for the agent orchestrator. In Tier 1 and 2, leverages Vertex AI Agent Engine with regional compliance. In Tier 3, executes on isolated Compute Engine / GKE nodes in an airgapped on-prem VPC.',
   },
   modelLocation: {
     label: 'Model Location & Data Residency',
     icon: '📍',
     category: 'Jurisdictional Sovereignty',
     technicalDoc:
-      'Enforces sovereign boundary compliance. Under Australian APRA CPS 234 regulations, customer financial context must be restricted to Australian data centers (australia-southeast1) or on-prem enclave storage.',
+      'Enforces sovereign boundary compliance. Under Australian APRA CPS 234 regulations, customer financial context must be restricted to Australian data centers (australia-southeast1) or on-prem storage.',
   },
   model: {
     label: 'Foundation Model',
@@ -78,6 +78,6 @@ export const ARCHITECTURE_FUNCTION_METADATA: Record<
     icon: '📁',
     category: 'Data Governance',
     technicalDoc:
-      'Secures enterprise datasets and audit logs. Governed by Customer-Managed Encryption Keys (CMEK) in regional cloud storage, mirrored locally in airgapped enclaves.',
+      'Secures enterprise datasets and audit logs. Governed by Customer-Managed Encryption Keys (CMEK) in regional cloud storage, mirrored locally on-prem.',
   },
 };

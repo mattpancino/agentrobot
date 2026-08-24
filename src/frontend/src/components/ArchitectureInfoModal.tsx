@@ -67,7 +67,7 @@ tools:
   Full PII tokenization applied before prompt transit. Tool calls execute locally in Sydney runtime.
 - **Tier 2 (Regional AU-SYD Vertex AI):**
   Strict Australian jurisdictional boundary. Session context replicated in local Redis.
-- **Tier 3 (Sovereign Airgapped Enclave VM):**
+- **Tier 3 (Sovereign Airgapped On-Prem VM):**
   Zero external internet access. Self-hosted Gemma 2 model and local CSV data store (/var/sovereign/data/customer_loans.csv) with offline tool execution.
 `;
 
@@ -80,6 +80,28 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [skillTab, setSkillTab] = useState<'cloud' | 'enclave'>('cloud');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+
+  const handleSyncToEnclave = async () => {
+    setIsSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch('/api/skills/sync-enclave', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setSyncMsg('✓ Successfully baked into Sovereign Enclave VM disk (/var/sovereign/skills)');
+        setTimeout(() => setSyncMsg(null), 4000);
+      } else {
+        setSyncMsg('Failed to sync to Enclave VM');
+      }
+    } catch {
+      setSyncMsg('Enclave Tool Service sync offline');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (!modalState) return null;
 
@@ -173,7 +195,7 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
                       DETERMINISTIC PYTHON TOOL
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-400">{activeValue || 'Airgap Enclave / Local VM Engine'}</span>
+                  <span className="text-[10px] text-slate-400">{activeValue || 'Airgap (On-Prem) / Local VM Engine'}</span>
                 </div>
                 <div className="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
                   <span className="text-purple-400">def</span>{' '}
@@ -321,7 +343,7 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
                   <span>
                     Storage Source: <strong className="text-amber-300">gs://au-fsi-customer-assets/loans.csv</strong> (AU-SYD CMEK)
                   </span>
-                  <span className="text-emerald-400 font-semibold">Synchronized to Local Enclave</span>
+                  <span className="text-emerald-400 font-semibold">Synchronized to Local On-Prem Replica</span>
                 </div>
               </div>
 
@@ -350,19 +372,49 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
             </div>
           )}
 
-          {/* 3. SKILL RULEBOOK POPUP - PURE SKILL.MD TEXT FIELD */}
+          {/* 3. SKILL RULEBOOK POPUP - DUAL-MODE SKILL VIEWER */}
           {type === 'skill_rulebook' && (
             <div className="space-y-3">
-              {/* File Info Bar with Copy Action */}
-              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-950/90 rounded-xl border border-purple-500/30 text-xs font-mono">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <span className="text-purple-400">📄</span>
-                  <span className="font-bold text-white font-mono">skills/apra_underwriting/SKILL.md</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono">
-                    YAML Frontmatter &amp; Directives
-                  </span>
+              {/* Dual-Mode Architecture Selector Tabs */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-1.5 bg-slate-950 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSkillTab('cloud')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition cursor-pointer ${
+                      skillTab === 'cloud'
+                        ? 'bg-blue-600/30 text-blue-300 border border-blue-500/50 font-bold'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>☁️</span>
+                    <span>Managed Cloud Registry (Tiers 1 &amp; 2)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSkillTab('enclave')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition cursor-pointer ${
+                      skillTab === 'enclave'
+                        ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50 font-bold'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>🔒</span>
+                    <span>Baked Enclave Disk (Tier 3 · Cord-Cut Ready)</span>
+                  </button>
                 </div>
+
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSyncToEnclave}
+                    disabled={isSyncing}
+                    className="px-3 py-1.5 rounded-lg bg-purple-900/40 hover:bg-purple-800/60 active:bg-purple-700/60 text-purple-200 text-xs font-mono flex items-center gap-1.5 transition border border-purple-500/40 shadow-sm cursor-pointer disabled:opacity-50"
+                    title="Synchronize and bake current Cloud Skill into Tier 3 Enclave VM disk"
+                  >
+                    <span>{isSyncing ? '⏳' : '🔄'}</span>
+                    <span>{isSyncing ? 'Baking into Enclave...' : 'Sync to Enclave VM'}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -374,14 +426,48 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
                     title="Copy entire SKILL.md text to clipboard"
                   >
                     <span>{copied ? '✓' : '📋'}</span>
-                    <span>{copied ? 'Copied Raw SKILL.md!' : 'Copy Raw SKILL.md'}</span>
+                    <span>{copied ? 'Copied!' : 'Copy Raw'}</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Sync Status Banner */}
+              {syncMsg && (
+                <div className="px-3 py-2 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center gap-2 animate-in fade-in">
+                  <span>●</span>
+                  <span>{syncMsg}</span>
+                </div>
+              )}
+
+              {/* Provenance Metadata Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-950/90 rounded-xl border border-purple-500/30 text-xs font-mono">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <span className="text-purple-400">📄</span>
+                  <span className="font-bold text-white font-mono">
+                    {skillTab === 'cloud'
+                      ? 'gs://au-fsi-sovereign-skills/apra_underwriting/SKILL.md'
+                      : '/var/sovereign/skills/apra_underwriting/SKILL.md'}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold border font-mono ${
+                      skillTab === 'cloud'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}
+                  >
+                    {skillTab === 'cloud'
+                      ? 'CMEK Encrypted · AU-SYD Regional Registry'
+                      : 'Baked On-Disk · Airgapped Offline Autonomy'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  {skillTab === 'cloud' ? 'Managed Cloud Store' : 'Offline Cord-Cut Ready ✓'}
                 </div>
               </div>
 
               {/* Raw Monospace Text Editor Field */}
               <div className="relative rounded-xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl">
-                <div className="p-4 font-mono text-xs text-slate-200 leading-relaxed overflow-x-auto whitespace-pre select-text selection:bg-purple-900/60 selection:text-white max-h-[58vh] bg-slate-950 font-mono">
+                <div className="p-4 font-mono text-xs text-slate-200 leading-relaxed overflow-x-auto whitespace-pre select-text selection:bg-purple-900/60 selection:text-white max-h-[54vh] bg-slate-950 font-mono">
                   {RAW_SKILL_MD}
                 </div>
               </div>
@@ -390,7 +476,11 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
               <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
                   <span className="text-emerald-400 font-bold">●</span>
-                  <span>Active Sovereign Agent Skill loaded from <code className="text-purple-300 font-mono">skills/apra_underwriting/SKILL.md</code></span>
+                  <span>
+                    {skillTab === 'cloud'
+                      ? 'Tiers 1 & 2 execute against Cloud Registry with CMEK key au-fsi-cmek'
+                      : 'Tier 3 executes strictly from local disk (/var/sovereign/skills) with zero internet egress'}
+                  </span>
                 </span>
                 <button
                   type="button"

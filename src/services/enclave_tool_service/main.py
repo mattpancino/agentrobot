@@ -32,10 +32,21 @@ ENCLAVE_LOANS_CSV = os.environ.get(
     "SOVEREIGN_ENCLAVE_LOANS_CSV",
     os.path.join(ENCLAVE_DATA_DIR, "customer_loans.csv") if os.path.exists(ENCLAVE_DATA_DIR) or os.access("/var", os.W_OK) else DEFAULT_LOANS_CSV_PATH,
 )
+ENCLAVE_SKILLS_DIR = os.environ.get("SOVEREIGN_ENCLAVE_SKILLS_DIR", "/var/sovereign/skills")
+ENCLAVE_SKILL_FILE = os.environ.get(
+    "SOVEREIGN_ENCLAVE_SKILL_FILE",
+    os.path.join(ENCLAVE_SKILLS_DIR, "apra_underwriting", "SKILL.md"),
+)
 
-# Ensure local enclave dataset is primed
+# Ensure local enclave dataset and skills directory are primed
 try:
     ensure_dataset_exists(ENCLAVE_LOANS_CSV)
+    os.makedirs(os.path.dirname(ENCLAVE_SKILL_FILE), exist_ok=True)
+    if not os.path.exists(ENCLAVE_SKILL_FILE):
+        repo_skill = os.path.join(os.path.dirname(__file__), "..", "..", "..", "skills", "apra_underwriting", "SKILL.md")
+        if os.path.exists(repo_skill):
+            with open(repo_skill, "r", encoding="utf-8") as rf, open(ENCLAVE_SKILL_FILE, "w", encoding="utf-8") as wf:
+                wf.write(rf.read())
 except Exception:
     pass
 
@@ -141,6 +152,74 @@ async def reset_dataset():
     return summary
 
 
+class SkillSyncRequest(BaseModel):
+    skill_name: str = "apra-cps234-underwriting"
+    version: str = "1.2.0"
+    content: str
+
+
+@app.get("/v1/skills/status")
+async def get_enclave_skill_status():
+    """Liveness & Baked Enclave Disk probe for Tier 3 offline skill autonomy."""
+    exists = os.path.exists(ENCLAVE_SKILL_FILE)
+    content = ""
+    if exists:
+        try:
+            with open(ENCLAVE_SKILL_FILE, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception:
+            pass
+    lines = len(content.splitlines()) if content else 0
+    return {
+        "status": "BAKED_ON_DISK" if exists else "NOT_FOUND",
+        "service": "sovereign-enclave-tool-service",
+        "enclaveHost": socket.gethostname(),
+        "jurisdiction": "australia-southeast1-a",
+        "bakedFilePath": ENCLAVE_SKILL_FILE,
+        "skillName": "apra-cps234-underwriting",
+        "version": "1.2.0",
+        "cordCutReady": exists and lines > 0,
+        "storageResidency": f"{ENCLAVE_SKILL_FILE} (Airgapped Private VPC Enclave)",
+        "lineCount": lines,
+        "lastSynced": "BAKED_ON_DISK",
+    }
+
+
+@app.post("/v1/skills/sync")
+async def sync_enclave_skill(req: SkillSyncRequest):
+    """Synchronizes and bakes the incoming skill definition into the local VM disk."""
+    try:
+        os.makedirs(os.path.dirname(ENCLAVE_SKILL_FILE), exist_ok=True)
+        with open(ENCLAVE_SKILL_FILE, "w", encoding="utf-8") as f:
+            f.write(req.content)
+        return {
+            "status": "SUCCESS",
+            "message": "Skill successfully baked into Sovereign Enclave VM disk.",
+            "bakedPath": ENCLAVE_SKILL_FILE,
+            "bytesSynced": len(req.content),
+            "cordCutReady": True,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to bake skill to disk: {str(e)}")
+
+
+@app.get("/v1/skills/{skill_name}")
+async def get_enclave_skill(skill_name: str = "apra-underwriting"):
+    """Reads the raw baked SKILL.md directly from the airgapped Enclave VM disk."""
+    if not os.path.exists(ENCLAVE_SKILL_FILE):
+        raise HTTPException(status_code=404, detail="Skill not found on Enclave disk.")
+    with open(ENCLAVE_SKILL_FILE, "r", encoding="utf-8") as f:
+        content = f.read()
+    return {
+        "skillName": skill_name,
+        "path": ENCLAVE_SKILL_FILE,
+        "content": content,
+        "storageResidency": f"{ENCLAVE_SKILL_FILE} (Airgapped Private VPC Enclave)",
+        "cordCutReady": True,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)
+
