@@ -25,42 +25,72 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 3.7 Flash",
                 "type": "Latest Frontier Flash",
                 "recommended": True,
-                "description": "Google's premier high-speed frontier model with advanced reasoning, coding, and ultra-low latency."
+                "description": "Google's premier high-speed frontier model with advanced reasoning, coding, and ultra-low latency.",
+                "pricing": {
+                    "inputPricePerMillion": 0.10,
+                    "outputPricePerMillion": 0.40,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-pro-002",
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Pro",
                 "recommended": False,
-                "description": "High-reasoning frontier model for complex analysis and multi-step reasoning."
+                "description": "High-reasoning frontier model for complex analysis and multi-step reasoning.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-flash-002",
                 "name": "Gemini 1.5 Flash (002)",
                 "type": "Fast Multimodal",
                 "recommended": False,
-                "description": "Low-latency multimodal model optimized for speed and high-frequency workloads."
+                "description": "Low-latency multimodal model optimized for speed and high-frequency workloads.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-2.0-flash-001",
                 "name": "Gemini 2.0 Flash (001)",
                 "type": "Next-Gen Fast",
                 "recommended": False,
-                "description": "Next-generation fast model with enhanced coding, tool use, and latency."
+                "description": "Next-generation fast model with enhanced coding, tool use, and latency.",
+                "pricing": {
+                    "inputPricePerMillion": 0.10,
+                    "outputPricePerMillion": 0.40,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-2.0-pro-exp-02-05",
                 "name": "Gemini 2.0 Pro Experimental",
                 "type": "Experimental Frontier",
                 "recommended": False,
-                "description": "Experimental reasoning frontier model with state-of-the-art capabilities."
+                "description": "Experimental reasoning frontier model with state-of-the-art capabilities.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.0-pro-002",
                 "name": "Gemini 1.0 Pro (002)",
                 "type": "Standard Pro",
                 "recommended": False,
-                "description": "Reliable baseline model for general enterprise conversational tasks."
+                "description": "Reliable baseline model for general enterprise conversational tasks.",
+                "pricing": {
+                    "inputPricePerMillion": 0.50,
+                    "outputPricePerMillion": 1.50,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -76,35 +106,60 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 2.5 Flash",
                 "type": "Latest Regional Flash (Australia)",
                 "recommended": True,
-                "description": "Sydney-hosted premier Gemini Flash 2.5 model with ultra-low latency and guaranteed Australian data residency."
+                "description": "Sydney-hosted premier Gemini Flash 2.5 model with ultra-low latency and guaranteed Australian data residency.",
+                "pricing": {
+                    "inputPricePerMillion": 0.10,
+                    "outputPricePerMillion": 0.40,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-flash-002",
                 "name": "Gemini 1.5 Flash (002)",
                 "type": "Fast Regional",
                 "recommended": False,
-                "description": "Optimized Sydney-hosted Flash model for rapid APRA-compliant responses."
+                "description": "Optimized Sydney-hosted Flash model for rapid APRA-compliant responses.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-pro-002",
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Regional",
                 "recommended": False,
-                "description": "Sydney-hosted Pro model for deep audit, legal, and compliance reasoning."
+                "description": "Sydney-hosted Pro model for deep audit, legal, and compliance reasoning.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.0-pro-002",
                 "name": "Gemini 1.0 Pro (002)",
                 "type": "Standard Regional",
                 "recommended": False,
-                "description": "Stable regional baseline model for standard FSI processing."
+                "description": "Stable regional baseline model for standard FSI processing.",
+                "pricing": {
+                    "inputPricePerMillion": 0.50,
+                    "outputPricePerMillion": 1.50,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-flash-001",
                 "name": "Gemini 1.5 Flash (001)",
                 "type": "Legacy Fast",
                 "recommended": False,
-                "description": "Previous generation Flash release hosted in Sydney."
+                "description": "Previous generation Flash release hosted in Sydney.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -120,14 +175,24 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 1.5 Flash (002)",
                 "type": "Fast Regional",
                 "recommended": True,
-                "description": "Melbourne-hosted low-latency Flash model."
+                "description": "Melbourne-hosted low-latency Flash model.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-pro-002",
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Regional",
                 "recommended": False,
-                "description": "Melbourne-hosted Pro model for high-assurance reasoning."
+                "description": "Melbourne-hosted Pro model for high-assurance reasoning.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -143,28 +208,48 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Pro",
                 "recommended": True,
-                "description": "US-central hosted Gemini 1.5 Pro."
+                "description": "US-central hosted Gemini 1.5 Pro.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-flash-002",
                 "name": "Gemini 1.5 Flash (002)",
                 "type": "Fast Multimodal",
                 "recommended": False,
-                "description": "US-central hosted Gemini 1.5 Flash."
+                "description": "US-central hosted Gemini 1.5 Flash.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-2.0-flash-001",
                 "name": "Gemini 2.0 Flash (001)",
                 "type": "Next-Gen Fast",
                 "recommended": False,
-                "description": "US-central hosted Gemini 2.0 Flash."
+                "description": "US-central hosted Gemini 2.0 Flash.",
+                "pricing": {
+                    "inputPricePerMillion": 0.10,
+                    "outputPricePerMillion": 0.40,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "claude-3-5-sonnet-v2@20241022",
                 "name": "Claude 3.5 Sonnet v2 (Model Garden)",
                 "type": "Partner Model",
                 "recommended": False,
-                "description": "Partner model available via Vertex AI Model Garden in us-central1."
+                "description": "Partner model available via Vertex AI Model Garden in us-central1.",
+                "pricing": {
+                    "inputPricePerMillion": 3.00,
+                    "outputPricePerMillion": 15.00,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -180,14 +265,24 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Regional",
                 "recommended": True,
-                "description": "Belgium-hosted Gemini 1.5 Pro."
+                "description": "Belgium-hosted Gemini 1.5 Pro.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-flash-002",
                 "name": "Gemini 1.5 Flash (002)",
                 "type": "Fast Regional",
                 "recommended": False,
-                "description": "Belgium-hosted Gemini 1.5 Flash."
+                "description": "Belgium-hosted Gemini 1.5 Flash.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -203,14 +298,24 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Regional",
                 "recommended": True,
-                "description": "Singapore-hosted Gemini 1.5 Pro."
+                "description": "Singapore-hosted Gemini 1.5 Pro.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-flash-002",
                 "name": "Gemini 1.5 Flash (002)",
                 "type": "Fast Regional",
                 "recommended": False,
-                "description": "Singapore-hosted Gemini 1.5 Flash."
+                "description": "Singapore-hosted Gemini 1.5 Flash.",
+                "pricing": {
+                    "inputPricePerMillion": 0.075,
+                    "outputPricePerMillion": 0.30,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -226,14 +331,24 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemini 2.5 Flash",
                 "type": "Latest Regional Flash",
                 "recommended": True,
-                "description": "In-country premier Gemini Flash 2.5 model with ultra-low latency."
+                "description": "In-country premier Gemini Flash 2.5 model with ultra-low latency.",
+                "pricing": {
+                    "inputPricePerMillion": 0.10,
+                    "outputPricePerMillion": 0.40,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "gemini-1.5-pro-002",
                 "name": "Gemini 1.5 Pro (002)",
                 "type": "Frontier Regional",
                 "recommended": False,
-                "description": "In-country Pro model for high-assurance audit and compliance reasoning."
+                "description": "In-country Pro model for high-assurance audit and compliance reasoning.",
+                "pricing": {
+                    "inputPricePerMillion": 1.25,
+                    "outputPricePerMillion": 5.00,
+                    "currency": "USD"
+                }
             }
         ]
     },
@@ -249,21 +364,36 @@ REGIONAL_MODEL_CATALOG: List[Dict[str, Any]] = [
                 "name": "Gemma 2 (2B IT)",
                 "type": "Lightweight Sovereign",
                 "recommended": True,
-                "description": "Ultra-lightweight 2B model optimized for rapid airgapped CPU/VPC inference."
+                "description": "Ultra-lightweight 2B model optimized for rapid airgapped CPU/VPC inference.",
+                "pricing": {
+                    "inputPricePerMillion": 0.0,
+                    "outputPricePerMillion": 0.0,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "google/gemma-2-9b-it",
                 "name": "Gemma 2 (9B IT)",
                 "type": "Open Weights Sovereign",
                 "recommended": False,
-                "description": "Optimal 9B parameter open-weights model for fast airgapped inference."
+                "description": "Optimal 9B parameter open-weights model for fast airgapped inference.",
+                "pricing": {
+                    "inputPricePerMillion": 0.0,
+                    "outputPricePerMillion": 0.0,
+                    "currency": "USD"
+                }
             },
             {
                 "id": "google/gemma-2-27b-it",
                 "name": "Gemma 2 (27B IT)",
                 "type": "Large Open Weights",
                 "recommended": False,
-                "description": "High-capacity 27B model for complex offline reasoning inside isolated VPC."
+                "description": "High-capacity 27B model for complex offline reasoning inside isolated VPC.",
+                "pricing": {
+                    "inputPricePerMillion": 0.0,
+                    "outputPricePerMillion": 0.0,
+                    "currency": "USD"
+                }
             }
         ]
     }
@@ -309,3 +439,62 @@ def get_region_info(region_id: str) -> Dict[str, Any]:
         "description": f"User-selected region {region_id}",
         "models": []
     }
+
+
+def get_model_pricing(model_id: str) -> Dict[str, Any]:
+    """
+    Returns the token pricing rate card ($/1M tokens) for a given model ID.
+    Supports exact catalog matching and heuristic fallbacks for variants.
+    """
+    cleaned_id = model_id.strip()
+    
+    # 1. Search in catalog
+    for region in REGIONAL_MODEL_CATALOG:
+        for model in region.get("models", []):
+            if model["id"] == cleaned_id and "pricing" in model:
+                p = model["pricing"]
+                return {
+                    "inputPricePerMillion": float(p.get("inputPricePerMillion", 0.10)),
+                    "outputPricePerMillion": float(p.get("outputPricePerMillion", 0.40)),
+                    "currency": p.get("currency", "USD"),
+                    "isSelfHosted": float(p.get("inputPricePerMillion", 0.0)) == 0.0 and float(p.get("outputPricePerMillion", 0.0)) == 0.0,
+                }
+    
+    # 2. Heuristic fallback based on model naming patterns
+    lowered = cleaned_id.lower()
+    if "gemma" in lowered or "airgap" in lowered:
+        return {"inputPricePerMillion": 0.0, "outputPricePerMillion": 0.0, "currency": "USD", "isSelfHosted": True}
+    if "claude" in lowered or "sonnet" in lowered:
+        return {"inputPricePerMillion": 3.00, "outputPricePerMillion": 15.00, "currency": "USD", "isSelfHosted": False}
+    if "pro" in lowered:
+        return {"inputPricePerMillion": 1.25, "outputPricePerMillion": 5.00, "currency": "USD", "isSelfHosted": False}
+    if "flash" in lowered:
+        return {"inputPricePerMillion": 0.10, "outputPricePerMillion": 0.40, "currency": "USD", "isSelfHosted": False}
+    
+    # Default baseline Flash rate
+    return {"inputPricePerMillion": 0.10, "outputPricePerMillion": 0.40, "currency": "USD", "isSelfHosted": False}
+
+
+def calculate_10k_turn_cost(model_id: str, input_tokens: int, output_tokens: int) -> float:
+    """
+    Calculates the financial cost (in USD) projected for 10,000 conversation turns
+    under the active model's rate card.
+    
+    Formula:
+      Turn Cost = (input_tokens * (InputRate / 1,000,000)) + (output_tokens * (OutputRate / 1,000,000))
+      Cost for 10k Turns = Turn Cost * 10,000
+    """
+    pricing = get_model_pricing(model_id)
+    if pricing.get("isSelfHosted", False) or (pricing["inputPricePerMillion"] == 0.0 and pricing["outputPricePerMillion"] == 0.0):
+        return 0.0
+    
+    in_cost_per_turn = (max(0, input_tokens) * pricing["inputPricePerMillion"]) / 1_000_000.0
+    out_cost_per_turn = (max(0, output_tokens) * pricing["outputPricePerMillion"]) / 1_000_000.0
+    turn_cost = in_cost_per_turn + out_cost_per_turn
+    return round(turn_cost * 10_000.0, 4)
+
+
+def calculate_1k_turn_cost(model_id: str, input_tokens: int, output_tokens: int) -> float:
+    """Backward-compatible helper for 1,000 conversation turns."""
+    return round(calculate_10k_turn_cost(model_id, input_tokens, output_tokens) / 10.0, 4)
+

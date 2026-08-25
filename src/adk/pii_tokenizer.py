@@ -155,11 +155,17 @@ def _clean_entity_span(text: str, start: int, end: int, entity_type: str) -> Opt
     Cleans and trims detected entity spans:
     - Strips leading/trailing punctuation and whitespace
     - Strips possessive clitics ('s, ’s, ', ’) from PERSON and other named entities
+    - Strips label prefixes (e.g. 'TFN', 'AU TFN', 'BSB', 'Account') so tokens only replace the value
+    - Discards existing tokens ([[PII_...]]) to prevent nested re-tokenization
     - Adjusts start/end character offsets to precisely match the cleaned text
     - Returns None if the cleaned entity is empty or purely whitespace/stopwords
     """
     raw = text[start:end]
     if not raw:
+        return None
+
+    # Never re-tokenize or process an existing token or token fragment
+    if "PII_" in raw or "[[" in raw or "]]" in raw:
         return None
 
     # Calculate leading whitespace/punctuation offset
@@ -175,6 +181,19 @@ def _clean_entity_span(text: str, start: int, end: int, entity_type: str) -> Opt
         clean_text = r_trimmed
 
     clean_text = clean_text.strip()
+
+    # Strip entity-type keyword prefixes like 'TFN', 'AU TFN', 'BSB', 'Account' from value
+    if entity_type in ("AU_TFN", "TFN"):
+        prefix_m = re.match(r"^(?:(?:AU\s+)?TFN\s*(?:is|:|=)?\s*)", clean_text, re.IGNORECASE)
+        if prefix_m:
+            l_trim += prefix_m.end()
+            clean_text = clean_text[prefix_m.end():].strip()
+    elif entity_type in ("AU_BSB_ACCOUNT", "BSB", "ACCOUNT"):
+        prefix_m = re.match(r"^(?:(?:BSB|Account)\s*(?:no\.?|number|#)?\s*[:=]?\s*)", clean_text, re.IGNORECASE)
+        if prefix_m:
+            l_trim += prefix_m.end()
+            clean_text = clean_text[prefix_m.end():].strip()
+
     if not clean_text or len(clean_text) < 2:
         return None
 

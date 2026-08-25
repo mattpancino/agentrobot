@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import httpx
 from pydantic import BaseModel, Field
 
-from .model_registry import get_region_info
+from .model_registry import get_region_info, calculate_10k_turn_cost, calculate_1k_turn_cost, get_model_pricing
 from .pii_tokenizer import default_tokenizer
 from .prompt_processor import generate_command_response
 from .schema_adapter import normalize_messages_for_gemma, strip_sovereign_header
@@ -85,7 +85,7 @@ class TierConfig(BaseModel):
 
 
 class FailoverHopLog(BaseModel):
-    """Audit log entry for a specific execution attempt during a turn."""
+    timestamp: str = Field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     tier: str
     attemptedModel: str
     status: str = "SUCCESS"
@@ -110,6 +110,12 @@ class ExecutionMetadata(BaseModel):
     tokenizedPrompt: Optional[str] = None
     tokenizedResponse: Optional[str] = None
     skillProvenance: Optional[Dict[str, Any]] = None
+    inputTokens: int = 0
+    outputTokens: int = 0
+    totalTokens: int = 0
+    costPer1kTurnsUsd: float = 0.0
+    costPer10kTurnsUsd: float = 0.0
+
 
 
 class SovereignCascadeRouter:
@@ -570,6 +576,21 @@ class SovereignCascadeRouter:
         total_latency_ms = int((time.time() - start_time) * 1000)
         active_tier_cfg = self.tiers[active_tier_id]
 
+        # Calculate conversation turn tokens and 10,000-turn unit economic cost
+        total_prompt_chars = len(model_prompt or "") + sum(len(m.get("content", "")) for m in (model_messages or []))
+        if effective_system_instruction:
+            total_prompt_chars += len(effective_system_instruction)
+        if tool_call_logs:
+            total_prompt_chars += sum(len(str(tc.get("result", ""))) for tc in tool_call_logs)
+
+        computed_in_tokens = max(1, int(total_prompt_chars / 3.8))
+        computed_out_tokens = max(1, int(len(final_content or "") / 3.8))
+        cost_10k = calculate_10k_turn_cost(
+            active_tier_cfg.model_name,
+            computed_in_tokens,
+            computed_out_tokens
+        )
+
         metadata = ExecutionMetadata(
             activeTier=active_tier_id,
             modelUsed=active_tier_cfg.model_name,
@@ -593,6 +614,11 @@ class SovereignCascadeRouter:
                 "cordCutReady": True,
                 "version": "1.2.0",
             },
+            inputTokens=computed_in_tokens,
+            outputTokens=computed_out_tokens,
+            totalTokens=computed_in_tokens + computed_out_tokens,
+            costPer1kTurnsUsd=round(cost_10k / 10.0, 4),
+            costPer10kTurnsUsd=cost_10k,
         )
 
         return {

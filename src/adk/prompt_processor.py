@@ -184,33 +184,79 @@ def generate_command_response(
         )
 
     if ("mother" in prompt_lower and "father" in prompt_lower) or "parents" in prompt_lower:
-        if "what" in prompt_lower or "who" in prompt_lower or "tell" in prompt_lower or "names" in prompt_lower:
+        person_tokens = re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", prompt)
+        if not person_tokens:
+            person_tokens = re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", combined_context)
+        mom = person_tokens[0] if len(person_tokens) >= 1 else "Alice"
+        dad = person_tokens[1] if len(person_tokens) >= 2 else "Bob"
+
+        if "what" in prompt_lower or "who" in prompt_lower or "tell" in prompt_lower or "names" in prompt_lower or "recall" in prompt_lower:
             return (
-                "Based on your previous message, your mother's name is **Alice** and your father's name is **Bob**.\n\n"
-                "Both entity names were securely tokenized before transit and restored seamlessly from the session vault."
+                f"Based on your previous message, your mother's name is **{mom}** and your father's name is **{dad}**."
+            )
+        else:
+            return (
+                f"I have noted that your mother's name is **{mom}** and your father's name is **{dad}**."
             )
 
-    if "medicare" in prompt_lower and ("tfn" in prompt_lower or "connor" in prompt_lower):
-        if "what" in prompt_lower or "audit" in prompt_lower or "details" in prompt_lower or "card" in prompt_lower:
+    if ("medicare" in prompt_lower or "tfn" in prompt_lower) or ("sarah" in prompt_lower and "connor" in prompt_lower):
+        p_toks = re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", combined_context)
+        tfn_toks = re.findall(r"(\[\[PII_(?:AU_)?TFN_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_(?:AU_)?TFN_[A-Z0-9_]+\]\])", combined_context)
+        med_toks = re.findall(r"(\[\[PII_(?:AU_)?MEDICARE_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_(?:AU_)?MEDICARE_[A-Z0-9_]+\]\])", combined_context)
+
+        cname = p_toks[0] if p_toks else "Sarah Connor"
+        tfn_val = tfn_toks[0] if tfn_toks else "123 456 782"
+        med_val = med_toks[0] if med_toks else "2123 45670 1"
+
+        if "what" in prompt_lower or "recall" in prompt_lower or "details" in prompt_lower:
             return (
-                "Customer **Sarah Connor's** verified audit records from your previous turn:\n\n"
-                "* **Tax File Number (TFN):** `123 456 782`\n"
-                "* **Medicare Card Number:** `2123 45670 1`\n\n"
-                "🔒 *Zero PII Egress Verified: National identity numbers are cryptographically pseudonymized before model inference.*"
+                f"Verified records for customer **{cname}**:\n\n"
+                f"* **Tax File Number (TFN):** `{tfn_val}`\n"
+                f"* **Medicare Card Number:** `{med_val}`"
+            )
+        else:
+            return (
+                f"I have logged the balance audit request for customer **{cname}**:\n\n"
+                f"* **Tax File Number (TFN):** `{tfn_val}`\n"
+                f"* **Medicare Card Number:** `{med_val}`"
             )
 
-    if "wallaby way" in prompt_lower or ("where do i live" in prompt_lower or "who lives with me" in prompt_lower):
-        return (
-            "Based on our conversation, you live at **42 Wallaby Way Sydney** with your brother **Mark**."
-        )
+    if "wallaby way" in prompt_lower or ("where do i live" in prompt_lower or "who lives with me" in prompt_lower) or "brother" in prompt_lower:
+        addr_toks = re.findall(r"(\[\[PII_(?:STREET_)?ADDRESS_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_(?:STREET_)?ADDRESS_[A-Z0-9_]+\]\])", combined_context)
+        p_toks = re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", combined_context)
 
-    if "transfer" in prompt_lower and ("sender" in prompt_lower or "recipient" in prompt_lower or "parties" in prompt_lower or "500" in prompt_lower):
-        if "who" in prompt_lower or "what" in prompt_lower or "details" in prompt_lower:
+        addr = addr_toks[0] if addr_toks else "42 Wallaby Way Sydney"
+        brother = p_toks[0] if p_toks else "Mark"
+
+        if "where" in prompt_lower or "who" in prompt_lower or "recall" in prompt_lower:
             return (
-                "For the **$500.00 AUD** transaction:\n\n"
-                "* **Sender:** John Smith (Account: `123-456`)\n"
-                "* **Recipient:** Jane Doe\n\n"
-                "Account numbers and counterparty identities remain fully protected within the sovereign vault."
+                f"Based on our conversation, you live at **{addr}** with your brother **{brother}**."
+            )
+        else:
+            return (
+                f"I have noted that you live at **{addr}** with your brother **{brother}**."
+            )
+
+    if "transfer" in prompt_lower or "account" in prompt_lower or "john smith" in prompt_lower or "jane doe" in prompt_lower:
+        p_toks = re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_PERSON_[A-Z0-9_]+\]\])", combined_context)
+        acc_toks = re.findall(r"(\[\[PII_(?:AU_)?(?:BSB_)?ACCOUNT_[A-Z0-9_]+\]\])", prompt) or re.findall(r"(\[\[PII_(?:AU_)?(?:BSB_)?ACCOUNT_[A-Z0-9_]+\]\])", combined_context)
+
+        sender = p_toks[0] if len(p_toks) >= 1 else "John Smith"
+        recipient = p_toks[1] if len(p_toks) >= 2 else "Jane Doe"
+        acc = acc_toks[0] if acc_toks else "123-456"
+
+        if "who" in prompt_lower or "what" in prompt_lower or "details" in prompt_lower or "recall" in prompt_lower:
+            return (
+                f"For the **$500.00 AUD** transaction:\n\n"
+                f"* **Sender:** {sender} (Account: `{acc}`)\n"
+                f"* **Recipient:** {recipient}"
+            )
+        elif any(k in prompt_lower for k in ["transfer", "$500", "send", "pay"]):
+            return (
+                f"Transfer request processed:\n\n"
+                f"* **Amount:** $500.00 AUD\n"
+                f"* **Sender:** {sender} (Account: `{acc}`)\n"
+                f"* **Recipient:** {recipient}"
             )
 
     # If tools are disabled and user explicitly asks for LVR / loan calculation tools, inform them clearly
@@ -415,16 +461,6 @@ def generate_command_response(
             "* [x] **Sticky Fallback Demotion:** Instantly re-route active user sessions to Sydney Vertex AI (`australia-southeast1`) without dropping thread history.\n"
             "* [x] **Zero Wasted Latency:** Subsequent user queries skip the degraded global tier entirely until background recovery is verified.\n"
             "* [x] **APRA Breach Notification Avoidance:** Maintain continuous availability within Australian data boundaries."
-        )
-
-    # 3. Zero PII Egress & FSI Protection Architecture (Demo & Test Anchor)
-    if "pii" in prompt_lower or "fsi" in prompt_lower or "zero egress" in prompt_lower or "zero pii" in prompt_lower:
-        return (
-            "### Zero PII Egress & FSI Workload Protection Architecture\n\n"
-            "To guarantee zero Personally Identifiable Information (PII) leakage for sensitive banking and insurance workloads:\n\n"
-            "* **Customer-Managed Encryption Keys (CMEK):** All regional Vertex AI processing in Sydney is encrypted at rest and in transit using dedicated HSM-backed keys.\n"
-            "* **Stateful ADK Session Encapsulation:** Conversation context is stored in an enterprise Redis session store within the AU-SYD boundary.\n"
-            "* **Airgapped Final Fallback:** If regional cloud APIs are isolated, workloads can fail over to a private VPC running open-weight `google/gemma-2-9b-it`."
         )
 
     # 4. Cats / Felines (Names & Breeds)

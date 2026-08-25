@@ -258,6 +258,14 @@
         'Deterministic typed Python functions enabling exact mathematical computations, portfolio calculations, and structured dataset queries without LLM hallucination.',
       storageRest:
         'Governed data storage residency at rest (CMEK-encrypted Cloud Storage gs://au-fsi-customer-assets/ and local on-prem disk mirrors at /src/data).',
+      tokensUsed:
+        'Quantifies total prompt context tokens (system instructions, conversation history, loan portfolio context) and candidate generation tokens produced by the active model tier.',
+      modelCostPerMillion:
+        'Official Vertex AI model pricing rate card in USD per 1 Million tokens ($ In / $ Out) versus zero-API-fee private sovereign compute.',
+      costPer10kTurns:
+        'Calculates enterprise inference economics projected across 10,000 multi-turn interactions based on official Vertex AI rate cards ($/1M tokens) vs zero-API-cost private sovereign compute.',
+      costPer1000Turns:
+        'Calculates enterprise inference economics projected across 10,000 multi-turn interactions based on official Vertex AI rate cards ($/1M tokens) vs zero-API-cost private sovereign compute.',
     };
 
     const ARCHITECTURE_FUNCTION_METADATA = {
@@ -317,6 +325,34 @@
         technicalDoc:
           'Secures enterprise datasets and audit logs. Governed by Customer-Managed Encryption Keys (CMEK) in regional cloud storage, mirrored locally on-prem.',
       },
+      tokensUsed: {
+        label: 'Token Usage (In / Out)',
+        icon: '📊',
+        category: 'Inference Metrics',
+        technicalDoc:
+          'Monitors bidirectional token bandwidth across conversation turns. Evaluates context window utilization, system prompt overhead, and model candidate output length to optimize token velocity.',
+      },
+      modelCostPerMillion: {
+        label: 'Model Rate (USD / 1M Tokens)',
+        icon: '🏷️',
+        category: 'Inference Pricing Rate Card',
+        technicalDoc:
+          'Quantifies the published baseline pricing in USD per 1,000,000 input context tokens and output generated tokens for the active foundation model (e.g. Gemini 3.7 Flash: $0.10/$0.40, Gemini 1.5 Pro: $1.25/$5.00, Private On-Prem: $0.00).',
+      },
+      costPer10kTurns: {
+        label: 'Cost per 10,000 Conversation Turns',
+        icon: '💰',
+        category: 'Financial Governance & Unit Economics',
+        technicalDoc:
+          'Projects conversational inference economics over 10,000 end-to-end user turns. Evaluates frontier model ROI (e.g. Gemini 3.7 Flash at $0.10/$0.40 per 1M tokens vs. Gemini 1.5 Pro at $1.25/$5.00 per 1M tokens) against zero-API-cost private on-prem Gemma 2 compute.',
+      },
+      costPer1000Turns: {
+        label: 'Cost per 10,000 Conversation Turns',
+        icon: '💰',
+        category: 'Financial Governance & Unit Economics',
+        technicalDoc:
+          'Projects conversational inference economics over 10,000 end-to-end user turns. Evaluates frontier model ROI (e.g. Gemini 3.7 Flash at $0.10/$0.40 per 1M tokens vs. Gemini 1.5 Pro at $1.25/$5.00 per 1M tokens) against zero-API-cost private on-prem Gemma 2 compute.',
+      },
     };
 
 
@@ -330,7 +366,7 @@
       );
     }
 
-    function ChaosPanel({ controls, onChange, onResetChat, onResetDemo, isResettingDemo, onOpenSettings, onSelectStage, onOpenArchitectureModal }) {
+    function ChaosPanel({ controls, onChange, onResetChat, onResetDemo, isResettingDemo, onOpenSettings, onSelectStage, onOpenArchitectureModal, messages = [], lastMetadata = null }) {
       // Collapsible panels state (default closed, 5s inactivity auto-close)
       const [isOverrideOpen, setIsOverrideOpen] = useState(false);
       const [isStagesOpen, setIsStagesOpen] = useState(false);
@@ -505,6 +541,70 @@
           return 'Gemma 2 (Self-Hosted)';
         };
 
+        // Live cumulative and latest turn token calculation
+        let inTokensCount = 0;
+        let outTokensCount = 0;
+        if (messages && messages.length > 0) {
+          messages.forEach((m) => {
+            if (m.metadata?.inputTokens) {
+              inTokensCount += m.metadata.inputTokens;
+            } else if (m.role === 'user') {
+              inTokensCount += Math.max(1, Math.round((m.content?.length || 0) / 3.8));
+            }
+            if (m.metadata?.outputTokens) {
+              outTokensCount += m.metadata.outputTokens;
+            } else if (m.role === 'assistant') {
+              outTokensCount += Math.max(1, Math.round((m.content?.length || 0) / 3.8));
+            }
+          });
+        }
+        if (inTokensCount === 0 && outTokensCount === 0) {
+          inTokensCount = 1240;
+          outTokensCount = 320;
+        }
+
+        const tokensUsedFormatted = `${inTokensCount.toLocaleString()} In / ${outTokensCount.toLocaleString()} Out`;
+
+        const getModelPricingRates = (modelId) => {
+          if (!modelId) return { inRate: 0.10, outRate: 0.40, isSelfHosted: false };
+          const mid = modelId.toLowerCase();
+          if (mid.includes('gemma') || mid.includes('airgap')) {
+            return { inRate: 0.0, outRate: 0.0, isSelfHosted: true };
+          }
+          if (mid.includes('claude') || mid.includes('sonnet')) {
+            return { inRate: 3.00, outRate: 15.00, isSelfHosted: false };
+          }
+          if (mid.includes('pro')) {
+            return { inRate: 1.25, outRate: 5.00, isSelfHosted: false };
+          }
+          if (mid.includes('flash-002') || mid.includes('flash-001')) {
+            return { inRate: 0.075, outRate: 0.30, isSelfHosted: false };
+          }
+          return { inRate: 0.10, outRate: 0.40, isSelfHosted: false };
+        };
+
+        const activeModelIdentifier = controls.tierSettings?.[activeTier]?.model || (
+          activeTier === 'TIER_1_GLOBAL' ? 'gemini-3.7-flash' : activeTier === 'TIER_2_REGIONAL' ? 'gemini-2.5-flash' : 'google/gemma-2-2b-it'
+        );
+        const rates = getModelPricingRates(activeModelIdentifier);
+
+        let modelRateFormatted = '';
+        if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
+          modelRateFormatted = '$0.00 / 1M (Self-Hosted)';
+        } else {
+          modelRateFormatted = `$${rates.inRate.toFixed(2)} in / $${rates.outRate.toFixed(2)} out (1M)`;
+        }
+
+        let costPer10kFormatted = '';
+        if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
+          costPer10kFormatted = '$0.00 (Self-Hosted · 0 API Fee)';
+        } else {
+          const inCostTotal = (inTokensCount * rates.inRate) / 100.0;
+          const outCostTotal = (outTokensCount * rates.outRate) / 100.0;
+          const totalCost = inCostTotal + outCostTotal;
+          costPer10kFormatted = `$${totalCost.toFixed(2)} / 10k Turns`;
+        }
+
         switch (activeTier) {
           case 'TIER_2_REGIONAL':
             return {
@@ -525,6 +625,14 @@
               toolColor: toolColor,
               storageRest: storageRestText,
               storageRestColor: storageRestColor,
+              tokensUsed: tokensUsedFormatted,
+              tokensUsedColor: 'text-amber-400 font-semibold',
+              modelRate: modelRateFormatted,
+              modelRateColor: 'text-amber-400 font-semibold',
+              costPer10kTurns: costPer10kFormatted,
+              costPer10kTurnsColor: 'text-amber-400 font-semibold',
+              costPer1000Turns: costPer10kFormatted,
+              costPer1000TurnsColor: 'text-amber-400 font-semibold',
               color: 'amber',
               borderClass: 'border-amber-500/40 bg-gradient-to-b from-amber-950/40 to-slate-950',
               glowClass: 'shadow-lg shadow-amber-500/10',
@@ -550,6 +658,14 @@
               toolColor: toolColor,
               storageRest: storageRestText,
               storageRestColor: storageRestColor,
+              tokensUsed: tokensUsedFormatted,
+              tokensUsedColor: 'text-emerald-400 font-semibold',
+              modelRate: modelRateFormatted,
+              modelRateColor: 'text-emerald-400 font-semibold',
+              costPer10kTurns: costPer10kFormatted,
+              costPer10kTurnsColor: 'text-emerald-400 font-semibold',
+              costPer1000Turns: costPer10kFormatted,
+              costPer1000TurnsColor: 'text-emerald-400 font-semibold',
               color: 'emerald',
               borderClass: 'border-emerald-500/40 bg-gradient-to-b from-emerald-950/40 to-slate-950',
               glowClass: 'shadow-lg shadow-emerald-500/10',
@@ -576,6 +692,14 @@
               toolColor: toolColor,
               storageRest: storageRestText,
               storageRestColor: storageRestColor,
+              tokensUsed: tokensUsedFormatted,
+              tokensUsedColor: 'text-blue-400 font-semibold',
+              modelRate: modelRateFormatted,
+              modelRateColor: 'text-blue-400 font-semibold',
+              costPer10kTurns: costPer10kFormatted,
+              costPer10kTurnsColor: 'text-blue-400 font-semibold',
+              costPer1000Turns: costPer10kFormatted,
+              costPer1000TurnsColor: 'text-blue-400 font-semibold',
               color: 'blue',
               borderClass: 'border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-slate-950',
               glowClass: 'shadow-lg shadow-blue-500/10',
@@ -928,6 +1052,87 @@
                     </div>
                   </>
                 )}
+
+                {/* 9. Tokens (In/Out) - Always Present as 2nd-to-last Element */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'tokensUsed',
+                      title: '📊 Token Usage (In / Out)',
+                      icon: '📊',
+                      activeValue: agentChar.tokensUsed,
+                      activeColor: agentChar.tokensUsedColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                  title="Click to view Context Window & Token Generation metrics"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                    <span>📊</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                      Tokens (In/Out):
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.tokensUsedColor}`}>
+                    {agentChar.tokensUsed}
+                  </span>
+                </div>
+
+                {/* 10. Actual Model Cost per 1M Tokens (USD) */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'modelCostPerMillion',
+                      title: '🏷️ Actual Model Cost (USD / 1M Tokens)',
+                      icon: '🏷️',
+                      activeValue: agentChar.modelRate,
+                      activeColor: agentChar.modelRateColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view published Vertex AI model pricing rate card in USD per 1M tokens"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                    <span>🏷️</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                      Model Cost (/1M):
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.modelRateColor}`}>
+                    {agentChar.modelRate}
+                  </span>
+                </div>
+
+                {/* 11. Cost per 10,000 Turns - Always Present as Last Element */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal &&
+                    onOpenArchitectureModal({
+                      type: 'function_desc',
+                      functionKey: 'costPer10kTurns',
+                      title: '💰 Projected Cost (x10,000 Turns)',
+                      icon: '💰',
+                      activeValue: agentChar.costPer10kTurns,
+                      activeColor: agentChar.costPer10kTurnsColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view 10,000-turn economic cost modeling across model tiers"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1">
+                    <span>💰</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                      Cost / x10k Turns:
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.costPer10kTurnsColor}`}>
+                    {agentChar.costPer10kTurns}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1860,16 +2065,6 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
           >
             <span>🏛️</span> Architecture &amp; Function Info
           </button>
-          <button
-            onClick={() => setActiveTab('architecture')}
-            className={`py-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
-              activeTab === 'architecture'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span>🏛️</span> Architecture &amp; Function Info
-          </button>
         </div>
 
         {/* Content Area */}
@@ -1935,11 +2130,16 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
 
                     {/* Active Model Description Badge */}
                     {currentRegion && (
-                      <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 flex items-center justify-between">
+                      <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <span>
                           Active Model: <strong className="text-white">{setting.model}</strong> —{' '}
                           {currentRegion.models.find((m) => m.id === setting.model)?.description || currentRegion.description}
                         </span>
+                        {currentRegion.models.find((m) => m.id === setting.model)?.pricing && (
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 font-mono text-[10px] shrink-0">
+                            ${currentRegion.models.find((m) => m.id === setting.model).pricing.inputPricePerMillion} in / ${currentRegion.models.find((m) => m.id === setting.model).pricing.outputPricePerMillion} out (per 1M)
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1977,7 +2177,14 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-blue-400 mb-1.5">{mod.type}</div>
+                          <div className="flex items-center justify-between text-[10px] text-blue-400 mb-1.5">
+                            <span>{mod.type}</span>
+                            {mod.pricing && (
+                              <span className="font-mono text-emerald-400 text-[10px]">
+                                ${mod.pricing.inputPricePerMillion} in / ${mod.pricing.outputPricePerMillion} out (1M)
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-slate-400 leading-snug mb-3">{mod.description}</p>
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
@@ -3054,6 +3261,81 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
               </div>
             </div>
           )}
+
+          {activeTab === 'architecture' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <span>🏛️</span> Sovereign Architecture &amp; Function Specifications
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Customize the architectural role descriptions and unit economic parameters displayed in the interactive architecture cards and popups.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetArchitectureDefaults}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+                  >
+                    Reset Architecture Defaults
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveArchitecture}
+                    className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition"
+                  >
+                    Save Specifications
+                  </button>
+                </div>
+              </div>
+
+              {archSavedMsg && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
+                  <span>{archSavedMsg}</span>
+                  <button onClick={() => setArchSavedMsg(null)} className="text-slate-400 hover:text-white">✕</button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.keys(ARCHITECTURE_FUNCTION_METADATA).map((funcKey) => {
+                  const meta = ARCHITECTURE_FUNCTION_METADATA[funcKey];
+                  const currentDesc = archDescriptions[funcKey] !== undefined ? archDescriptions[funcKey] : DEFAULT_ARCHITECTURE_DESCRIPTIONS[funcKey];
+
+                  return (
+                    <div key={funcKey} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{meta.icon}</span>
+                          <span className="text-xs font-bold text-white font-sans">{meta.label}</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-slate-900 text-blue-300 border border-slate-800">
+                          {meta.category}
+                        </span>
+                      </div>
+
+                      <textarea
+                        value={currentDesc}
+                        onChange={(e) =>
+                          setArchDescriptions({
+                            ...archDescriptions,
+                            [funcKey]: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-sans leading-relaxed resize-none"
+                      />
+
+                      <div className="text-[10px] text-slate-400 bg-slate-900/60 p-2 rounded border border-slate-800/80 leading-relaxed">
+                        <strong className="text-slate-300">Technical Context:</strong> {meta.technicalDoc}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -3358,6 +3640,12 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   </span>
                 )}
 
+                {(meta.costPer10kTurnsUsd !== undefined || meta.costPer1kTurnsUsd !== undefined) && (
+                  <span className="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-400 font-mono text-[11px]" title="Cost per 10,000 Turns">
+                    ${(meta.costPer10kTurnsUsd ?? (meta.costPer1kTurnsUsd ? meta.costPer1kTurnsUsd * 10 : 0)).toFixed(2)}/10k
+                  </span>
+                )}
+
                 {tier3Synced && (
                   <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-semibold text-[11px] flex items-center gap-1 border border-emerald-500/30" title="Session state synchronized with Tier 3 Sovereign Redis store">
                     <span>🔄</span>
@@ -3394,15 +3682,21 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
                   <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-1">
-                    <div className="text-blue-400 font-bold">// Execution Target:</div>
+                    <div className="text-blue-400 font-bold">// Execution Target &amp; Economics:</div>
                     <div className="text-slate-300">Tier: <span className="text-white font-semibold">{activeTier}</span></div>
                     <div className="text-slate-300">Location: <span className="text-white">{executionLocation}</span></div>
                     <div className="text-slate-300">Sovereignty: <span className="text-white">{sovereigntyClassification}</span></div>
+                    {(meta.costPer10kTurnsUsd !== undefined || meta.costPer1kTurnsUsd !== undefined) && (
+                      <div className="text-slate-300">10k-Turn Cost: <span className="text-emerald-300 font-bold">${(meta.costPer10kTurnsUsd ?? (meta.costPer1kTurnsUsd ? meta.costPer1kTurnsUsd * 10 : 0)).toFixed(2)} USD</span></div>
+                    )}
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-1">
-                    <div className="text-emerald-400 font-bold">// Performance &amp; Sentinel:</div>
+                    <div className="text-emerald-400 font-bold">// Performance &amp; Bandwidth:</div>
                     <div className="text-slate-300">Total Latency: <span className="text-emerald-300 font-bold">{latencyMs}ms</span></div>
+                    {meta.inputTokens !== undefined && (
+                      <div className="text-slate-300">Tokens: <span className="text-blue-300 font-bold">{meta.inputTokens} In / {meta.outputTokens} Out</span> ({meta.totalTokens} total)</div>
+                    )}
                     <div className="text-slate-300">Wasted Timeout Avoided: <span className="text-emerald-300 font-bold">+{wastedLatencyAvoidedMs}ms</span></div>
                     {recoverySentinel && (
                       <div className="text-slate-300 truncate" title={recoverySentinel.message}>
@@ -3848,6 +4142,45 @@ tools:
               <p className="text-xs text-slate-300 leading-relaxed font-sans">
                 {descText}
               </p>
+
+              {activeValue && (
+                <div className="p-2 bg-slate-950/90 rounded-lg border border-slate-800 flex items-center justify-between text-xs font-mono">
+                  <span className="text-slate-500">Active Specification:</span>
+                  <span className={activeColor || 'text-white'}>{activeValue}</span>
+                </div>
+              )}
+
+              {(functionKey === 'modelCostPerMillion' || functionKey === 'costPer10kTurns' || functionKey === 'costPer1000Turns') && (
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5 text-[10px] font-mono">
+                  <div className="text-slate-400 font-bold uppercase text-[9px]">Official Model Pricing &amp; 10k Projections:</div>
+                  <div className="space-y-1 text-slate-300">
+                    <div className="flex justify-between px-2 py-1 rounded bg-slate-950/80 border border-slate-800/50">
+                      <span className="text-blue-400">Gemini 3.7 Flash:</span>
+                      <span className="text-blue-300 font-semibold">$0.10 in / $0.40 out (1M)</span>
+                    </div>
+                    <div className="flex justify-between px-2 py-1 rounded bg-slate-950/80 border border-slate-800/50">
+                      <span className="text-amber-400">Gemini 2.5 Flash:</span>
+                      <span className="text-amber-300 font-semibold">$0.10 in / $0.40 out (1M)</span>
+                    </div>
+                    <div className="flex justify-between px-2 py-1 rounded bg-slate-950/80 border border-slate-800/50">
+                      <span className="text-purple-300">Gemini 1.5 Pro:</span>
+                      <span className="text-purple-200 font-semibold">$1.25 in / $5.00 out (1M)</span>
+                    </div>
+                    <div className="flex justify-between px-2 py-1 rounded bg-slate-950/80 border border-slate-800/50">
+                      <span className="text-emerald-400">Gemma 2 (Tier 3 Airgap):</span>
+                      <span className="text-emerald-300 font-bold">$0.00 / 1M (Self-Hosted)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {functionKey === 'tokensUsed' && (
+                <div className="pt-2 border-t border-slate-800/80 space-y-1 text-[11px] font-mono text-slate-400">
+                  <div className="text-[10px] text-slate-500 uppercase font-bold">Context Architecture:</div>
+                  <div>• <strong className="text-slate-200">Input:</strong> System prompt + conversation history + tool outputs</div>
+                  <div>• <strong className="text-slate-200">Output:</strong> Foundation model generated candidate completion</div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -4501,6 +4834,8 @@ tools:
               onOpenSettings={(tab) => handleOpenSettings(tab)}
               onSelectStage={handleSelectStage}
               onOpenArchitectureModal={setActiveArchitectureModal}
+              messages={messages}
+              lastMetadata={lastMetadata}
             />
             <ChatWindow
               messages={messages}
