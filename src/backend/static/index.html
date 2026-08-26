@@ -414,11 +414,13 @@
       }, []);
 
       const currentStage =
-        controls.enablePiiTokenizer && controls.enterpriseDataEnabled
+        controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
+          ? 4
+          : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
           ? 3
-          : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+          : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
           ? 2
-          : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+          : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
           ? 1
           : 0;
 
@@ -427,11 +429,13 @@
           onSelectStage(stage);
         } else {
           if (stage === 1) {
-            onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+            onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
           } else if (stage === 2) {
-            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
           } else if (stage === 3) {
-            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
+            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+          } else if (stage === 4) {
+            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
           }
           if (onResetChat) onResetChat();
         }
@@ -1053,86 +1057,91 @@
                   </>
                 )}
 
-                {/* 9. Tokens (In/Out) - Always Present as 2nd-to-last Element */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'tokensUsed',
-                      title: '📊 Token Usage (In / Out)',
-                      icon: '📊',
-                      activeValue: agentChar.tokensUsed,
-                      activeColor: agentChar.tokensUsedColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
-                  title="Click to view Context Window & Token Generation metrics"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                    <span>📊</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                      Tokens (In/Out):
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.tokensUsedColor}`}>
-                    {agentChar.tokensUsed}
-                  </span>
-                </div>
+                {/* 9. Tokens, 10. Model Cost, 11. 10k Projections (Stage 4: Tokenomics) */}
+                {controls.tokenomicsEnabled && (
+                  <>
+                    {/* 9. Tokens (In/Out) */}
+                    <div
+                      onClick={() =>
+                        onOpenArchitectureModal &&
+                        onOpenArchitectureModal({
+                          type: 'function_desc',
+                          functionKey: 'tokensUsed',
+                          title: '📊 Token Usage (In / Out)',
+                          icon: '📊',
+                          activeValue: agentChar.tokensUsed,
+                          activeColor: agentChar.tokensUsedColor,
+                        })
+                      }
+                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                      title="Click to view Context Window & Token Generation metrics"
+                    >
+                      <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                        <span>📊</span>
+                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                          Tokens (In/Out):
+                        </span>
+                      </span>
+                      <span className={`text-right font-sans ${agentChar.tokensUsedColor}`}>
+                        {agentChar.tokensUsed}
+                      </span>
+                    </div>
 
-                {/* 10. Actual Model Cost per 1M Tokens (USD) */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'modelCostPerMillion',
-                      title: '🏷️ Actual Model Cost (USD / 1M Tokens)',
-                      icon: '🏷️',
-                      activeValue: agentChar.modelRate,
-                      activeColor: agentChar.modelRateColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                  title="Click to view published Vertex AI model pricing rate card in USD per 1M tokens"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
-                    <span>🏷️</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
-                      Model Cost (/1M):
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.modelRateColor}`}>
-                    {agentChar.modelRate}
-                  </span>
-                </div>
+                    {/* 10. Actual Model Cost per 1M Tokens (USD) */}
+                    <div
+                      onClick={() =>
+                        onOpenArchitectureModal &&
+                        onOpenArchitectureModal({
+                          type: 'function_desc',
+                          functionKey: 'modelCostPerMillion',
+                          title: '🏷️ Actual Model Cost (USD / 1M Tokens)',
+                          icon: '🏷️',
+                          activeValue: agentChar.modelRate,
+                          activeColor: agentChar.modelRateColor,
+                        })
+                      }
+                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                      title="Click to view published Vertex AI model pricing rate card in USD per 1M tokens"
+                    >
+                      <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                        <span>🏷️</span>
+                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                          Model Cost (/1M):
+                        </span>
+                      </span>
+                      <span className={`text-right font-sans ${agentChar.modelRateColor}`}>
+                        {agentChar.modelRate}
+                      </span>
+                    </div>
 
-                {/* 11. Cost per 10,000 Turns - Always Present as Last Element */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'costPer10kTurns',
-                      title: '💰 Projected Cost (x10,000 Turns)',
-                      icon: '💰',
-                      activeValue: agentChar.costPer10kTurns,
-                      activeColor: agentChar.costPer10kTurnsColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                  title="Click to view 10,000-turn economic cost modeling across model tiers"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1">
-                    <span>💰</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
-                      Cost / x10k Turns:
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.costPer10kTurnsColor}`}>
-                    {agentChar.costPer10kTurns}
-                  </span>
-                </div>
+                    {/* 11. Cost per 10,000 Turns */}
+                    <div
+                      onClick={() =>
+                        onOpenArchitectureModal &&
+                        onOpenArchitectureModal({
+                          type: 'function_desc',
+                          functionKey: 'costPer10kTurns',
+                          title: '💰 Projected Cost (x10,000 Turns)',
+                          icon: '💰',
+                          activeValue: agentChar.costPer10kTurns,
+                          activeColor: agentChar.costPer10kTurnsColor,
+                        })
+                      }
+                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                      title="Click to view 10,000-turn economic cost modeling across model tiers"
+                    >
+                      <span className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1">
+                        <span>💰</span>
+                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                          Cost / x10k Turns:
+                        </span>
+                      </span>
+                      <span className={`text-right font-sans ${agentChar.costPer10kTurnsColor}`}>
+                        {agentChar.costPer10kTurns}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1320,6 +1329,8 @@
                     ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
                     : currentStage === 3
                     ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    : currentStage === 4
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                     : 'bg-slate-800 border-slate-700 text-slate-300'
                 }`}>
                   {currentStage === 1
@@ -1328,6 +1339,8 @@
                     ? 'Stage 2: Zero-PII'
                     : currentStage === 3
                     ? 'Stage 3: Enterprise LVR'
+                    : currentStage === 4
+                    ? 'Stage 4: Tokenomics'
                     : 'Custom Mode'}
                 </span>
 
@@ -1354,7 +1367,7 @@
                   <span className="text-[10px] text-indigo-400 font-mono">1-Click Presets</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -1366,7 +1379,7 @@
                         ? 'bg-blue-600/25 border-blue-500 text-blue-200 shadow-md shadow-blue-900/30 ring-1 ring-blue-500/40 font-bold'
                         : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
-                    title="Stage 1: Core Memory & Failover (PII Off, Tools Off)"
+                    title="Stage 1: Core Memory & Failover (PII Off, Tools Off, Econ Off)"
                   >
                     <span className="text-xs font-bold text-blue-400">Stage 1</span>
                     <span className="text-[10px] font-semibold mt-0.5 leading-tight">Core Memory</span>
@@ -1384,7 +1397,7 @@
                         ? 'bg-purple-600/25 border-purple-500 text-purple-200 shadow-md shadow-purple-900/30 ring-1 ring-purple-500/40 font-bold'
                         : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
-                    title="Stage 2: Zero-PII Cryptographic Token Shield (PII On, Tools Off)"
+                    title="Stage 2: Zero-PII Cryptographic Token Shield (PII On, Tools Off, Econ Off)"
                   >
                     <span className="text-xs font-bold text-purple-400">Stage 2</span>
                     <span className="text-[10px] font-semibold mt-0.5 leading-tight">Zero-PII</span>
@@ -1402,19 +1415,38 @@
                         ? 'bg-amber-600/25 border-amber-500 text-amber-200 shadow-md shadow-amber-900/30 ring-1 ring-amber-500/40 font-bold'
                         : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
-                    title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On)"
+                    title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On, Econ Off)"
                   >
                     <span className="text-xs font-bold text-amber-400">Stage 3</span>
                     <span className="text-[10px] font-semibold mt-0.5 leading-tight">Enterprise LVR</span>
                     <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStageSelect(4);
+                      resetStagesTimer();
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                      currentStage === 4
+                        ? 'bg-emerald-600/25 border-emerald-500 text-emerald-200 shadow-md shadow-emerald-900/30 ring-1 ring-emerald-500/40 font-bold'
+                        : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Stage 4: Tokenomics & Unit Economic Modeling (PII On, Tools On, Econ On)"
+                  >
+                    <span className="text-xs font-bold text-emerald-400">Stage 4</span>
+                    <span className="text-[10px] font-semibold mt-0.5 leading-tight">Tokenomics</span>
+                    <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On • Econ: On</span>
+                  </button>
                 </div>
 
                 <div className="pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-tight">
-                  {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF)"}
-                  {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF)"}
-                  {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON)"}
-                  {currentStage === 0 && "⚙️ Custom Mode Active: Enterprise LVR Tools enabled with direct cleartext LLM processing (PII Shield: OFF)."}
+                  {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF, Tokenomics: OFF)"}
+                  {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF, Tokenomics: OFF)"}
+                  {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON, Tokenomics: OFF)"}
+                  {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling with live token counters and rate cards. (PII Shield: ON, Tools: ON, Tokenomics: ON)"}
+                  {currentStage === 0 && "⚙️ Custom Mode Active: Custom configuration active with individual feature toggles."}
                 </div>
               </div>
             )}
@@ -3447,7 +3479,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       },
     ];
 
-    function ChatWindow({ messages, isLoading, onSendMessage, enablePiiTokenizer = true, enterpriseDataEnabled = false }) {
+    function ChatWindow({ messages, isLoading, onSendMessage, enablePiiTokenizer = true, enterpriseDataEnabled = false, tokenomicsEnabled = false }) {
       const [input, setInput] = useState('');
       const [activeTab, setActiveTab] = useState('user');
       const [selectedLog, setSelectedLog] = useState(null);
@@ -3640,7 +3672,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   </span>
                 )}
 
-                {(meta.costPer10kTurnsUsd !== undefined || meta.costPer1kTurnsUsd !== undefined) && (
+                {tokenomicsEnabled && (meta.costPer10kTurnsUsd !== undefined || meta.costPer1kTurnsUsd !== undefined) && (
                   <span className="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-400 font-mono text-[11px]" title="Cost per 10,000 Turns">
                     ${(meta.costPer10kTurnsUsd ?? (meta.costPer1kTurnsUsd ? meta.costPer1kTurnsUsd * 10 : 0)).toFixed(2)}/10k
                   </span>
@@ -3686,7 +3718,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                     <div className="text-slate-300">Tier: <span className="text-white font-semibold">{activeTier}</span></div>
                     <div className="text-slate-300">Location: <span className="text-white">{executionLocation}</span></div>
                     <div className="text-slate-300">Sovereignty: <span className="text-white">{sovereigntyClassification}</span></div>
-                    {(meta.costPer10kTurnsUsd !== undefined || meta.costPer1kTurnsUsd !== undefined) && (
+                    {tokenomicsEnabled && (meta.costPer10kTurnsUsd !== undefined || meta.costPer1kTurnsUsd !== undefined) && (
                       <div className="text-slate-300">10k-Turn Cost: <span className="text-emerald-300 font-bold">${(meta.costPer10kTurnsUsd ?? (meta.costPer1kTurnsUsd ? meta.costPer1kTurnsUsd * 10 : 0)).toFixed(2)} USD</span></div>
                     )}
                   </div>
@@ -3694,7 +3726,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 space-y-1">
                     <div className="text-emerald-400 font-bold">// Performance &amp; Bandwidth:</div>
                     <div className="text-slate-300">Total Latency: <span className="text-emerald-300 font-bold">{latencyMs}ms</span></div>
-                    {meta.inputTokens !== undefined && (
+                    {tokenomicsEnabled && meta.inputTokens !== undefined && (
                       <div className="text-slate-300">Tokens: <span className="text-blue-300 font-bold">{meta.inputTokens} In / {meta.outputTokens} Out</span> ({meta.totalTokens} total)</div>
                     )}
                     <div className="text-slate-300">Wasted Timeout Avoided: <span className="text-emerald-300 font-bold">+{wastedLatencyAvoidedMs}ms</span></div>
@@ -4557,8 +4589,9 @@ tools:
       const [controls, setControls] = useState({
         failedTiers: [],
         forcedTier: 'AUTO',
-        enablePiiTokenizer: true,
-        enterpriseDataEnabled: true,
+        enablePiiTokenizer: false,
+        enterpriseDataEnabled: false,
+        tokenomicsEnabled: false,
         tierSettings: {
           TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
           TIER_2_REGIONAL: { region: 'australia-southeast1', model: 'gemini-2.5-flash' },
@@ -4756,11 +4789,12 @@ tools:
           localStorage.setItem('sovereign_session_id', newId);
           setSessionId(newId);
 
-          // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Auto routing, no failed tiers)
+          // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
           setControls((prev) => ({
             ...prev,
             enablePiiTokenizer: false,
             enterpriseDataEnabled: false,
+            tokenomicsEnabled: false,
             forcedTier: 'AUTO',
             failedTiers: [],
           }));
@@ -4786,13 +4820,15 @@ tools:
 
       const handleSelectStage = async (stage) => {
         handleResetChat();
-        const isPii = stage === 2 || stage === 3;
-        const isEnterprise = stage === 3;
+        const isPii = stage === 2 || stage === 3 || stage === 4;
+        const isEnterprise = stage === 3 || stage === 4;
+        const isTokenomics = stage === 4;
 
         setControls((prev) => ({
           ...prev,
           enablePiiTokenizer: isPii,
           enterpriseDataEnabled: isEnterprise,
+          tokenomicsEnabled: isTokenomics,
           forcedTier: 'AUTO',
           failedTiers: [],
         }));
@@ -4801,7 +4837,7 @@ tools:
           await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enterpriseDataEnabled: isEnterprise }),
+            body: JSON.stringify({ enterpriseDataEnabled: isEnterprise, tokenomicsEnabled: isTokenomics }),
           });
           await fetch('/api/dataset/toggle', {
             method: 'POST',
@@ -4843,6 +4879,7 @@ tools:
               onSendMessage={handleSendMessage}
               enablePiiTokenizer={controls.enablePiiTokenizer}
               enterpriseDataEnabled={isEnterpriseActive}
+              tokenomicsEnabled={controls.tokenomicsEnabled}
             />
           </div>
 

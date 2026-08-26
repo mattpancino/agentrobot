@@ -77,11 +77,13 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
   const totalSavedMs = metadataList.reduce((acc, m) => acc + (m.wastedLatencyAvoidedMs || 0), 0);
 
   const currentStage =
-    controls.enablePiiTokenizer && controls.enterpriseDataEnabled
+    controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
+      ? 4
+      : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
       ? 3
-      : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+      : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
       ? 2
-      : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled
+      : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
       ? 1
       : 0;
 
@@ -90,11 +92,13 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
       onSelectStage(stage);
     } else {
       if (stage === 1) {
-        onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+        onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
       } else if (stage === 2) {
-        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
       } else if (stage === 3) {
-        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
+        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+      } else if (stage === 4) {
+        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
       }
       onResetChat();
     }
@@ -813,6 +817,8 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
                   : currentStage === 3
                   ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                  : currentStage === 4
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                   : 'bg-slate-800 border-slate-700 text-slate-300'
               }`}>
                 {currentStage === 1
@@ -821,6 +827,8 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   ? 'Stage 2: Zero-PII'
                   : currentStage === 3
                   ? 'Stage 3: Enterprise LVR'
+                  : currentStage === 4
+                  ? 'Stage 4: Tokenomics'
                   : 'Custom Mode'}
               </span>
 
@@ -847,7 +855,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                 <span className="text-[10px] text-indigo-400 font-mono">1-Click Presets</span>
               </div>
 
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -859,7 +867,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                       ? 'bg-blue-600/25 border-blue-500 text-blue-200 shadow-md shadow-blue-900/30 ring-1 ring-blue-500/40 font-bold'
                       : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
                   }`}
-                  title="Stage 1: Core Memory & Failover (PII Off, Tools Off)"
+                  title="Stage 1: Core Memory & Failover (PII Off, Tools Off, Econ Off)"
                 >
                   <span className="text-xs font-bold text-blue-400">Stage 1</span>
                   <span className="text-[10px] font-semibold mt-0.5 leading-tight">Core Memory</span>
@@ -877,7 +885,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                       ? 'bg-purple-600/25 border-purple-500 text-purple-200 shadow-md shadow-purple-900/30 ring-1 ring-purple-500/40 font-bold'
                       : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
                   }`}
-                  title="Stage 2: Zero-PII Cryptographic Token Shield (PII On, Tools Off)"
+                  title="Stage 2: Zero-PII Cryptographic Token Shield (PII On, Tools Off, Econ Off)"
                 >
                   <span className="text-xs font-bold text-purple-400">Stage 2</span>
                   <span className="text-[10px] font-semibold mt-0.5 leading-tight">Zero-PII</span>
@@ -895,19 +903,38 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                       ? 'bg-amber-600/25 border-amber-500 text-amber-200 shadow-md shadow-amber-900/30 ring-1 ring-amber-500/40 font-bold'
                       : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
                   }`}
-                  title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On)"
+                  title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On, Econ Off)"
                 >
                   <span className="text-xs font-bold text-amber-400">Stage 3</span>
                   <span className="text-[10px] font-semibold mt-0.5 leading-tight">Enterprise LVR</span>
                   <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStageSelect(4);
+                    resetStagesTimer();
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all ${
+                    currentStage === 4
+                      ? 'bg-emerald-600/25 border-emerald-500 text-emerald-200 shadow-md shadow-emerald-900/30 ring-1 ring-emerald-500/40 font-bold'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Stage 4: Tokenomics & Unit Economic Modeling (PII On, Tools On, Econ On)"
+                >
+                  <span className="text-xs font-bold text-emerald-400">Stage 4</span>
+                  <span className="text-[10px] font-semibold mt-0.5 leading-tight">Tokenomics</span>
+                  <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On • Econ: On</span>
+                </button>
               </div>
 
               <div className="pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-tight">
-                {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF)"}
-                {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF)"}
-                {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON)"}
-                {currentStage === 0 && "⚙️ Custom Mode Active: Enterprise LVR Tools enabled with direct cleartext LLM processing (PII Shield: OFF)."}
+                {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF, Tokenomics: OFF)"}
+                {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF, Tokenomics: OFF)"}
+                {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON, Tokenomics: OFF)"}
+                {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling with live token counters and rate cards. (PII Shield: ON, Tools: ON, Tokenomics: ON)"}
+                {currentStage === 0 && "⚙️ Custom Mode Active: Custom configuration active with individual feature toggles."}
               </div>
             </div>
           )}

@@ -308,7 +308,7 @@ def test_api_demo_reset():
         json={
             "sessionId": "demo-reset-test-session",
             "message": "Remember this secret session data",
-            "simulationControls": {"forcedTier": "AUTO", "enterpriseDataEnabled": True},
+            "simulationControls": {"forcedTier": "AUTO", "enterpriseDataEnabled": True, "tokenomicsEnabled": True},
         },
     )
 
@@ -320,6 +320,7 @@ def test_api_demo_reset():
     assert data["stage"] == 1
     assert data["memoryCleared"] is True
     assert data["enterpriseDataEnabled"] is False
+    assert data["tokenomicsEnabled"] is False
     assert "tier3" in data
     assert data["tier3"]["gemmaAccessible"] is True
     assert "datasetSummary" in data
@@ -329,6 +330,23 @@ def test_api_demo_reset():
     assert session_res.status_code == 200
     session_data = session_res.json()
     assert session_data.get("messages") == []
+
+
+def test_api_tokenomics_setting():
+    """Verify that /api/settings can update and query tokenomicsEnabled flag for Stage 4."""
+    post_res = client.post("/api/settings", json={"tokenomicsEnabled": True})
+    assert post_res.status_code == 200
+    assert post_res.json()["tokenomicsEnabled"] is True
+
+    get_res = client.get("/api/settings")
+    assert get_res.status_code == 200
+    assert get_res.json()["tokenomicsEnabled"] is True
+
+    # Toggle back to False
+    post_res2 = client.post("/api/settings", json={"tokenomicsEnabled": False})
+    assert post_res2.status_code == 200
+    assert post_res2.json()["tokenomicsEnabled"] is False
+
 
 def test_api_get_skill_spec():
     """Verify that /api/skills/apra-underwriting returns authentic raw SKILL.md specification with YAML frontmatter."""

@@ -57,6 +57,11 @@ export interface ExecutionMetadata {
   tierSettings?: Record<string, { region: string; model: string }>;
   tier3Synced?: boolean;
   replicationLogs?: string[];
+  costPer10kTurnsUsd?: number;
+  costPer1kTurnsUsd?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
   piiTelemetry?: PIITelemetry;
   tokenizedPrompt?: string;
   tokenizedResponse?: string;
@@ -147,10 +152,11 @@ export interface SimulationControls {
   failedTiers?: string[];
   injectMockFailure?: boolean;
   forcedTier: 'AUTO' | 'TIER_1_GLOBAL' | 'TIER_2_REGIONAL' | 'TIER_3_SOVEREIGN';
-  tierSettings?: TierSettingsMap;
+  tierSettings?: Record<string, { region: string; model: string }>;
   enablePiiTokenizer?: boolean;
   customPiiRules?: CustomPIIRule[];
   enterpriseDataEnabled?: boolean;
+  tokenomicsEnabled?: boolean;
 }
 
 export interface BuildInfo {
@@ -215,7 +221,11 @@ export type ArchitectureFunctionKey =
   | 'piiCleanser'
   | 'skill'
   | 'tool'
-  | 'storageRest';
+  | 'storageRest'
+  | 'tokensUsed'
+  | 'modelCostPerMillion'
+  | 'costPer10kTurns'
+  | 'costPer1000Turns';
 
 export type ArchitectureDescriptionMap = Record<ArchitectureFunctionKey, string>;
 

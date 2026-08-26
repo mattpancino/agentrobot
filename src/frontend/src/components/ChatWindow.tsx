@@ -8,6 +8,7 @@ interface ChatWindowProps {
   onSendMessage: (text: string) => void;
   enablePiiTokenizer?: boolean;
   enterpriseDataEnabled?: boolean;
+  tokenomicsEnabled?: boolean;
 }
 
 interface PromptChipItem {
@@ -104,6 +105,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onSendMessage,
   enablePiiTokenizer = true,
   enterpriseDataEnabled = false,
+  tokenomicsEnabled = false,
 }) => {
   const [input, setInput] = useState('');
   const [activeTab, setActiveTab] = useState<'user' | 'shield' | 'diff'>('user');

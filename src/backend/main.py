@@ -110,6 +110,7 @@ from src.adk.loan_lvr_tool import (
 GLOBAL_SETTINGS: Dict[str, Any] = {
     "tierSettings": get_default_tier_settings(),
     "enterpriseDataEnabled": True,
+    "tokenomicsEnabled": False,
     "architectureDescriptions": {},
     "customPiiRules": [
         {
@@ -147,6 +148,7 @@ class SimulationControls(BaseModel):
     enablePiiTokenizer: bool = False
     customPiiRules: Optional[List[Dict[str, Any]]] = None
     enterpriseDataEnabled: Optional[bool] = None
+    tokenomicsEnabled: bool = False
 
 
 class ChatRequest(BaseModel):
@@ -168,6 +170,7 @@ class SettingsUpdateRequest(BaseModel):
     tierSettings: Optional[Dict[str, Dict[str, str]]] = None
     customPiiRules: Optional[List[Dict[str, Any]]] = None
     enterpriseDataEnabled: Optional[bool] = None
+    tokenomicsEnabled: Optional[bool] = None
     architectureDescriptions: Optional[Dict[str, str]] = None
 
 
@@ -442,11 +445,12 @@ async def delete_pii_rule(rule_name: str):
 
 @app.get("/api/settings")
 async def get_settings():
-    """Returns the current active model, region configuration, custom PII rules, enterprise dataset status, and architecture descriptions."""
+    """Returns the current active model, region configuration, custom PII rules, enterprise dataset status, tokenomics status, and architecture descriptions."""
     return {
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "customPiiRules": default_tokenizer.get_custom_rules(),
         "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
+        "tokenomicsEnabled": GLOBAL_SETTINGS.get("tokenomicsEnabled", False),
         "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
         "buildInfo": get_build_info(),
     }
@@ -454,7 +458,7 @@ async def get_settings():
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsUpdateRequest):
-    """Updates the active model, region configuration, custom PII rules, enterprise dataset status, and architecture descriptions."""
+    """Updates the active model, region configuration, custom PII rules, enterprise dataset status, tokenomics status, and architecture descriptions."""
     if req.tierSettings:
         GLOBAL_SETTINGS["tierSettings"] = req.tierSettings
     if req.customPiiRules is not None:
@@ -462,6 +466,8 @@ async def update_settings(req: SettingsUpdateRequest):
         GLOBAL_SETTINGS["customPiiRules"] = default_tokenizer.get_custom_rules()
     if req.enterpriseDataEnabled is not None:
         GLOBAL_SETTINGS["enterpriseDataEnabled"] = req.enterpriseDataEnabled
+    if req.tokenomicsEnabled is not None:
+        GLOBAL_SETTINGS["tokenomicsEnabled"] = req.tokenomicsEnabled
     if req.architectureDescriptions is not None:
         GLOBAL_SETTINGS["architectureDescriptions"] = req.architectureDescriptions
     return {
@@ -469,6 +475,7 @@ async def update_settings(req: SettingsUpdateRequest):
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "customPiiRules": default_tokenizer.get_custom_rules(),
         "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
+        "tokenomicsEnabled": GLOBAL_SETTINGS.get("tokenomicsEnabled", False),
         "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
     }
 
@@ -607,6 +614,7 @@ async def reset_demo_endpoint():
 
     # 2. Reset global settings to Stage 1 defaults
     GLOBAL_SETTINGS["enterpriseDataEnabled"] = False
+    GLOBAL_SETTINGS["tokenomicsEnabled"] = False
     GLOBAL_SETTINGS["tierSettings"] = get_default_tier_settings()
 
     # 3. Reset benchmark loan dataset
@@ -715,6 +723,7 @@ async def reset_demo_endpoint():
         "stage": 1,
         "memoryCleared": True,
         "enterpriseDataEnabled": False,
+        "tokenomicsEnabled": False,
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "datasetSummary": dataset_summary,
         "tier3": {

@@ -53,8 +53,9 @@ export default function App() {
   const [controls, setControls] = useState<SimulationControls>({
     failedTiers: [],
     forcedTier: 'AUTO',
-    enablePiiTokenizer: true,
-    enterpriseDataEnabled: true,
+    enablePiiTokenizer: false,
+    enterpriseDataEnabled: false,
+    tokenomicsEnabled: false,
     tierSettings: {
       TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
       TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
@@ -253,11 +254,12 @@ export default function App() {
       localStorage.setItem('sovereign_session_id', newId);
       setSessionId(newId);
 
-      // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Auto routing, no failed tiers)
+      // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
       setControls((prev) => ({
         ...prev,
         enablePiiTokenizer: false,
         enterpriseDataEnabled: false,
+        tokenomicsEnabled: false,
         forcedTier: 'AUTO',
         failedTiers: [],
       }));
@@ -283,13 +285,15 @@ export default function App() {
 
   const handleSelectStage = async (stage: number) => {
     handleResetChat();
-    const isPii = stage === 2 || stage === 3;
-    const isEnterprise = stage === 3;
+    const isPii = stage === 2 || stage === 3 || stage === 4;
+    const isEnterprise = stage === 3 || stage === 4;
+    const isTokenomics = stage === 4;
 
     setControls((prev) => ({
       ...prev,
       enablePiiTokenizer: isPii,
       enterpriseDataEnabled: isEnterprise,
+      tokenomicsEnabled: isTokenomics,
       forcedTier: 'AUTO',
       failedTiers: [],
     }));
@@ -298,7 +302,7 @@ export default function App() {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enterpriseDataEnabled: isEnterprise }),
+        body: JSON.stringify({ enterpriseDataEnabled: isEnterprise, tokenomicsEnabled: isTokenomics }),
       });
       await fetch('/api/dataset/toggle', {
         method: 'POST',
@@ -339,6 +343,7 @@ export default function App() {
           onSendMessage={handleSendMessage}
           enablePiiTokenizer={controls.enablePiiTokenizer}
           enterpriseDataEnabled={isEnterpriseActive}
+          tokenomicsEnabled={controls.tokenomicsEnabled}
         />
       </div>
 
