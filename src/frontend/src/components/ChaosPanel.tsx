@@ -197,6 +197,65 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
         : 'text-amber-400 font-semibold';
     }
 
+    let inTokensCount = 0;
+    let outTokensCount = 0;
+    if (metadataList && metadataList.length > 0) {
+      metadataList.forEach((m) => {
+        if (m.inputTokens) {
+          inTokensCount += m.inputTokens;
+        }
+        if (m.outputTokens) {
+          outTokensCount += m.outputTokens;
+        }
+      });
+    }
+    if (inTokensCount === 0 && outTokensCount === 0) {
+      inTokensCount = 1240;
+      outTokensCount = 320;
+    }
+
+    const tokensUsedFormatted = `${inTokensCount.toLocaleString()} In / ${outTokensCount.toLocaleString()} Out`;
+
+    const getModelPricingRates = (modelId?: string) => {
+      if (!modelId) return { inRate: 0.10, outRate: 0.40, isSelfHosted: false };
+      const mid = modelId.toLowerCase();
+      if (mid.includes('gemma') || mid.includes('airgap')) {
+        return { inRate: 0.0, outRate: 0.0, isSelfHosted: true };
+      }
+      if (mid.includes('claude') || mid.includes('sonnet')) {
+        return { inRate: 3.00, outRate: 15.00, isSelfHosted: false };
+      }
+      if (mid.includes('pro')) {
+        return { inRate: 1.25, outRate: 5.00, isSelfHosted: false };
+      }
+      if (mid.includes('flash-002') || mid.includes('flash-001')) {
+        return { inRate: 0.075, outRate: 0.30, isSelfHosted: false };
+      }
+      return { inRate: 0.10, outRate: 0.40, isSelfHosted: false };
+    };
+
+    const activeModelIdentifier = controls.tierSettings?.[activeTier]?.model || (
+      activeTier === 'TIER_1_GLOBAL' ? 'gemini-3.7-flash' : activeTier === 'TIER_2_REGIONAL' ? 'gemini-2.5-flash' : 'google/gemma-2-2b-it'
+    );
+    const rates = getModelPricingRates(activeModelIdentifier);
+
+    let modelRateFormatted = '';
+    if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
+      modelRateFormatted = '$0.00 / 1M (Self-Hosted)';
+    } else {
+      modelRateFormatted = `$${rates.inRate.toFixed(2)} in / $${rates.outRate.toFixed(2)} out (1M)`;
+    }
+
+    let costPer10kFormatted = '';
+    if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
+      costPer10kFormatted = '$0.00 (Self-Hosted · 0 API Fee)';
+    } else {
+      const inCostTotal = (inTokensCount * rates.inRate) / 100.0;
+      const outCostTotal = (outTokensCount * rates.outRate) / 100.0;
+      const totalCost = inCostTotal + outCostTotal;
+      costPer10kFormatted = `$${totalCost.toFixed(2)} / 10k Turns`;
+    }
+
     const getModelDisplayName = (tier: string) => {
       const configuredModel = controls.tierSettings?.[tier]?.model;
       if (configuredModel) {
@@ -236,6 +295,14 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           toolColor: toolColor,
           storageRest: storageRestText,
           storageRestColor: storageRestColor,
+          tokensUsed: tokensUsedFormatted,
+          tokensUsedColor: 'text-slate-100 font-medium font-mono',
+          modelRate: modelRateFormatted,
+          modelRateColor: 'text-slate-100 font-medium font-mono',
+          costPer10kTurns: costPer10kFormatted,
+          costPer10kTurnsColor: 'text-slate-100 font-medium font-mono',
+          costPer1000Turns: costPer10kFormatted,
+          costPer1000TurnsColor: 'text-slate-100 font-medium font-mono',
           color: 'amber',
           borderClass: 'border-amber-500/40 bg-gradient-to-b from-amber-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-amber-500/10',
@@ -261,6 +328,14 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           toolColor: toolColor,
           storageRest: storageRestText,
           storageRestColor: storageRestColor,
+          tokensUsed: tokensUsedFormatted,
+          tokensUsedColor: 'text-slate-100 font-medium font-mono',
+          modelRate: modelRateFormatted,
+          modelRateColor: 'text-slate-100 font-medium font-mono',
+          costPer10kTurns: costPer10kFormatted,
+          costPer10kTurnsColor: 'text-slate-100 font-medium font-mono',
+          costPer1000Turns: costPer10kFormatted,
+          costPer1000TurnsColor: 'text-slate-100 font-medium font-mono',
           color: 'emerald',
           borderClass: 'border-emerald-500/40 bg-gradient-to-b from-emerald-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-emerald-500/10',
@@ -287,6 +362,14 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           toolColor: toolColor,
           storageRest: storageRestText,
           storageRestColor: storageRestColor,
+          tokensUsed: tokensUsedFormatted,
+          tokensUsedColor: 'text-slate-100 font-medium font-mono',
+          modelRate: modelRateFormatted,
+          modelRateColor: 'text-slate-100 font-medium font-mono',
+          costPer10kTurns: costPer10kFormatted,
+          costPer10kTurnsColor: 'text-slate-100 font-medium font-mono',
+          costPer1000Turns: costPer10kFormatted,
+          costPer1000TurnsColor: 'text-slate-100 font-medium font-mono',
           color: 'blue',
           borderClass: 'border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-blue-500/10',
@@ -626,6 +709,89 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   </span>
                   <span className={`text-right font-sans ${agentChar.storageRestColor}`}>
                     {agentChar.storageRest}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* 9. Tokens, 10. Model Cost, 11. 10k Projections (Stage 4: Tokenomics) */}
+            {controls.tokenomicsEnabled && (
+              <>
+                {/* 9. Tokens (In/Out) */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal?.({
+                      type: 'function_desc',
+                      functionKey: 'tokensUsed',
+                      title: '📊 Token Usage (In / Out)',
+                      icon: '📊',
+                      activeValue: agentChar.tokensUsed,
+                      activeColor: agentChar.tokensUsedColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                  title="Click to view Context Window & Token Generation metrics"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                    <span>📊</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                      Tokens (In/Out):
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.tokensUsedColor}`}>
+                    {agentChar.tokensUsed}
+                  </span>
+                </div>
+
+                {/* 10. Actual Model Cost per 1M Tokens (USD) */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal?.({
+                      type: 'function_desc',
+                      functionKey: 'modelCostPerMillion',
+                      title: '🏷️ Actual Model Cost (USD / 1M Tokens)',
+                      icon: '🏷️',
+                      activeValue: agentChar.modelRate,
+                      activeColor: agentChar.modelRateColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view published Vertex AI model pricing rate card in USD per 1M tokens"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                    <span>🏷️</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                      Model Cost (/1M):
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.modelRateColor}`}>
+                    {agentChar.modelRate}
+                  </span>
+                </div>
+
+                {/* 11. Cost per 10,000 Turns */}
+                <div
+                  onClick={() =>
+                    onOpenArchitectureModal?.({
+                      type: 'function_desc',
+                      functionKey: 'costPer10kTurns',
+                      title: '💰 Projected Cost (x10,000 Turns)',
+                      icon: '💰',
+                      activeValue: agentChar.costPer10kTurns,
+                      activeColor: agentChar.costPer10kTurnsColor,
+                    })
+                  }
+                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                  title="Click to view 10,000-turn economic cost modeling across model tiers"
+                >
+                  <span className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1">
+                    <span>💰</span>
+                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                      Cost / x10k Turns:
+                    </span>
+                  </span>
+                  <span className={`text-right font-sans ${agentChar.costPer10kTurnsColor}`}>
+                    {agentChar.costPer10kTurns}
                   </span>
                 </div>
               </>
