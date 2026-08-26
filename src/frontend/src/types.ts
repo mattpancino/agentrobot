@@ -149,6 +149,7 @@ export interface CustomPIIRule {
 }
 
 export interface SimulationControls {
+  stage?: number;
   failedTiers?: string[];
   injectMockFailure?: boolean;
   forcedTier: 'AUTO' | 'TIER_1_GLOBAL' | 'TIER_2_REGIONAL' | 'TIER_3_SOVEREIGN';
@@ -157,6 +158,8 @@ export interface SimulationControls {
   customPiiRules?: CustomPIIRule[];
   enterpriseDataEnabled?: boolean;
   tokenomicsEnabled?: boolean;
+  stageZeroRuntimeEnabled?: boolean;
+  stageZeroIntelligenceEnabled?: boolean;
 }
 
 export interface BuildInfo {

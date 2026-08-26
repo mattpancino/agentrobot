@@ -215,6 +215,30 @@
       list-style-type: decimal;
       padding-left: 1.25rem;
     }
+
+    @keyframes opticStrobe {
+      0%, 20%, 40%, 60% { opacity: 0.15; }
+      10%, 30%, 50%, 70%, 100% { opacity: 1; }
+    }
+    .animate-optic-strobe {
+      animation: opticStrobe 0.8s ease-in-out forwards;
+    }
+    @keyframes brainPulse {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.04); opacity: 1; }
+    }
+    .animate-brain-pulse {
+      animation: brainPulse 2.4s ease-in-out infinite;
+    }
+    .hazard-stripe-muted {
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(245, 158, 11, 0.5),
+        rgba(245, 158, 11, 0.5) 6px,
+        rgba(15, 23, 42, 0.8) 6px,
+        rgba(15, 23, 42, 0.8) 12px
+      );
+    }
   </style>
 </head>
 <body>
@@ -414,28 +438,47 @@
       }, []);
 
       const currentStage =
-        controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
+        controls.stage !== undefined
+          ? controls.stage
+          : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
           ? 4
           : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
           ? 3
           : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
           ? 2
-          : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
-          ? 1
-          : 0;
+          : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled && (controls.stageZeroRuntimeEnabled === false || controls.stageZeroIntelligenceEnabled === false)
+          ? 0
+          : 1;
+
+      const [isEyeStrobing, setIsEyeStrobing] = useState(false);
+      const prevRuntimeRef = useRef(controls.stageZeroRuntimeEnabled);
+
+      useEffect(() => {
+        if (!prevRuntimeRef.current && controls.stageZeroRuntimeEnabled) {
+          setIsEyeStrobing(true);
+          const timer = setTimeout(() => setIsEyeStrobing(false), 900);
+          return () => clearTimeout(timer);
+        }
+        prevRuntimeRef.current = controls.stageZeroRuntimeEnabled;
+      }, [controls.stageZeroRuntimeEnabled]);
+
+      const isRuntimeOn = currentStage >= 1 || (controls.stageZeroRuntimeEnabled ?? false);
+      const isIntelligenceOn = currentStage >= 1 || (controls.stageZeroIntelligenceEnabled ?? false);
 
       const handleStageSelect = (stage) => {
         if (onSelectStage) {
           onSelectStage(stage);
         } else {
-          if (stage === 1) {
-            onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+          if (stage === 0) {
+            onChange({ ...controls, stage: 0, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, stageZeroRuntimeEnabled: false, stageZeroIntelligenceEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+          } else if (stage === 1) {
+            onChange({ ...controls, stage: 1, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
           } else if (stage === 2) {
-            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+            onChange({ ...controls, stage: 2, enablePiiTokenizer: true, enterpriseDataEnabled: false, tokenomicsEnabled: false, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
           } else if (stage === 3) {
-            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+            onChange({ ...controls, stage: 3, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: false, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
           } else if (stage === 4) {
-            onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
+            onChange({ ...controls, stage: 4, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: true, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
           }
           if (onResetChat) onResetChat();
         }
@@ -716,432 +759,516 @@
       const agentChar = getAgentCharacter();
 
       return (
-        <aside className="w-[340px] bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between shrink-0 h-full overflow-y-auto">
+        <aside className="w-[390px] bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between shrink-0 h-full overflow-y-auto">
           <div className="space-y-6">
-            {/* Active Agent Character & Architecture Card */}
-            <div
-              className={`p-4 rounded-2xl border ${agentChar.borderClass} ${agentChar.glowClass} transition-all duration-300 space-y-3.5`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="relative shrink-0">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center shadow-inner relative overflow-hidden">
-                    <svg
-                      className="w-9 h-9"
-                      viewBox="0 0 36 36"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <rect
-                        x="5"
-                        y="10"
-                        width="26"
-                        height="20"
-                        rx="7"
-                        className="fill-slate-800 stroke-slate-600"
-                        strokeWidth="1.5"
-                      />
-                      <path
-                        d="M18 10V5"
-                        className="stroke-slate-400"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                      <circle
-                        cx="18"
-                        cy="4"
-                        r="2.5"
-                        fill={agentChar.eyeColor}
-                        className="animate-pulse"
-                      />
-                      <rect
-                        x="2"
-                        y="16"
-                        width="3"
-                        height="8"
-                        rx="1.5"
-                        fill={agentChar.eyeColor}
-                        fillOpacity="0.7"
-                      />
-                      <rect
-                        x="31"
-                        y="16"
-                        width="3"
-                        height="8"
-                        rx="1.5"
-                        fill={agentChar.eyeColor}
-                        fillOpacity="0.7"
-                      />
-                      <circle cx="13" cy="19" r="3" fill={agentChar.eyeColor} />
-                      <circle cx="23" cy="19" r="3" fill={agentChar.eyeColor} />
-                      <circle cx="14" cy="18" r="1" fill="#ffffff" />
-                      <circle cx="24" cy="18" r="1" fill="#ffffff" />
-                      <rect
-                        x="13"
-                        y="24"
-                        width="10"
-                        height="2.5"
-                        rx="1.25"
-                        fill={agentChar.eyeColor}
-                        fillOpacity="0.85"
-                      />
-                    </svg>
-                  </div>
-                  <span
-                    className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${agentChar.pulseClass}`}
-                  />
+            {/* CYBERNETIC LIVING AGENT ROBOT ANATOMY */}
+            <div className="relative pt-1">
+              {/* 1. ROBOT HEAD: GLASS DOME & SYNAPTIC NEURAL CORE */}
+              <div className="relative w-44 h-28 mx-auto mb-1 flex items-center justify-center">
+                {/* Semi-transparent Glass Dome with Refraction & Glow */}
+                <div className="absolute inset-0 rounded-t-full bg-gradient-to-b from-blue-500/15 via-slate-900/70 to-slate-950 border-2 border-slate-700/80 backdrop-blur-md shadow-xl shadow-blue-500/10 overflow-hidden flex items-center justify-center">
+                  {/* Glass Sheen / Reflection Highlight Curves */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 60" fill="none">
+                    <path d="M 18 24 Q 30 8 50 8 Q 70 8 82 24" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M 22 28 Q 32 14 50 14" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeLinecap="round" />
+                  </svg>
+
+                  {/* Illuminated Synaptic Brain SVG inside the Glass Dome */}
+                  {isIntelligenceOn ? (
+                    <div className="relative flex items-center justify-center animate-brain-pulse">
+                      <svg className="w-16 h-16 drop-shadow-lg" viewBox="0 0 48 48" fill="none">
+                        {/* Brain Hemispheres */}
+                        <path
+                          d="M24 10 C18 10 12 14 12 21 C12 25 14 28 17 30 C16 33 18 36 21 37 C23 37.5 24 38 24 38 C24 38 25 37.5 27 37 C30 36 32 33 31 30 C34 28 36 25 36 21 C36 14 30 10 24 10 Z"
+                          fill={agentChar.eyeColor}
+                          fillOpacity="0.4"
+                          stroke={agentChar.eyeColor}
+                          strokeWidth="1.75"
+                        />
+                        {/* Brain Cortex Sulci / Neural Folds */}
+                        <path d="M24 12 V36" stroke={agentChar.eyeColor} strokeWidth="1.5" strokeLinecap="round" />
+                        <path d="M19 16 C16 18 16 22 20 23 C17 26 18 30 22 31" stroke={agentChar.eyeColor} strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                        <path d="M29 16 C32 18 32 22 28 23 C31 26 30 30 26 31" stroke={agentChar.eyeColor} strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                        {/* Synaptic Light Nodes */}
+                        <circle cx="18" cy="18" r="1.5" fill="#ffffff" className="animate-ping" />
+                        <circle cx="30" cy="18" r="1.5" fill="#ffffff" />
+                        <circle cx="20" cy="27" r="1.5" fill="#ffffff" />
+                        <circle cx="28" cy="27" r="1.5" fill="#ffffff" className="animate-ping" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="opacity-20 flex items-center justify-center">
+                      <svg className="w-14 h-14" viewBox="0 0 48 48" fill="none">
+                        <path
+                          d="M24 10 C18 10 12 14 12 21 C12 25 14 28 17 30 C16 33 18 36 21 37 C23 37.5 24 38 24 38 C24 38 25 37.5 27 37 C30 36 32 33 31 30 C34 28 36 25 36 21 C36 14 30 10 24 10 Z"
+                          stroke="#64748b"
+                          strokeWidth="1.5"
+                          strokeDasharray="2 2"
+                          fill="none"
+                        />
+                        <path d="M24 12 V36" stroke="#64748b" strokeWidth="1" strokeDasharray="2 2" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                    Active Sovereign Agent
+                {/* Visor Faceplate at base of Dome */}
+                <div className="absolute -bottom-2 w-36 h-7 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-around px-3 shadow-lg z-10">
+                  {/* Left Eye */}
+                  <div
+                    className={`w-3.5 h-2 rounded-sm transition-all duration-300 ${
+                      isRuntimeOn
+                        ? isEyeStrobing
+                          ? 'animate-optic-strobe'
+                          : 'shadow-md shadow-amber-400/80'
+                        : 'bg-slate-800'
+                    }`}
+                    style={{ backgroundColor: isRuntimeOn ? agentChar.eyeColor : '#1e293b' }}
+                  />
+                  {/* Center Scanner Mesh */}
+                  <div className="flex gap-1">
+                    <div className="w-1 h-1.5 rounded-full bg-slate-700" />
+                    <div className="w-1 h-1.5 rounded-full bg-slate-700" />
+                    <div className="w-1 h-1.5 rounded-full bg-slate-700" />
                   </div>
-                  <h2 className="text-base font-bold text-white truncate">{agentChar.name}</h2>
+                  {/* Right Eye */}
+                  <div
+                    className={`w-3.5 h-2 rounded-sm transition-all duration-300 ${
+                      isRuntimeOn
+                        ? isEyeStrobing
+                          ? 'animate-optic-strobe'
+                          : 'shadow-md shadow-amber-400/80'
+                        : 'bg-slate-800'
+                    }`}
+                    style={{ backgroundColor: isRuntimeOn ? agentChar.eyeColor : '#1e293b' }}
+                  />
                 </div>
               </div>
 
-              {/* Integrated Architecture Elements for Active Tier (Interactive Popups) */}
-              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5 text-[11px] font-mono leading-tight">
-                {/* 1. Runtime */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'runtime',
-                      title: '⚙️ Execution Runtime',
-                      icon: '⚙️',
-                      activeValue: agentChar.runtime,
-                      activeColor: agentChar.runtimeColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                  title="Click to view Execution Runtime architecture & role"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                    <span>⚙️</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                      Runtime:
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.runtimeColor}`}>
-                    {agentChar.runtime}
-                  </span>
-                </div>
+              {/* Neck Joint / Collar Piston */}
+              <div className="w-8 h-2.5 mx-auto bg-gradient-to-b from-slate-700 to-slate-800 border-x border-slate-600 mb-1 rounded-sm shadow-inner" />
 
-                {/* 2. Model Location */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'modelLocation',
-                      title: '📍 Model Location & Data Residency',
-                      icon: '📍',
-                      activeValue: agentChar.modelLocation,
-                      activeColor: agentChar.modelLocationColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                  title="Click to view Model Location and Data Residency compliance"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                    <span>📍</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                      Model Location:
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.modelLocationColor}`}>
-                    {agentChar.modelLocation}
-                  </span>
-                </div>
-
-                {/* 3. Model */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'model',
-                      title: '⚡ Foundation Model Tier',
-                      icon: '⚡',
-                      activeValue: agentChar.model,
-                      activeColor: agentChar.modelColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                  title="Click to view Model selection & failover specifications"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                    <span>⚡</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                      Model:
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.modelColor}`}>
-                    {agentChar.model}
-                  </span>
-                </div>
-
-                {/* 4. Memory */}
-                <div
-                  onClick={() =>
-                    onOpenArchitectureModal &&
-                    onOpenArchitectureModal({
-                      type: 'function_desc',
-                      functionKey: 'memory',
-                      title: '💾 Stateful Memory & Session Store',
-                      icon: '💾',
-                      activeValue: agentChar.memory,
-                      activeColor: agentChar.memoryColor,
-                    })
-                  }
-                  className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                  title="Click to view Memory persistence & replication architecture"
-                >
-                  <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                    <span>💾</span>
-                    <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                      Memory:
-                    </span>
-                  </span>
-                  <span className={`text-right font-sans ${agentChar.memoryColor}`}>
-                    {agentChar.memory}
-                  </span>
-                </div>
-
-                {/* 5. PII Cleanser */}
-                {controls.enablePiiTokenizer && (
-                  <div
-                    onClick={() =>
-                      onOpenArchitectureModal &&
-                      onOpenArchitectureModal({
-                        type: 'function_desc',
-                        functionKey: 'piiCleanser',
-                        title: '🛡️ PII Cleanser & Cryptographic Tokenizer',
-                        icon: '🛡️',
-                        activeValue: agentChar.piiCleanser,
-                        activeColor: agentChar.piiCleanserColor,
-                      })
-                    }
-                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
-                    title="Click to view PII Cleanser entity recognition specifications"
-                  >
-                    <span className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1">
-                      <span>🛡️</span>
-                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
-                        PII Cleanser:
-                      </span>
-                    </span>
-                    <span className={`text-right font-sans ${agentChar.piiCleanserColor}`}>
-                      {agentChar.piiCleanser}
-                    </span>
+              {/* 2. ROBOT TORSO: CHASSIS & SPECIFICATIONS CARD WITH ARTICULATED ARMS */}
+              <div className="relative flex items-center justify-center">
+                {/* Left Articulated Mechanical Arm */}
+                <div className="absolute -left-3.5 top-6 bottom-6 w-3 flex flex-col items-center justify-between pointer-events-none z-10">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 border-2 border-slate-600 shadow-md flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                   </div>
-                )}
+                  <div className="w-1.5 flex-1 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-700 border-x border-slate-600 my-0.5" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-slate-800 border border-slate-600 shadow flex items-center justify-center">
+                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: isRuntimeOn ? agentChar.eyeColor : '#64748b' }} />
+                  </div>
+                  <div className="w-1.5 flex-1 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-700 border-x border-slate-600 my-0.5" />
+                  <div className="w-3.5 h-3 rounded-t-sm bg-slate-800 border border-slate-600 shadow-inner" />
+                </div>
 
-                {/* 6. Skill */}
-                {controls.enterpriseDataEnabled && (
-                  <>
-                    <div
-                      className={`flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group ${
-                        !controls.enablePiiTokenizer ? 'border-t border-slate-800/60 pt-1.5' : ''
-                      }`}
-                    >
-                      <span
-                        onClick={() =>
-                          onOpenArchitectureModal &&
-                          onOpenArchitectureModal({
-                            type: 'function_desc',
-                            functionKey: 'skill',
-                            title: '🧠 Sovereign Agent Skill',
-                            icon: '🧠',
-                            activeValue: agentChar.skill,
-                            activeColor: agentChar.skillColor,
-                          })
-                        }
-                        className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1 cursor-pointer"
-                        title="Click to view Skill architectural documentation"
-                      >
-                        <span>🧠</span>
-                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
-                          Skill:
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenArchitectureModal &&
-                            onOpenArchitectureModal({
-                              type: 'skill_rulebook',
-                              title: `🧠 ${agentChar.skill}`,
-                              icon: '🧠',
-                              activeValue: agentChar.skill,
-                              activeColor: agentChar.skillColor,
-                            });
-                        }}
-                        className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.skillColor}`}
-                        title="Click to view actual APRA CPS 234 Skill rulebook & guidelines"
-                      >
-                        {agentChar.skill} ↗
-                      </button>
+                {/* Torso Card Body */}
+                <div
+                  className={`w-full p-4 rounded-2xl border ${agentChar.borderClass} ${agentChar.glowClass} transition-all duration-300 space-y-3.5`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${isRuntimeOn ? agentChar.pulseClass : 'bg-slate-600'}`} />
+                        <span>Active Sovereign Agent</span>
+                      </div>
+                      <h2 className="text-base font-bold text-white truncate mt-0.5">{agentChar.name}</h2>
                     </div>
+                  </div>
 
-                    {/* 7. Tool */}
-                    <div className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group">
-                      <span
-                        onClick={() =>
-                          onOpenArchitectureModal &&
-                          onOpenArchitectureModal({
-                            type: 'function_desc',
-                            functionKey: 'tool',
-                            title: '🔧 Deterministic Tool',
-                            icon: '🔧',
-                            activeValue: agentChar.tool,
-                            activeColor: agentChar.toolColor,
-                          })
-                        }
-                        className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
-                        title="Click to view Tool architectural documentation"
-                      >
-                        <span>🔧</span>
-                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
-                          Tool:
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenArchitectureModal &&
-                            onOpenArchitectureModal({
-                              type: 'tool_dataset',
-                              title: `🔧 calculate_customer_lvr`,
-                              icon: '🔧',
-                              activeValue: agentChar.tool,
-                              activeColor: agentChar.toolColor,
-                            });
-                        }}
-                        className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.toolColor}`}
-                        title="Click to view tool interface & live customer loan dataset"
-                      >
-                        {agentChar.tool} ↗
-                      </button>
-                    </div>
+                  {/* Architecture Elements for Active Tier */}
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5 text-[11px] font-mono leading-tight">
+                    {/* Stage 0 Filtration */}
+                    {currentStage === 0 && !isRuntimeOn && !isIntelligenceOn ? (
+                      <div className="p-3 text-center text-slate-500 font-mono text-[11px] border border-dashed border-slate-800 rounded-lg">
+                        ⚡ CHASSIS STANDBY
+                        <div className="text-[9px] text-slate-600 mt-0.5">Engage circuit breakers in Genesis Lab</div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 1. Runtime */}
+                        {isRuntimeOn && (
+                          <div
+                            onClick={() =>
+                              onOpenArchitectureModal &&
+                              onOpenArchitectureModal({
+                                type: 'function_desc',
+                                functionKey: 'runtime',
+                                title: '⚙️ Execution Runtime',
+                                icon: '⚙️',
+                                activeValue: agentChar.runtime,
+                                activeColor: agentChar.runtimeColor,
+                              })
+                            }
+                            className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                            title="Click to view Execution Runtime architecture & role"
+                          >
+                            <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                              <span>⚙️</span>
+                              <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                                Runtime:
+                              </span>
+                            </span>
+                            <span className={`text-right font-sans ${agentChar.runtimeColor}`}>
+                              {agentChar.runtime}
+                            </span>
+                          </div>
+                        )}
 
-                    {/* 8. Storage (Rest) */}
-                    <div
-                      onClick={() =>
-                        onOpenArchitectureModal &&
-                        onOpenArchitectureModal({
-                          type: 'function_desc',
-                          functionKey: 'storageRest',
-                          title: '📁 Storage (Rest) Residency',
-                          icon: '📁',
-                          activeValue: agentChar.storageRest,
-                          activeColor: agentChar.storageRestColor,
-                        })
-                      }
-                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                      title="Click to view Storage at Rest data residency details"
-                    >
-                      <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
-                        <span>📁</span>
-                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
-                          Storage (Rest):
-                        </span>
-                      </span>
-                      <span className={`text-right font-sans ${agentChar.storageRestColor}`}>
-                        {agentChar.storageRest}
-                      </span>
-                    </div>
-                  </>
-                )}
+                        {/* 2. Model Location */}
+                        {isIntelligenceOn && (
+                          <div
+                            onClick={() =>
+                              onOpenArchitectureModal &&
+                              onOpenArchitectureModal({
+                                type: 'function_desc',
+                                functionKey: 'modelLocation',
+                                title: '📍 Model Location & Data Residency',
+                                icon: '📍',
+                                activeValue: agentChar.modelLocation,
+                                activeColor: agentChar.modelLocationColor,
+                              })
+                            }
+                            className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                            title="Click to view Model Location and Data Residency compliance"
+                          >
+                            <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                              <span>📍</span>
+                              <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                                Model Location:
+                              </span>
+                            </span>
+                            <span className={`text-right font-sans ${agentChar.modelLocationColor}`}>
+                              {agentChar.modelLocation}
+                            </span>
+                          </div>
+                        )}
 
-                {/* 9. Tokens, 10. Model Cost, 11. 10k Projections (Stage 4: Tokenomics) */}
-                {controls.tokenomicsEnabled && (
-                  <>
-                    {/* 9. Tokens (In/Out) */}
-                    <div
-                      onClick={() =>
-                        onOpenArchitectureModal &&
-                        onOpenArchitectureModal({
-                          type: 'function_desc',
-                          functionKey: 'tokensUsed',
-                          title: '📊 Token Usage (In / Out)',
-                          icon: '📊',
-                          activeValue: agentChar.tokensUsed,
-                          activeColor: agentChar.tokensUsedColor,
-                        })
-                      }
-                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
-                      title="Click to view Context Window & Token Generation metrics"
-                    >
-                      <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                        <span>📊</span>
-                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                          Tokens (In/Out):
-                        </span>
-                      </span>
-                      <span className={`text-right font-sans ${agentChar.tokensUsedColor}`}>
-                        {agentChar.tokensUsed}
-                      </span>
-                    </div>
+                        {/* 3. Model */}
+                        {isIntelligenceOn && (
+                          <div
+                            onClick={() =>
+                              onOpenArchitectureModal &&
+                              onOpenArchitectureModal({
+                                type: 'function_desc',
+                                functionKey: 'model',
+                                title: '⚡ Foundation Model Tier',
+                                icon: '⚡',
+                                activeValue: agentChar.model,
+                                activeColor: agentChar.modelColor,
+                              })
+                            }
+                            className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                            title="Click to view Model selection & failover specifications"
+                          >
+                            <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                              <span>⚡</span>
+                              <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                                Model:
+                              </span>
+                            </span>
+                            <span className={`text-right font-sans ${agentChar.modelColor}`}>
+                              {agentChar.model}
+                            </span>
+                          </div>
+                        )}
 
-                    {/* 10. Actual Model Cost per 1M Tokens (USD) */}
-                    <div
-                      onClick={() =>
-                        onOpenArchitectureModal &&
-                        onOpenArchitectureModal({
-                          type: 'function_desc',
-                          functionKey: 'modelCostPerMillion',
-                          title: '🏷️ Actual Model Cost (USD / 1M Tokens)',
-                          icon: '🏷️',
-                          activeValue: agentChar.modelRate,
-                          activeColor: agentChar.modelRateColor,
-                        })
-                      }
-                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                      title="Click to view published Vertex AI model pricing rate card in USD per 1M tokens"
-                    >
-                      <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
-                        <span>🏷️</span>
-                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
-                          Model Cost (/1M):
-                        </span>
-                      </span>
-                      <span className={`text-right font-sans ${agentChar.modelRateColor}`}>
-                        {agentChar.modelRate}
-                      </span>
-                    </div>
+                        {/* 4. Memory (Stages 1..4) */}
+                        {currentStage >= 1 && (
+                          <div
+                            onClick={() =>
+                              onOpenArchitectureModal &&
+                              onOpenArchitectureModal({
+                                type: 'function_desc',
+                                functionKey: 'memory',
+                                title: '💾 Stateful Memory & Session Store',
+                                icon: '💾',
+                                activeValue: agentChar.memory,
+                                activeColor: agentChar.memoryColor,
+                              })
+                            }
+                            className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                            title="Click to view Memory persistence & replication architecture"
+                          >
+                            <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                              <span>💾</span>
+                              <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                                Memory:
+                              </span>
+                            </span>
+                            <span className={`text-right font-sans ${agentChar.memoryColor}`}>
+                              {agentChar.memory}
+                            </span>
+                          </div>
+                        )}
 
-                    {/* 11. Cost per 10,000 Turns */}
-                    <div
-                      onClick={() =>
-                        onOpenArchitectureModal &&
-                        onOpenArchitectureModal({
-                          type: 'function_desc',
-                          functionKey: 'costPer10kTurns',
-                          title: '💰 Projected Cost (x10,000 Turns)',
-                          icon: '💰',
-                          activeValue: agentChar.costPer10kTurns,
-                          activeColor: agentChar.costPer10kTurnsColor,
-                        })
-                      }
-                      className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-                      title="Click to view 10,000-turn economic cost modeling across model tiers"
-                    >
-                      <span className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1">
-                        <span>💰</span>
-                        <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
-                          Cost / x10k Turns:
-                        </span>
-                      </span>
-                      <span className={`text-right font-sans ${agentChar.costPer10kTurnsColor}`}>
-                        {agentChar.costPer10kTurns}
-                      </span>
-                    </div>
-                  </>
-                )}
+                        {/* 5. PII Cleanser */}
+                        {currentStage >= 2 && controls.enablePiiTokenizer && (
+                          <div
+                            onClick={() =>
+                              onOpenArchitectureModal &&
+                              onOpenArchitectureModal({
+                                type: 'function_desc',
+                                functionKey: 'piiCleanser',
+                                title: '🛡️ PII Cleanser & Cryptographic Tokenizer',
+                                icon: '🛡️',
+                                activeValue: agentChar.piiCleanser,
+                                activeColor: agentChar.piiCleanserColor,
+                              })
+                            }
+                            className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                            title="Click to view PII Cleanser entity recognition specifications"
+                          >
+                            <span className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1">
+                              <span>🛡️</span>
+                              <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                                PII Cleanser:
+                              </span>
+                            </span>
+                            <span className={`text-right font-sans ${agentChar.piiCleanserColor}`}>
+                              {agentChar.piiCleanser}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* 6. Skill, 7. Tool, 8. Storage */}
+                        {currentStage >= 3 && controls.enterpriseDataEnabled && (
+                          <>
+                            <div
+                              className={`flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group ${
+                                !controls.enablePiiTokenizer ? 'border-t border-slate-800/60 pt-1.5' : ''
+                              }`}
+                            >
+                              <span
+                                onClick={() =>
+                                  onOpenArchitectureModal &&
+                                  onOpenArchitectureModal({
+                                    type: 'function_desc',
+                                    functionKey: 'skill',
+                                    title: '🧠 Sovereign Agent Skill',
+                                    icon: '🧠',
+                                    activeValue: agentChar.skill,
+                                    activeColor: agentChar.skillColor,
+                                  })
+                                }
+                                className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1 cursor-pointer"
+                                title="Click to view Skill architectural documentation"
+                              >
+                                <span>🧠</span>
+                                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                                  Skill:
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenArchitectureModal &&
+                                    onOpenArchitectureModal({
+                                      type: 'skill_rulebook',
+                                      title: `🧠 ${agentChar.skill}`,
+                                      icon: '🧠',
+                                      activeValue: agentChar.skill,
+                                      activeColor: agentChar.skillColor,
+                                    });
+                                }}
+                                className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.skillColor}`}
+                                title="Click to view actual APRA CPS 234 Skill rulebook & guidelines"
+                              >
+                                {agentChar.skill} ↗
+                              </button>
+                            </div>
+
+                            <div className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 transition text-slate-400 group">
+                              <span
+                                onClick={() =>
+                                  onOpenArchitectureModal &&
+                                  onOpenArchitectureModal({
+                                    type: 'function_desc',
+                                    functionKey: 'tool',
+                                    title: '🔧 Deterministic Tool',
+                                    icon: '🔧',
+                                    activeValue: agentChar.tool,
+                                    activeColor: agentChar.toolColor,
+                                  })
+                                }
+                                className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                                title="Click to view Tool architectural documentation"
+                              >
+                                <span>🔧</span>
+                                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                                  Tool:
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenArchitectureModal &&
+                                    onOpenArchitectureModal({
+                                      type: 'tool_dataset',
+                                      title: `🔧 calculate_customer_lvr`,
+                                      icon: '🔧',
+                                      activeValue: agentChar.tool,
+                                      activeColor: agentChar.toolColor,
+                                    });
+                                }}
+                                className={`text-right font-sans hover:underline hover:brightness-125 cursor-pointer ${agentChar.toolColor}`}
+                                title="Click to view tool interface & live customer loan dataset"
+                              >
+                                {agentChar.tool} ↗
+                              </button>
+                            </div>
+
+                            <div
+                              onClick={() =>
+                                onOpenArchitectureModal &&
+                                onOpenArchitectureModal({
+                                  type: 'function_desc',
+                                  functionKey: 'storageRest',
+                                  title: '📁 Storage (Rest) Residency',
+                                  icon: '📁',
+                                  activeValue: agentChar.storageRest,
+                                  activeColor: agentChar.storageRestColor,
+                                })
+                              }
+                              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                              title="Click to view Storage at Rest data residency details"
+                            >
+                              <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                                <span>📁</span>
+                                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                                  Storage (Rest):
+                                </span>
+                              </span>
+                              <span className={`text-right font-sans ${agentChar.storageRestColor}`}>
+                                {agentChar.storageRest}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        {/* 9. Tokens, 10. Model Cost, 11. Cost/10k */}
+                        {currentStage >= 4 && controls.tokenomicsEnabled && (
+                          <>
+                            <div
+                              onClick={() =>
+                                onOpenArchitectureModal &&
+                                onOpenArchitectureModal({
+                                  type: 'function_desc',
+                                  functionKey: 'tokensUsed',
+                                  title: '📊 Token Usage (In / Out)',
+                                  icon: '📊',
+                                  activeValue: agentChar.tokensUsed,
+                                  activeColor: agentChar.tokensUsedColor,
+                                })
+                              }
+                              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                              title="Click to view Context Window & Token Generation metrics"
+                            >
+                              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                                <span>📊</span>
+                                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                                  Tokens (In/Out):
+                                </span>
+                              </span>
+                              <span className={`text-right font-sans ${agentChar.tokensUsedColor}`}>
+                                {agentChar.tokensUsed}
+                              </span>
+                            </div>
+
+                            <div
+                              onClick={() =>
+                                onOpenArchitectureModal &&
+                                onOpenArchitectureModal({
+                                  type: 'function_desc',
+                                  functionKey: 'modelCostPerMillion',
+                                  title: '🏷️ Actual Model Cost (USD / 1M Tokens)',
+                                  icon: '🏷️',
+                                  activeValue: agentChar.modelRate,
+                                  activeColor: agentChar.modelRateColor,
+                                })
+                              }
+                              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                              title="Click to view published Vertex AI model pricing rate card in USD per 1M tokens"
+                            >
+                              <span className="text-slate-500 shrink-0 group-hover:text-amber-400 flex items-center gap-1">
+                                <span>🏷️</span>
+                                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-amber-400">
+                                  Model Cost (/1M):
+                                </span>
+                              </span>
+                              <span className={`text-right font-sans ${agentChar.modelRateColor}`}>
+                                {agentChar.modelRate}
+                              </span>
+                            </div>
+
+                            <div
+                              onClick={() =>
+                                onOpenArchitectureModal &&
+                                onOpenArchitectureModal({
+                                  type: 'function_desc',
+                                  functionKey: 'costPer10kTurns',
+                                  title: '💰 Projected Cost (x10,000 Turns)',
+                                  icon: '💰',
+                                  activeValue: agentChar.costPer10kTurns,
+                                  activeColor: agentChar.costPer10kTurnsColor,
+                                })
+                              }
+                              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                              title="Click to view 10,000-turn economic cost modeling across model tiers"
+                            >
+                              <span className="text-slate-500 shrink-0 group-hover:text-emerald-400 flex items-center gap-1">
+                                <span>💰</span>
+                                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-emerald-400">
+                                  Cost / x10k Turns:
+                                </span>
+                              </span>
+                              <span className={`text-right font-sans ${agentChar.costPer10kTurnsColor}`}>
+                                {agentChar.costPer10kTurns}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Articulated Mechanical Arm */}
+                <div className="absolute -right-3.5 top-6 bottom-6 w-3 flex flex-col items-center justify-between pointer-events-none z-10">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 border-2 border-slate-600 shadow-md flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                  </div>
+                  <div className="w-1.5 flex-1 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-700 border-x border-slate-600 my-0.5" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-slate-800 border border-slate-600 shadow flex items-center justify-center">
+                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: isRuntimeOn ? agentChar.eyeColor : '#64748b' }} />
+                  </div>
+                  <div className="w-1.5 flex-1 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-700 border-x border-slate-600 my-0.5" />
+                  <div className="w-3.5 h-3 rounded-t-sm bg-slate-800 border border-slate-600 shadow-inner" />
+                </div>
+              </div>
+
+              {/* 3. ROBOT LEGS: HYDRAULIC SUSPENSION (DYNAMIC COMPRESSION) */}
+              <div className="flex justify-center gap-12 mt-1 px-8">
+                {/* Left Leg */}
+                <div className={`w-3.5 flex flex-col items-center transition-all duration-300 ${
+                  currentStage === 0 ? 'h-10' : currentStage === 1 ? 'h-8' : currentStage === 2 ? 'h-7' : 'h-5'
+                }`}>
+                  <div className="w-3 h-1 bg-slate-700 rounded-t-sm" />
+                  <div className="w-2 flex-1 bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 border-x border-slate-600" />
+                  <div className="w-5 h-2 bg-slate-800 border border-slate-600 rounded-sm shadow-md" />
+                </div>
+
+                {/* Right Leg */}
+                <div className={`w-3.5 flex flex-col items-center transition-all duration-300 ${
+                  currentStage === 0 ? 'h-10' : currentStage === 1 ? 'h-8' : currentStage === 2 ? 'h-7' : 'h-5'
+                }`}>
+                  <div className="w-3 h-1 bg-slate-700 rounded-t-sm" />
+                  <div className="w-2 flex-1 bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 border-x border-slate-600" />
+                  <div className="w-5 h-2 bg-slate-800 border border-slate-600 rounded-sm shadow-md" />
+                </div>
               </div>
             </div>
 
@@ -1323,7 +1450,9 @@
               <div className="flex items-center gap-2 shrink-0">
                 {/* Collapsed Stage Status Pill */}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium border ${
-                  currentStage === 1
+                  currentStage === 0
+                    ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                    : currentStage === 1
                     ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
                     : currentStage === 2
                     ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
@@ -1333,7 +1462,9 @@
                     ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                     : 'bg-slate-800 border-slate-700 text-slate-300'
                 }`}>
-                  {currentStage === 1
+                  {currentStage === 0
+                    ? 'Stage 0: Genesis Lab'
+                    : currentStage === 1
                     ? 'Stage 1: Core Memory'
                     : currentStage === 2
                     ? 'Stage 2: Zero-PII'
@@ -1368,6 +1499,26 @@
                 </div>
 
                 <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStageSelect(0);
+                      resetStagesTimer();
+                    }}
+                    className={`col-span-2 flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all ${
+                      currentStage === 0
+                        ? 'bg-cyan-600/25 border-cyan-500 text-cyan-200 shadow-md shadow-cyan-900/30 ring-1 ring-cyan-500/40 font-bold'
+                        : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Stage 0: Genesis Lab & Character Assembly (Physical Circuit Breakers)"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-cyan-400">Stage 0</span>
+                      <span className="text-[11px] font-semibold">Genesis Lab</span>
+                    </div>
+                    <span className="text-[9px] font-mono opacity-80">Physical Breakers • Anatomy Assembly</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1442,11 +1593,11 @@
                 </div>
 
                 <div className="pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-tight">
+                  {currentStage === 0 && "⚡ Stage 0 Active: Genesis Lab & Character Assembly. Toggle Runtime and Intelligence breakers to energize the agent."}
                   {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF, Tokenomics: OFF)"}
                   {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF, Tokenomics: OFF)"}
                   {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON, Tokenomics: OFF)"}
                   {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling with live token counters and rate cards. (PII Shield: ON, Tools: ON, Tokenomics: ON)"}
-                  {currentStage === 0 && "⚙️ Custom Mode Active: Custom configuration active with individual feature toggles."}
                 </div>
               </div>
             )}
@@ -3479,6 +3630,295 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       },
     ];
 
+    function StageZeroGenesisLab({
+      runtimeEnabled = false,
+      intelligenceEnabled = false,
+      onToggleRuntime,
+      onToggleIntelligence,
+      onAdvanceToStageOne,
+    }) {
+      const [directPrompt, setDirectPrompt] = useState('');
+      const [promptOutput, setPromptOutput] = useState('');
+      const [isSendingPrompt, setIsSendingPrompt] = useState(false);
+
+      const handleTestPrompt = async (e) => {
+        e.preventDefault();
+        if (!directPrompt.trim() || isSendingPrompt) return;
+        setIsSendingPrompt(true);
+        setPromptOutput('');
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: 'stage0_diagnostic_' + Date.now(),
+              message: directPrompt,
+              simulationControls: {
+                forcedTier: 'TIER_1_GLOBAL',
+                enablePiiTokenizer: false,
+                enterpriseDataEnabled: false,
+                tokenomicsEnabled: false,
+              },
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setPromptOutput(data.response || 'Diagnostic response completed with 200 OK');
+          } else {
+            setPromptOutput('Error: HTTP ' + res.status);
+          }
+        } catch (err) {
+          setPromptOutput('Connection Error: ' + err.message);
+        } finally {
+          setIsSendingPrompt(false);
+        }
+      };
+
+      const isFullyEnergized = runtimeEnabled && intelligenceEnabled;
+
+      return (
+        <div className="flex-1 h-full bg-slate-950 flex flex-col overflow-y-auto p-6 md:p-10">
+          <div className="max-w-4xl mx-auto w-full space-y-8 my-auto">
+            {/* Lab Header */}
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span>STAGE 0: GENESIS &amp; ASSEMBLY LAB</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white font-sans">
+                Bring the Sovereign Agent to Life
+              </h1>
+              <p className="text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
+                Initialize foundational agent sub-systems via physical circuit isolation. Throw the heavy-duty industrial breakers to power the mechanical chassis and synaptically mount cognitive models before proceeding.
+              </p>
+            </div>
+
+            {/* Dual Industrial Circuit Breakers Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Circuit Breaker 1: Execution Runtime */}
+              <div
+                onClick={() => onToggleRuntime && onToggleRuntime(!runtimeEnabled)}
+                className={`rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none relative overflow-hidden group ${
+                  runtimeEnabled
+                    ? 'bg-slate-900/90 border-amber-500/60 shadow-xl shadow-amber-500/10'
+                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 shadow-md'
+                }`}
+              >
+                {/* Top Hazard Trim */}
+                <div className="absolute top-0 left-0 right-0 h-1.5 hazard-stripe-muted opacity-80" />
+
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
+                      Breaker #1 • Sub-System Power
+                    </div>
+                    <h3 className="text-lg font-bold text-white mt-0.5 flex items-center gap-2">
+                      <span>⚙️</span> Execution Runtime
+                    </h3>
+                  </div>
+
+                  {/* Status Pilot LED */}
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 text-[11px] font-mono">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        runtimeEnabled
+                          ? 'bg-amber-400 shadow-lg shadow-amber-400/80 animate-pulse'
+                          : 'bg-rose-500/60'
+                      }`}
+                    />
+                    <span className={runtimeEnabled ? 'text-amber-300 font-bold' : 'text-slate-500'}>
+                      {runtimeEnabled ? '240V ENERGIZED' : '0V STANDBY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Knife-Switch Throw Lever Representation */}
+                <div className="my-6 p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-200">Chassis &amp; Hardware Bus</div>
+                    <div className="text-[11px] text-slate-400">
+                      {runtimeEnabled ? 'Power bus online • Optics active' : 'Click switch to throw breaker'}
+                    </div>
+                  </div>
+
+                  {/* Heavy Throw Switch Widget */}
+                  <div className="relative flex items-center">
+                    <div
+                      className={`w-16 h-8 rounded-full p-1 transition-colors duration-300 flex items-center border ${
+                        runtimeEnabled
+                          ? 'bg-amber-500/20 border-amber-500 justify-end'
+                          : 'bg-slate-900 border-slate-700 justify-start'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full shadow-md transition-all duration-300 flex items-center justify-center font-bold text-[9px] ${
+                          runtimeEnabled
+                            ? 'bg-amber-400 text-slate-950 translate-x-0 shadow-amber-400/50'
+                            : 'bg-slate-700 text-slate-400 translate-x-0'
+                        }`}
+                      >
+                        {runtimeEnabled ? 'ON' : 'OFF'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Summary Bullets */}
+                <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-4">
+                  <div className={`flex items-center gap-2 ${runtimeEnabled ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>
+                    <span>{runtimeEnabled ? '✔' : '○'}</span>
+                    <span>Visor eyes boot strobe (blinks) &rarr; steady lit ON</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${runtimeEnabled ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>
+                    <span>{runtimeEnabled ? '✔' : '○'}</span>
+                    <span>Injects ⚙️ Runtime element into Torso body</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Circuit Breaker 2: Cognitive Intelligence */}
+              <div
+                onClick={() => onToggleIntelligence && onToggleIntelligence(!intelligenceEnabled)}
+                className={`rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none relative overflow-hidden group ${
+                  intelligenceEnabled
+                    ? 'bg-slate-900/90 border-blue-500/60 shadow-xl shadow-blue-500/10'
+                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 shadow-md'
+                }`}
+              >
+                {/* Top Hazard Trim */}
+                <div className="absolute top-0 left-0 right-0 h-1.5 hazard-stripe-muted opacity-80" />
+
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
+                      Breaker #2 • Neural Engine
+                    </div>
+                    <h3 className="text-lg font-bold text-white mt-0.5 flex items-center gap-2">
+                      <span>🧠</span> Cognitive Intelligence
+                    </h3>
+                  </div>
+
+                  {/* Status Pilot LED */}
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 text-[11px] font-mono">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        intelligenceEnabled
+                          ? 'bg-blue-400 shadow-lg shadow-blue-400/80 animate-pulse'
+                          : 'bg-rose-500/60'
+                      }`}
+                    />
+                    <span className={intelligenceEnabled ? 'text-blue-300 font-bold' : 'text-slate-500'}>
+                      {intelligenceEnabled ? 'NEURAL SYNAPSED' : 'DISCONNECTED'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Knife-Switch Throw Lever Representation */}
+                <div className="my-6 p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-slate-200">Foundation Models &amp; Weights</div>
+                    <div className="text-[11px] text-slate-400">
+                      {intelligenceEnabled ? 'Weights mounted • Neural dome glowing' : 'Click switch to throw breaker'}
+                    </div>
+                  </div>
+
+                  {/* Heavy Throw Switch Widget */}
+                  <div className="relative flex items-center">
+                    <div
+                      className={`w-16 h-8 rounded-full p-1 transition-colors duration-300 flex items-center border ${
+                        intelligenceEnabled
+                          ? 'bg-blue-500/20 border-blue-500 justify-end'
+                          : 'bg-slate-900 border-slate-700 justify-start'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full shadow-md transition-all duration-300 flex items-center justify-center font-bold text-[9px] ${
+                          intelligenceEnabled
+                            ? 'bg-blue-400 text-slate-950 translate-x-0 shadow-blue-400/50'
+                            : 'bg-slate-700 text-slate-400 translate-x-0'
+                        }`}
+                      >
+                        {intelligenceEnabled ? 'ON' : 'OFF'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Summary Bullets */}
+                <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-4">
+                  <div className={`flex items-center gap-2 ${intelligenceEnabled ? 'text-blue-300 font-semibold' : 'text-slate-500'}`}>
+                    <span>{intelligenceEnabled ? '✔' : '○'}</span>
+                    <span>Illuminates glowing synaptic brain inside Glass Dome</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${intelligenceEnabled ? 'text-blue-300 font-semibold' : 'text-slate-500'}`}>
+                    <span>{intelligenceEnabled ? '✔' : '○'}</span>
+                    <span>Injects 📍 Model Location &amp; ⚡ Model into Torso body</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fully Energized Banner & Advance Button */}
+            {isFullyEnergized ? (
+              <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-blue-950/60 border border-emerald-500/40 shadow-xl space-y-4 animate-in fade-in duration-300">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center md:text-left">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-emerald-400 font-bold text-sm font-mono">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>AGENT FULLY ENERGIZED &amp; ASSEMBLED</span>
+                    </div>
+                    <p className="text-xs text-slate-300">
+                      The robot chassis is powered and cognitive reasoning is active. You can now advance to Stage 1 to test resilient multi-region failover.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onAdvanceToStageOne}
+                    className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-bold text-xs tracking-wide shadow-lg shadow-blue-500/20 flex items-center gap-2 transition transform hover:scale-105 active:scale-95 shrink-0 font-mono"
+                  >
+                    <span>Advance to Stage 1: Resilience</span>
+                    <span>&rarr;</span>
+                  </button>
+                </div>
+
+                {/* Optional Diagnostic Prompt Box */}
+                <div className="pt-3 border-t border-slate-800/80">
+                  <form onSubmit={handleTestPrompt} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={directPrompt}
+                      onChange={(e) => setDirectPrompt(e.target.value)}
+                      placeholder="Optional: Send raw diagnostic prompt to verify baseline LLM (e.g. 'Hello Agent')..."
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSendingPrompt || !directPrompt.trim()}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-mono font-semibold rounded-xl transition"
+                    >
+                      {isSendingPrompt ? 'Sending...' : 'Test Prompt'}
+                    </button>
+                  </form>
+                  {promptOutput && (
+                    <div className="mt-2.5 p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-300">
+                      <span className="text-slate-500 mr-2">&gt;</span>
+                      {promptOutput}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-xs font-mono text-slate-400 flex items-center justify-center gap-2">
+                <span>⚡</span>
+                <span>Switch both circuit breakers above to complete Stage 0 assembly</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function ChatWindow({ messages, isLoading, onSendMessage, enablePiiTokenizer = true, enterpriseDataEnabled = false, tokenomicsEnabled = false }) {
       const [input, setInput] = useState('');
       const [activeTab, setActiveTab] = useState('user');
@@ -4587,6 +5027,9 @@ tools:
         TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
       });
       const [controls, setControls] = useState({
+        stage: 1,
+        stageZeroRuntimeEnabled: true,
+        stageZeroIntelligenceEnabled: true,
         failedTiers: [],
         forcedTier: 'AUTO',
         enablePiiTokenizer: false,
@@ -4792,6 +5235,9 @@ tools:
           // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
           setControls((prev) => ({
             ...prev,
+            stage: 1,
+            stageZeroRuntimeEnabled: true,
+            stageZeroIntelligenceEnabled: true,
             enablePiiTokenizer: false,
             enterpriseDataEnabled: false,
             tokenomicsEnabled: false,
@@ -4818,14 +5264,44 @@ tools:
         }
       };
 
+      const handleToggleStageZeroRuntime = async (enabled) => {
+        setControls((prev) => ({ ...prev, stageZeroRuntimeEnabled: enabled }));
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stageZeroRuntimeEnabled: enabled }),
+          });
+        } catch (err) {
+          console.error('Failed to sync stageZeroRuntimeEnabled:', err);
+        }
+      };
+
+      const handleToggleStageZeroIntelligence = async (enabled) => {
+        setControls((prev) => ({ ...prev, stageZeroIntelligenceEnabled: enabled }));
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stageZeroIntelligenceEnabled: enabled }),
+          });
+        } catch (err) {
+          console.error('Failed to sync stageZeroIntelligenceEnabled:', err);
+        }
+      };
+
       const handleSelectStage = async (stage) => {
         handleResetChat();
+        const isStage0 = stage === 0;
         const isPii = stage === 2 || stage === 3 || stage === 4;
         const isEnterprise = stage === 3 || stage === 4;
         const isTokenomics = stage === 4;
 
         setControls((prev) => ({
           ...prev,
+          stage: stage,
+          stageZeroRuntimeEnabled: isStage0 ? false : true,
+          stageZeroIntelligenceEnabled: isStage0 ? false : true,
           enablePiiTokenizer: isPii,
           enterpriseDataEnabled: isEnterprise,
           tokenomicsEnabled: isTokenomics,
@@ -4837,7 +5313,12 @@ tools:
           await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enterpriseDataEnabled: isEnterprise, tokenomicsEnabled: isTokenomics }),
+            body: JSON.stringify({
+              stageZeroRuntimeEnabled: isStage0 ? false : true,
+              stageZeroIntelligenceEnabled: isStage0 ? false : true,
+              enterpriseDataEnabled: isEnterprise,
+              tokenomicsEnabled: isTokenomics,
+            }),
           });
           await fetch('/api/dataset/toggle', {
             method: 'POST',
@@ -4848,6 +5329,19 @@ tools:
           console.error('Failed to sync stage settings:', err);
         }
       };
+
+      const currentStage =
+        controls.stage !== undefined
+          ? controls.stage
+          : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
+          ? 4
+          : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
+          ? 3
+          : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
+          ? 2
+          : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled && (controls.stageZeroRuntimeEnabled === false || controls.stageZeroIntelligenceEnabled === false)
+          ? 0
+          : 1;
 
       const isEnterpriseActive = controls.enterpriseDataEnabled ?? datasetSummary?.enabled ?? false;
 
@@ -4873,14 +5367,24 @@ tools:
               messages={messages}
               lastMetadata={lastMetadata}
             />
-            <ChatWindow
-              messages={messages}
-              isLoading={isLoading}
-              onSendMessage={handleSendMessage}
-              enablePiiTokenizer={controls.enablePiiTokenizer}
-              enterpriseDataEnabled={isEnterpriseActive}
-              tokenomicsEnabled={controls.tokenomicsEnabled}
-            />
+            {currentStage === 0 ? (
+              <StageZeroGenesisLab
+                runtimeEnabled={controls.stageZeroRuntimeEnabled ?? false}
+                intelligenceEnabled={controls.stageZeroIntelligenceEnabled ?? false}
+                onToggleRuntime={handleToggleStageZeroRuntime}
+                onToggleIntelligence={handleToggleStageZeroIntelligence}
+                onAdvanceToStageOne={() => handleSelectStage(1)}
+              />
+            ) : (
+              <ChatWindow
+                messages={messages}
+                isLoading={isLoading}
+                onSendMessage={handleSendMessage}
+                enablePiiTokenizer={controls.enablePiiTokenizer}
+                enterpriseDataEnabled={isEnterpriseActive}
+                tokenomicsEnabled={controls.tokenomicsEnabled}
+              />
+            )}
           </div>
 
           {/* Metadata Footer */}

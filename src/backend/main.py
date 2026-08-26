@@ -111,6 +111,8 @@ GLOBAL_SETTINGS: Dict[str, Any] = {
     "tierSettings": get_default_tier_settings(),
     "enterpriseDataEnabled": True,
     "tokenomicsEnabled": False,
+    "stageZeroRuntimeEnabled": True,
+    "stageZeroIntelligenceEnabled": True,
     "architectureDescriptions": {},
     "customPiiRules": [
         {
@@ -149,6 +151,8 @@ class SimulationControls(BaseModel):
     customPiiRules: Optional[List[Dict[str, Any]]] = None
     enterpriseDataEnabled: Optional[bool] = None
     tokenomicsEnabled: bool = False
+    stageZeroRuntimeEnabled: bool = False
+    stageZeroIntelligenceEnabled: bool = False
 
 
 class ChatRequest(BaseModel):
@@ -171,6 +175,8 @@ class SettingsUpdateRequest(BaseModel):
     customPiiRules: Optional[List[Dict[str, Any]]] = None
     enterpriseDataEnabled: Optional[bool] = None
     tokenomicsEnabled: Optional[bool] = None
+    stageZeroRuntimeEnabled: Optional[bool] = None
+    stageZeroIntelligenceEnabled: Optional[bool] = None
     architectureDescriptions: Optional[Dict[str, str]] = None
 
 
@@ -451,6 +457,8 @@ async def get_settings():
         "customPiiRules": default_tokenizer.get_custom_rules(),
         "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
         "tokenomicsEnabled": GLOBAL_SETTINGS.get("tokenomicsEnabled", False),
+        "stageZeroRuntimeEnabled": GLOBAL_SETTINGS.get("stageZeroRuntimeEnabled", True),
+        "stageZeroIntelligenceEnabled": GLOBAL_SETTINGS.get("stageZeroIntelligenceEnabled", True),
         "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
         "buildInfo": get_build_info(),
     }
@@ -468,6 +476,10 @@ async def update_settings(req: SettingsUpdateRequest):
         GLOBAL_SETTINGS["enterpriseDataEnabled"] = req.enterpriseDataEnabled
     if req.tokenomicsEnabled is not None:
         GLOBAL_SETTINGS["tokenomicsEnabled"] = req.tokenomicsEnabled
+    if req.stageZeroRuntimeEnabled is not None:
+        GLOBAL_SETTINGS["stageZeroRuntimeEnabled"] = req.stageZeroRuntimeEnabled
+    if req.stageZeroIntelligenceEnabled is not None:
+        GLOBAL_SETTINGS["stageZeroIntelligenceEnabled"] = req.stageZeroIntelligenceEnabled
     if req.architectureDescriptions is not None:
         GLOBAL_SETTINGS["architectureDescriptions"] = req.architectureDescriptions
     return {
@@ -476,6 +488,8 @@ async def update_settings(req: SettingsUpdateRequest):
         "customPiiRules": default_tokenizer.get_custom_rules(),
         "enterpriseDataEnabled": GLOBAL_SETTINGS.get("enterpriseDataEnabled", True),
         "tokenomicsEnabled": GLOBAL_SETTINGS.get("tokenomicsEnabled", False),
+        "stageZeroRuntimeEnabled": GLOBAL_SETTINGS.get("stageZeroRuntimeEnabled", True),
+        "stageZeroIntelligenceEnabled": GLOBAL_SETTINGS.get("stageZeroIntelligenceEnabled", True),
         "architectureDescriptions": GLOBAL_SETTINGS.get("architectureDescriptions", {}),
     }
 
@@ -615,6 +629,8 @@ async def reset_demo_endpoint():
     # 2. Reset global settings to Stage 1 defaults
     GLOBAL_SETTINGS["enterpriseDataEnabled"] = False
     GLOBAL_SETTINGS["tokenomicsEnabled"] = False
+    GLOBAL_SETTINGS["stageZeroRuntimeEnabled"] = True
+    GLOBAL_SETTINGS["stageZeroIntelligenceEnabled"] = True
     GLOBAL_SETTINGS["tierSettings"] = get_default_tier_settings()
 
     # 3. Reset benchmark loan dataset
