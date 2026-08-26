@@ -684,6 +684,8 @@
               borderClass: 'border-amber-500/40 bg-gradient-to-b from-amber-950/40 to-slate-950',
               glowClass: 'shadow-lg shadow-amber-500/10',
               eyeColor: '#f59e0b',
+              runtimeEyeColor: '#f59e0b',
+              brainColor: '#f59e0b',
               pulseClass: 'bg-amber-500',
             };
           case 'TIER_3_SOVEREIGN':
@@ -717,6 +719,8 @@
               borderClass: 'border-emerald-500/40 bg-gradient-to-b from-emerald-950/40 to-slate-950',
               glowClass: 'shadow-lg shadow-emerald-500/10',
               eyeColor: '#10b981',
+              runtimeEyeColor: '#10b981',
+              brainColor: '#10b981',
               pulseClass: 'bg-emerald-500',
             };
           case 'TIER_1_GLOBAL':
@@ -750,7 +754,9 @@
               color: 'blue',
               borderClass: 'border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-slate-950',
               glowClass: 'shadow-lg shadow-blue-500/10',
-              eyeColor: '#3b82f6',
+              eyeColor: '#f59e0b',
+              runtimeEyeColor: '#f59e0b',
+              brainColor: '#3b82f6',
               pulseClass: 'bg-blue-500',
             };
         }
@@ -763,85 +769,80 @@
           <div className="space-y-6">
             {/* CYBERNETIC LIVING AGENT ROBOT ANATOMY */}
             <div className="relative pt-1">
-              {/* 1. ROBOT HEAD: GLASS DOME & SYNAPTIC NEURAL CORE */}
-              <div className="relative w-44 h-28 mx-auto mb-1 flex items-center justify-center">
-                {/* Semi-transparent Glass Dome with Refraction & Glow */}
-                <div className="absolute inset-0 rounded-t-full bg-gradient-to-b from-blue-500/15 via-slate-900/70 to-slate-950 border-2 border-slate-700/80 backdrop-blur-md shadow-xl shadow-blue-500/10 overflow-hidden flex items-center justify-center">
-                  {/* Glass Sheen / Reflection Highlight Curves */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 60" fill="none">
-                    <path d="M 18 24 Q 30 8 50 8 Q 70 8 82 24" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M 22 28 Q 32 14 50 14" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeLinecap="round" />
-                  </svg>
+              {/* 1. 1950s RETRO-FUTURISTIC ROBOT HEAD WITH NANO BANANA SKETCH */}
+              <div className="relative w-44 h-44 mx-auto -mb-2 flex items-center justify-center select-none">
+                {/* Vintage 1950s Robot Head Base Sketch */}
+                <img
+                  src="/static/images/robot/robot_head_1950s.jpg"
+                  alt="1950s Retro Sovereign Robot Head"
+                  className="w-full h-full object-contain rounded-2xl filter drop-shadow-xl"
+                />
 
-                  {/* Illuminated Synaptic Brain SVG inside the Glass Dome */}
-                  {isIntelligenceOn ? (
-                    <div className="relative flex items-center justify-center animate-brain-pulse">
-                      <svg className="w-16 h-16 drop-shadow-lg" viewBox="0 0 48 48" fill="none">
-                        {/* Brain Hemispheres */}
-                        <path
-                          d="M24 10 C18 10 12 14 12 21 C12 25 14 28 17 30 C16 33 18 36 21 37 C23 37.5 24 38 24 38 C24 38 25 37.5 27 37 C30 36 32 33 31 30 C34 28 36 25 36 21 C36 14 30 10 24 10 Z"
-                          fill={agentChar.eyeColor}
-                          fillOpacity="0.4"
-                          stroke={agentChar.eyeColor}
-                          strokeWidth="1.75"
-                        />
-                        {/* Brain Cortex Sulci / Neural Folds */}
-                        <path d="M24 12 V36" stroke={agentChar.eyeColor} strokeWidth="1.5" strokeLinecap="round" />
-                        <path d="M19 16 C16 18 16 22 20 23 C17 26 18 30 22 31" stroke={agentChar.eyeColor} strokeWidth="1.2" fill="none" strokeLinecap="round" />
-                        <path d="M29 16 C32 18 32 22 28 23 C31 26 30 30 26 31" stroke={agentChar.eyeColor} strokeWidth="1.2" fill="none" strokeLinecap="round" />
-                        {/* Synaptic Light Nodes */}
-                        <circle cx="18" cy="18" r="1.5" fill="#ffffff" className="animate-ping" />
-                        <circle cx="30" cy="18" r="1.5" fill="#ffffff" />
-                        <circle cx="20" cy="27" r="1.5" fill="#ffffff" />
-                        <circle cx="28" cy="27" r="1.5" fill="#ffffff" className="animate-ping" />
-                      </svg>
+                {/* DYNAMIC LAYER 1: Synaptic Brain Pulsing Aura (Controlled by Breaker #2: Cognitive Intelligence) */}
+                {isIntelligenceOn ? (
+                  <div
+                    className="absolute top-[16%] left-1/2 -translate-x-1/2 w-[38%] h-[24%] rounded-full animate-brain-pulse pointer-events-none transition-all duration-500"
+                    style={{
+                      background: `radial-gradient(circle, ${agentChar.brainColor}99 0%, ${agentChar.brainColor}44 55%, transparent 85%)`,
+                      boxShadow: `0 0 16px ${agentChar.brainColor}88, inset 0 0 10px ${agentChar.brainColor}99`,
+                      filter: `drop-shadow(0 0 8px ${agentChar.brainColor})`,
+                    }}
+                  >
+                    {/* Synaptic micro-sparks */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                     </div>
-                  ) : (
-                    <div className="opacity-20 flex items-center justify-center">
-                      <svg className="w-14 h-14" viewBox="0 0 48 48" fill="none">
-                        <path
-                          d="M24 10 C18 10 12 14 12 21 C12 25 14 28 17 30 C16 33 18 36 21 37 C23 37.5 24 38 24 38 C24 38 25 37.5 27 37 C30 36 32 33 31 30 C34 28 36 25 36 21 C36 14 30 10 24 10 Z"
-                          stroke="#64748b"
-                          strokeWidth="1.5"
-                          strokeDasharray="2 2"
-                          fill="none"
-                        />
-                        <path d="M24 12 V36" stroke="#64748b" strokeWidth="1" strokeDasharray="2 2" />
-                      </svg>
-                    </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="absolute top-[16%] left-1/2 -translate-x-1/2 w-[38%] h-[24%] rounded-full bg-slate-950/70 backdrop-blur-[1px] pointer-events-none" />
+                )}
+
+                {/* DYNAMIC LAYER 2: Dual Optic Eye Lenses (Controlled by Breaker #1: Execution Runtime) */}
+                {/* Left Eye Lens */}
+                <div
+                  className={`absolute top-[50%] left-[38%] w-[6.5%] h-[6.5%] rounded-full transition-all duration-300 pointer-events-none flex items-center justify-center ${
+                    isRuntimeOn
+                      ? isEyeStrobing
+                        ? 'animate-optic-strobe'
+                        : ''
+                      : 'bg-slate-900/90 border border-slate-800'
+                  }`}
+                  style={
+                    isRuntimeOn
+                      ? {
+                          backgroundColor: agentChar.runtimeEyeColor,
+                          boxShadow: `0 0 8px ${agentChar.runtimeEyeColor}, 0 0 16px ${agentChar.runtimeEyeColor}bb`,
+                        }
+                      : {}
+                  }
+                >
+                  {isRuntimeOn && <div className="w-1 h-1 rounded-full bg-white/90" />}
                 </div>
 
-                {/* Visor Faceplate at base of Dome */}
-                <div className="absolute -bottom-2 w-36 h-7 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-around px-3 shadow-lg z-10">
-                  {/* Left Eye */}
-                  <div
-                    className={`w-3.5 h-2 rounded-sm transition-all duration-300 ${
-                      isRuntimeOn
-                        ? isEyeStrobing
-                          ? 'animate-optic-strobe'
-                          : 'shadow-md shadow-amber-400/80'
-                        : 'bg-slate-800'
-                    }`}
-                    style={{ backgroundColor: isRuntimeOn ? agentChar.eyeColor : '#1e293b' }}
-                  />
-                  {/* Center Scanner Mesh */}
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1.5 rounded-full bg-slate-700" />
-                    <div className="w-1 h-1.5 rounded-full bg-slate-700" />
-                    <div className="w-1 h-1.5 rounded-full bg-slate-700" />
-                  </div>
-                  {/* Right Eye */}
-                  <div
-                    className={`w-3.5 h-2 rounded-sm transition-all duration-300 ${
-                      isRuntimeOn
-                        ? isEyeStrobing
-                          ? 'animate-optic-strobe'
-                          : 'shadow-md shadow-amber-400/80'
-                        : 'bg-slate-800'
-                    }`}
-                    style={{ backgroundColor: isRuntimeOn ? agentChar.eyeColor : '#1e293b' }}
-                  />
+                {/* Right Eye Lens */}
+                <div
+                  className={`absolute top-[50%] right-[38%] w-[6.5%] h-[6.5%] rounded-full transition-all duration-300 pointer-events-none flex items-center justify-center ${
+                    isRuntimeOn
+                      ? isEyeStrobing
+                        ? 'animate-optic-strobe'
+                        : ''
+                      : 'bg-slate-900/90 border border-slate-800'
+                  }`}
+                  style={
+                    isRuntimeOn
+                      ? {
+                          backgroundColor: agentChar.runtimeEyeColor,
+                          boxShadow: `0 0 8px ${agentChar.runtimeEyeColor}, 0 0 16px ${agentChar.runtimeEyeColor}bb`,
+                        }
+                      : {}
+                  }
+                >
+                  {isRuntimeOn && <div className="w-1 h-1 rounded-full bg-white/90" />}
+                </div>
+
+                {/* Status Badge */}
+                <div className="absolute bottom-1 right-2 px-1.5 py-0.5 rounded bg-slate-950/85 border border-slate-800 text-[8px] font-mono text-slate-400 opacity-70">
+                  1950s Model
                 </div>
               </div>
 
