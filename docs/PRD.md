@@ -213,3 +213,24 @@ class SovereigntyPolicy(str, Enum):
 | **AC-05** | Sentinel autonomous recovery after simulated outage resolves. | `RecoverySentinel` detects 2 consecutive healthy pings and promotes `stickyTier` back to primary tier. | Automated pytest in `tests/test_recovery_sentinel.py`. |
 | **AC-06** | Declarative Tool Calling with automatic schema extraction and execution. | Developer passes Python function in `tools=[...]`; runtime executes tool and returns final synthesized response. | Automated pytest in `tests/test_tool_calling.py` (New). |
 | **AC-07** | Tier 2 ↔ Tier 3 Asynchronous Replication and Two-Way Turn Resync. | Writes to `ReplicatingSessionService` persist immediately to Tier 2 and asynchronously mirror to Tier 3 without blocking. Upon reconnection, Tier 3 turns merge without data loss. | Automated pytest in `tests/test_replicating_session_service.py` (New). |
+
+---
+
+## 8. Progressive 5-Stage Governance Lifecycle & Interactive Robot Anatomy
+
+To provide an intuitive, visual walkthrough of sovereign agent governance, Sovereign-Stream structures the end-to-end capabilities into 5 progressive stages:
+
+```mermaid
+graph LR
+    S0["Stage 0: Genesis Lab<br/>(Circuit Breakers & Anatomy)"] --> S1["Stage 1: Resilience<br/>(Failover & Cascades)"]
+    S1 --> S2["Stage 2: Zero-PII Shield<br/>(Cryptographic Tokenizer)"]
+    S2 --> S3["Stage 3: Enterprise Sovereignty<br/>(APRA Skill, Tool & Storage)"]
+    S3 --> S4["Stage 4: Tokenomics<br/>(Token Telemetry & Cost /10k)"]
+```
+
+1. **Stage 0 (Genesis Lab & Power-Up Sequence):** Dual industrial circuit breakers bring the cybernetic robot to life (Optics visor boot strobe + illuminated glass dome brain).
+2. **Stage 1 (Resilience & Cascades):** Real-time multi-region failover and session persistence across Global, Regional, and Sovereign On-Prem nodes.
+3. **Stage 2 (Zero-PII Shield):** Edge cryptographic tokenization replacing sensitive entities before model egress.
+4. **Stage 3 (Enterprise Sovereignty):** Injecting APRA CPS 234 underwriter skills, deterministic LVR calculations, and sovereign storage at rest.
+5. **Stage 4 (Tokenomics & Inference Economics):** Real-time token telemetry, Vertex AI rate card pricing, and 10,000-turn cost modeling.
+
