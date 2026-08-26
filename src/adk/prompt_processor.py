@@ -265,7 +265,7 @@ def generate_command_response(
             "### ℹ️ APRA Underwriting Skills & Tools Disabled\n\n"
             "The **APRA Underwriting Skills & Tools** (deterministic LVR calculation and customer loan book) are currently toggled **OFF** in this stage/mode.\n\n"
             "* **Active Capabilities:** Conversational general knowledge and Sovereign Failover routing.\n"
-            "* **To Enable:** Toggle **🧠 APRA Skills & Tools** to **ON** in the sidebar or switch to **Stage 3 (Enterprise LVR)**."
+            "* **To Enable:** Toggle **🧠 APRA Skills & Tools** to **ON** in the sidebar or switch to **Stage 3 (Add Skills - LVR)**."
         )
 
     # 0.2 LVR Specific Follow-ups

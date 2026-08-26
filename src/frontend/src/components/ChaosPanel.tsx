@@ -992,7 +992,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   : currentStage === 2
                   ? 'Stage 2: Zero-PII'
                   : currentStage === 3
-                  ? 'Stage 3: Enterprise LVR'
+                  ? 'Stage 3: Add Skills - LVR'
                   : currentStage === 4
                   ? 'Stage 4: Tokenomics'
                   : 'Custom Mode'}
@@ -1072,7 +1072,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On, Econ Off)"
                 >
                   <span className="text-xs font-bold text-amber-400">Stage 3</span>
-                  <span className="text-[10px] font-semibold mt-0.5 leading-tight">Enterprise LVR</span>
+                  <span className="text-[10px] font-semibold mt-0.5 leading-tight">Add Skills - LVR</span>
                   <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On</span>
                 </button>
 

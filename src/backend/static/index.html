@@ -630,10 +630,45 @@
           return { inRate: 0.10, outRate: 0.40, isSelfHosted: false };
         };
 
+        const getBrainImage = (tier, modelId, isIntelOn) => {
+          if (!isIntelOn) {
+            return '/static/images/robot/robot_head_dormant.jpg';
+          }
+          if (!modelId) {
+            if (tier === 'TIER_3_SOVEREIGN') return '/static/images/robot/robot_head_emerald.jpg';
+            if (tier === 'TIER_2_REGIONAL') return '/static/images/robot/robot_head_amber.jpg';
+            return '/static/images/robot/robot_head_blue.jpg';
+          }
+          const m = modelId.toLowerCase();
+          if (m.includes('gemma') || m.includes('airgap') || m.includes('sovereign')) {
+            return '/static/images/robot/robot_head_emerald.jpg';
+          }
+          if (m.includes('claude') || m.includes('sonnet') || m.includes('haiku') || m.includes('opus')) {
+            return '/static/images/robot/robot_head_amber.jpg';
+          }
+          if (m.includes('pro') || m.includes('ultra') || m.includes('reasoning') || m.includes('exp')) {
+            return '/static/images/robot/robot_head_purple.jpg';
+          }
+          if (m.includes('llama') || m.includes('deepseek') || m.includes('mistral') || m.includes('qwen')) {
+            return '/static/images/robot/robot_head_ruby.jpg';
+          }
+          if (m.includes('custom') || m.includes('finetune') || m.includes('apra') || m.includes('magenta')) {
+            return '/static/images/robot/robot_head_magenta.jpg';
+          }
+          if (tier === 'TIER_2_REGIONAL') {
+            return '/static/images/robot/robot_head_amber.jpg';
+          }
+          if (tier === 'TIER_3_SOVEREIGN') {
+            return '/static/images/robot/robot_head_emerald.jpg';
+          }
+          return '/static/images/robot/robot_head_blue.jpg';
+        };
+
         const activeModelIdentifier = controls.tierSettings?.[activeTier]?.model || (
           activeTier === 'TIER_1_GLOBAL' ? 'gemini-3.7-flash' : activeTier === 'TIER_2_REGIONAL' ? 'gemini-2.5-flash' : 'google/gemma-2-2b-it'
         );
         const rates = getModelPricingRates(activeModelIdentifier);
+        const currentHeadImage = getBrainImage(activeTier, activeModelIdentifier, isIntelligenceOn);
 
         let modelRateFormatted = '';
         if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
@@ -686,6 +721,7 @@
               eyeColor: '#f59e0b',
               runtimeEyeColor: '#f59e0b',
               brainColor: '#f59e0b',
+              headImage: currentHeadImage,
               pulseClass: 'bg-amber-500',
             };
           case 'TIER_3_SOVEREIGN':
@@ -721,6 +757,7 @@
               eyeColor: '#10b981',
               runtimeEyeColor: '#10b981',
               brainColor: '#10b981',
+              headImage: currentHeadImage,
               pulseClass: 'bg-emerald-500',
             };
           case 'TIER_1_GLOBAL':
@@ -757,6 +794,7 @@
               eyeColor: '#f59e0b',
               runtimeEyeColor: '#f59e0b',
               brainColor: '#3b82f6',
+              headImage: currentHeadImage,
               pulseClass: 'bg-blue-500',
             };
         }
@@ -769,85 +807,58 @@
           <div className="space-y-6">
             {/* CYBERNETIC LIVING AGENT ROBOT ANATOMY */}
             <div className="relative pt-1">
-              {/* 1. 1950s RETRO-FUTURISTIC ROBOT HEAD WITH NANO BANANA SKETCH */}
-              <div className="relative w-44 h-44 mx-auto -mb-2 flex items-center justify-center select-none">
-                {/* Vintage 1950s Robot Head Base Sketch */}
+              {/* 1. 1950s RETRO-FUTURISTIC ROBOT HEAD WITH MECHANICAL NECK */}
+              <div className="relative w-48 h-48 mx-auto -mb-1 flex items-center justify-center select-none">
+                {/* 1950s Robot Head Base with Synaptic Brain & Mechanical Neck */}
                 <img
-                  src="/static/images/robot/robot_head_1950s.jpg"
-                  alt="1950s Retro Sovereign Robot Head"
-                  className="w-full h-full object-contain rounded-2xl filter drop-shadow-xl"
+                  src={agentChar.headImage}
+                  alt="1950s Sovereign Robot Head"
+                  className="w-full h-full object-contain rounded-2xl filter drop-shadow-xl transition-all duration-300"
                 />
 
-                {/* DYNAMIC LAYER 1: Synaptic Brain Pulsing Aura (Controlled by Breaker #2: Cognitive Intelligence) */}
-                {isIntelligenceOn ? (
-                  <div
-                    className="absolute top-[16%] left-1/2 -translate-x-1/2 w-[38%] h-[24%] rounded-full animate-brain-pulse pointer-events-none transition-all duration-500"
-                    style={{
-                      background: `radial-gradient(circle, ${agentChar.brainColor}99 0%, ${agentChar.brainColor}44 55%, transparent 85%)`,
-                      boxShadow: `0 0 16px ${agentChar.brainColor}88, inset 0 0 10px ${agentChar.brainColor}99`,
-                      filter: `drop-shadow(0 0 8px ${agentChar.brainColor})`,
-                    }}
-                  >
-                    {/* Synaptic micro-sparks */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="absolute top-[16%] left-1/2 -translate-x-1/2 w-[38%] h-[24%] rounded-full bg-slate-950/70 backdrop-blur-[1px] pointer-events-none" />
-                )}
-
-                {/* DYNAMIC LAYER 2: Dual Optic Eye Lenses (Controlled by Breaker #1: Execution Runtime) */}
+                {/* DYNAMIC OPTIC EYE LENSES (Controlled by Breaker #1: Execution Runtime) */}
                 {/* Left Eye Lens */}
                 <div
-                  className={`absolute top-[50%] left-[38%] w-[6.5%] h-[6.5%] rounded-full transition-all duration-300 pointer-events-none flex items-center justify-center ${
+                  className={`absolute top-[50.5%] left-[37.5%] w-[7%] h-[7%] rounded-full transition-all duration-300 pointer-events-none flex items-center justify-center ${
                     isRuntimeOn
                       ? isEyeStrobing
                         ? 'animate-optic-strobe'
-                        : ''
+                        : 'animate-pulse'
                       : 'bg-slate-900/90 border border-slate-800'
                   }`}
                   style={
                     isRuntimeOn
                       ? {
                           backgroundColor: agentChar.runtimeEyeColor,
-                          boxShadow: `0 0 8px ${agentChar.runtimeEyeColor}, 0 0 16px ${agentChar.runtimeEyeColor}bb`,
+                          boxShadow: `0 0 10px ${agentChar.runtimeEyeColor}, 0 0 20px ${agentChar.runtimeEyeColor}cc`,
                         }
                       : {}
                   }
                 >
-                  {isRuntimeOn && <div className="w-1 h-1 rounded-full bg-white/90" />}
+                  {isRuntimeOn && <div className="w-1.5 h-1.5 rounded-full bg-white/90 shadow-sm" />}
                 </div>
 
                 {/* Right Eye Lens */}
                 <div
-                  className={`absolute top-[50%] right-[38%] w-[6.5%] h-[6.5%] rounded-full transition-all duration-300 pointer-events-none flex items-center justify-center ${
+                  className={`absolute top-[50.5%] right-[37.5%] w-[7%] h-[7%] rounded-full transition-all duration-300 pointer-events-none flex items-center justify-center ${
                     isRuntimeOn
                       ? isEyeStrobing
                         ? 'animate-optic-strobe'
-                        : ''
+                        : 'animate-pulse'
                       : 'bg-slate-900/90 border border-slate-800'
                   }`}
                   style={
                     isRuntimeOn
                       ? {
                           backgroundColor: agentChar.runtimeEyeColor,
-                          boxShadow: `0 0 8px ${agentChar.runtimeEyeColor}, 0 0 16px ${agentChar.runtimeEyeColor}bb`,
+                          boxShadow: `0 0 10px ${agentChar.runtimeEyeColor}, 0 0 20px ${agentChar.runtimeEyeColor}cc`,
                         }
                       : {}
                   }
                 >
-                  {isRuntimeOn && <div className="w-1 h-1 rounded-full bg-white/90" />}
-                </div>
-
-                {/* Status Badge */}
-                <div className="absolute bottom-1 right-2 px-1.5 py-0.5 rounded bg-slate-950/85 border border-slate-800 text-[8px] font-mono text-slate-400 opacity-70">
-                  1950s Model
+                  {isRuntimeOn && <div className="w-1.5 h-1.5 rounded-full bg-white/90 shadow-sm" />}
                 </div>
               </div>
-
-              {/* Neck Joint / Collar Piston */}
-              <div className="w-8 h-2.5 mx-auto bg-gradient-to-b from-slate-700 to-slate-800 border-x border-slate-600 mb-1 rounded-sm shadow-inner" />
 
               {/* 2. ROBOT TORSO: CHASSIS & SPECIFICATIONS CARD WITH ARTICULATED ARMS */}
               <div className="relative flex items-center justify-center">
@@ -1470,7 +1481,7 @@
                     : currentStage === 2
                     ? 'Stage 2: Zero-PII'
                     : currentStage === 3
-                    ? 'Stage 3: Enterprise LVR'
+                    ? 'Stage 3: Add Skills - LVR'
                     : currentStage === 4
                     ? 'Stage 4: Tokenomics'
                     : 'Custom Mode'}
@@ -1570,7 +1581,7 @@
                     title="Stage 3: Enterprise APRA CPS 234 Underwriting Tools (PII On, Tools On, Econ Off)"
                   >
                     <span className="text-xs font-bold text-amber-400">Stage 3</span>
-                    <span className="text-[10px] font-semibold mt-0.5 leading-tight">Enterprise LVR</span>
+                    <span className="text-[10px] font-semibold mt-0.5 leading-tight">Add Skills - LVR</span>
                     <span className="text-[8px] opacity-70 mt-0.5">PII: On • Tools: On</span>
                   </button>
 
