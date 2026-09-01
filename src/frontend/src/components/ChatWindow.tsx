@@ -257,7 +257,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     let icon = '🌐';
     let label = 'Tier 1 Global';
 
-    if (activeTier === 'TIER_2_REGIONAL') {
+    const isClaudeUsed = (modelUsed || '').toLowerCase().includes('claude') || (modelUsed || '').toLowerCase().includes('sonnet');
+    if (activeTier === 'TIER_1_GLOBAL' && isClaudeUsed) {
+      badgeColor = 'bg-red-500/15 border-red-500/40 text-red-400';
+      icon = '🔴';
+      label = 'Tier 1 Global (Claude 3.5 Iowa)';
+    } else if (activeTier === 'TIER_2_REGIONAL') {
       badgeColor = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
       icon = '🦘';
       label = 'Tier 2 Regional (AU-SYD)';
@@ -547,6 +552,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               );
             }
 
+            const isAssistant = msg.role === 'assistant';
+            const meta = msg.metadata;
+            const activeTier = meta?.activeTier;
+            const failoverOccurred = meta?.failoverOccurred;
+
+            // Tier-adaptive bubble styling for assistant messages
+            let assistantBubbleBorder = 'border-slate-800';
+            if (activeTier === 'TIER_1_GLOBAL') {
+              assistantBubbleBorder = 'border-blue-500/30 shadow-sm shadow-blue-500/5';
+            } else if (activeTier === 'TIER_2_REGIONAL') {
+              assistantBubbleBorder = 'border-amber-500/50 shadow-sm shadow-amber-500/10';
+            } else if (activeTier === 'TIER_3_SOVEREIGN') {
+              assistantBubbleBorder = 'border-emerald-500/50 shadow-sm shadow-emerald-500/10';
+            }
+
             return (
               <div
                 key={msg.id}
@@ -558,9 +578,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       ? effectiveTab === 'shield'
                         ? 'bg-purple-900/80 border border-purple-700 text-white rounded-br-none font-mono text-xs'
                         : 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none'
+                      : `bg-slate-900 border ${assistantBubbleBorder} text-slate-100 rounded-bl-none`
                   }`}
                 >
+                  {/* Failover Alert Banner */}
+                  {isAssistant && failoverOccurred && (
+                    <div className="mb-3 px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-mono flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="animate-pulse text-sm">⚠️</span>
+                        <div>
+                          <span className="font-bold text-amber-200">Sovereign Failover Active: </span>
+                          <span className="text-amber-100">
+                            {meta?.failoverHops ? `${meta.failoverHops} hop(s)` : 'Automatic cascade'} to{' '}
+                            <span className="font-semibold underline">
+                              {activeTier === 'TIER_2_REGIONAL'
+                                ? 'Tier 2 Regional (AU-SYD)'
+                                : activeTier === 'TIER_3_SOVEREIGN'
+                                ? 'Tier 3 Sovereign Enclave'
+                                : activeTier}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      {meta?.failoverLog && meta.failoverLog.length > 0 && (
+                        <button
+                          onClick={() => toggleLog(msg.id)}
+                          className="text-[11px] text-amber-300 hover:text-white underline font-sans shrink-0 ml-2"
+                        >
+                          {expandedLogs[msg.id] ? 'Hide Hops' : 'View Hop Log'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {renderMarkdownContent(
                     displayContent,
                     effectiveTab === 'shield',

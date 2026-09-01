@@ -61,7 +61,20 @@ def test_calculate_10k_turn_cost_accuracy():
     pro_cost_1k = calculate_1k_turn_cost("gemini-1.5-pro-002", input_tokens=1200, output_tokens=300)
     assert pro_cost_1k == 3.00
 
-    # 3. Gemma 2 (Airgapped): 0 API fee
+    # 3. Claude 3.5 Sonnet (Partner Model Garden in Iowa): $3.00 in / $15.00 out -> (1240 * 3.00/1M + 320 * 15.00/1M) * 10000 = $85.20
+    claude_pricing = get_model_pricing("claude-3-5-sonnet-v2@20241022")
+    assert claude_pricing["inputPricePerMillion"] == 3.00
+    assert claude_pricing["outputPricePerMillion"] == 15.00
+
+    claude_cost_10k = calculate_10k_turn_cost("claude-3-5-sonnet-v2@20241022", input_tokens=1240, output_tokens=320)
+    assert claude_cost_10k == 85.20
+
+    # Verify massive cost disparity: Claude ($85.20) is >33x more expensive than Flash ($2.52)
+    flash_benchmark_10k = calculate_10k_turn_cost("gemini-2.5-flash", input_tokens=1240, output_tokens=320)
+    assert flash_benchmark_10k == 2.52
+    assert claude_cost_10k > (flash_benchmark_10k * 30.0)
+
+    # 4. Gemma 2 (Airgapped): 0 API fee
     gemma_cost_10k = calculate_10k_turn_cost("google/gemma-2-2b-it", input_tokens=1200, output_tokens=300)
     assert gemma_cost_10k == 0.0
 

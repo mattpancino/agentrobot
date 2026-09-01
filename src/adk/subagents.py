@@ -67,6 +67,77 @@ class DomainSpecialistAgent(SovereignResilientAgent):
         )
 
 
+class FleetOperationsAgent(SovereignResilientAgent):
+    """
+    Enterprise Fleet Operations Subagent.
+    Inherits sovereign PII pre-processing, AU license plate pseudonymization,
+    and Google Drive / Trix Sheets grounding out-of-the-box.
+    """
+
+    def __init__(self, session_service: Optional[SessionService] = None):
+        super().__init__(
+            name="fleet_operations",
+            description="Specialist subagent for enterprise Australian fleet management, tolling, and vehicle telemetry.",
+            instruction=(
+                "You are an enterprise Australian Fleet Operations agent. "
+                "Help the user inspect vehicle registrations, toll infringements, and maintenance logs. "
+                "Use grounding tools or telemetry lookup to resolve fleet queries."
+            ),
+            tools=[self.lookup_vehicle_telemetry],
+            enable_pii_tokenizer=True,
+            enable_enterprise_grounding=True,
+            session_service=session_service,
+        )
+
+    def lookup_vehicle_telemetry(self, plate: str) -> Dict[str, Any]:
+        """
+        Retrieves real-time GPS coordinates, fuel status, and odometer for a given vehicle plate in Australia.
+        Receives de-tokenized plate locally within the Australian boundary.
+        """
+        # Simulated local telemetry database query
+        return {
+            "plate": plate,
+            "status": "ACTIVE_ON_ROAD",
+            "odometer_km": 42150,
+            "fuel_level_percent": 84,
+            "last_seen_depot": "Sydney Olympic Park Depot, NSW",
+            "telemetry_jurisdiction": "AU-NSW",
+        }
+
+
+class ClaimsProcessingAgent(SovereignResilientAgent):
+    """
+    Enterprise Insurance & Accident Claims Subagent.
+    Inherits sovereign PII pre-processing, AU license plate pseudonymization,
+    and accident report grounding without writing boilerplate.
+    """
+
+    def __init__(self, session_service: Optional[SessionService] = None):
+        super().__init__(
+            name="claims_processing",
+            description="Specialist subagent for processing accident claims, police reports, and damage assessments.",
+            instruction=(
+                "You are an enterprise Claims Processing specialist. "
+                "Inspect accident reports, cross-reference involved drivers and license plates, and assess claim validity."
+            ),
+            tools=[self.assess_claim_liability],
+            enable_pii_tokenizer=True,
+            enable_enterprise_grounding=True,
+            session_service=session_service,
+        )
+
+    def assess_claim_liability(self, claim_id: str, estimated_damage_aud: float) -> Dict[str, Any]:
+        """Assesses liability and coverage limits for an Australian fleet insurance claim."""
+        is_covered = estimated_damage_aud <= 50000.0
+        return {
+            "claim_id": claim_id,
+            "estimated_damage_aud": estimated_damage_aud,
+            "liability_status": "APPROVED" if is_covered else "REQUIRES_SUPERVISOR_SIGN_OFF",
+            "excess_aud": 750.00,
+            "assessor_location": "Melbourne Claims Hub, VIC",
+        }
+
+
 class SovereignParentOrchestrator(SovereignResilientAgent):
     """
     Parent Agent that coordinates PolicyGuardAgent and DomainSpecialistAgent
@@ -96,13 +167,8 @@ class SovereignParentOrchestrator(SovereignResilientAgent):
         2. Delegates domain execution to DomainSpecialistAgent.
         3. Returns combined telemetry without leaking private memory scratchpads.
         """
-        # Ensure session exists in the service
-        session_state = await self.session_service.get_session(session_id)
-
-        # Step 1: Subagent delegation for policy check
         policy_status = await self.policy_guard.verify_request(session_id, prompt)
 
-        # Step 2: Subagent delegation for domain response
         result = await self.delegate(
             subagent=self.specialist,
             session_id=session_id,
@@ -118,3 +184,95 @@ class SovereignParentOrchestrator(SovereignResilientAgent):
             "delegatedSpecialist": self.specialist.name,
         }
         return result
+
+
+class GeneralChatAgent(SovereignResilientAgent):
+    """
+    Enterprise General Chat & Conversational Subagent.
+    Serves general user queries, open-ended problem solving, brainstorming, and drafting
+    while guaranteeing 100% in-region PII tokenization, AU license plate recognition,
+    and enterprise grounding without leaking personal data offshore.
+    """
+
+    def __init__(self, session_service: Optional[SessionService] = None):
+        super().__init__(
+            name="general_chat",
+            description="Specialist subagent for general conversational Q&A, drafting, and enterprise assistance with full PII sovereignty.",
+            instruction=(
+                "You are a helpful, professional, and intelligent enterprise AI assistant. "
+                "Assist the user with their questions, drafting, analysis, and general workplace tasks. "
+                "Maintain strict factual accuracy and confidentiality."
+            ),
+            enable_pii_tokenizer=True,
+            enable_enterprise_grounding=True,
+            session_service=session_service,
+        )
+
+
+SovereignGeneralChatAgent = GeneralChatAgent
+
+
+class EnterpriseSovereignOrchestrator(SovereignResilientAgent):
+    """
+    Enterprise Parent Orchestrator.
+    Orchestrates multiple domain subagents (General Chat, Fleet, Claims, Policy) under a unified
+    A2A Sovereign Mesh invariant where raw PII is scrubbed before crossing any network/agent boundary.
+    """
+
+    def __init__(self, session_service: Optional[SessionService] = None):
+        super().__init__(
+            name="enterprise_sovereign_orchestrator",
+            description="Enterprise Parent Agent orchestrating general chat, fleet, claims, and policy specialist subagents.",
+            instruction="You are the lead enterprise AI orchestrator managing sovereign chat and specialist domain routing.",
+            enable_pii_tokenizer=True,
+            enable_enterprise_grounding=True,
+            session_service=session_service,
+        )
+        self.policy_guard = PolicyGuardAgent(session_service=self.session_service)
+        self.general_agent = GeneralChatAgent(session_service=self.session_service)
+        self.fleet_agent = FleetOperationsAgent(session_service=self.session_service)
+        self.claims_agent = ClaimsProcessingAgent(session_service=self.session_service)
+
+    async def execute_orchestrated_turn(
+        self,
+        session_id: str,
+        prompt: str,
+        target_subagent: str = "general",
+        inject_mock_failure: bool = False,
+        failed_tiers: Optional[List[str]] = None,
+        forced_tier: str = "AUTO",
+    ) -> Dict[str, Any]:
+        """
+        1. Evaluates jurisdictional compliance with PolicyGuardAgent.
+        2. Routes to the appropriate specialist subagent (General Chat, Fleet, or Claims).
+        3. Enforces that all A2A communications pass only surrogate tokens.
+        """
+        policy_status = await self.policy_guard.verify_request(session_id, prompt)
+
+        target = (target_subagent or "general").lower()
+        if target == "claims":
+            agent_to_invoke = self.claims_agent
+        elif target == "fleet":
+            agent_to_invoke = self.fleet_agent
+        else:
+            agent_to_invoke = self.general_agent
+
+        result = await self.delegate(
+            subagent=agent_to_invoke,
+            session_id=session_id,
+            prompt=prompt,
+            inject_mock_failure=inject_mock_failure,
+            failed_tiers=failed_tiers,
+            forced_tier=forced_tier,
+        )
+
+        result["orchestrationMetadata"] = {
+            "parentAgent": self.name,
+            "policyVerification": policy_status,
+            "delegatedSpecialist": agent_to_invoke.name,
+        }
+        return result
+
+
+
+

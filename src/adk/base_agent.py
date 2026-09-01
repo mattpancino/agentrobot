@@ -51,11 +51,15 @@ class SovereignResilientAgent:
         t2_model: str = "gemini-2.5-flash",
         t3_model: str = "google/gemma-2-2b-it",
         session_service: Optional[SessionService] = None,
+        enable_pii_tokenizer: bool = True,
+        enable_enterprise_grounding: bool = True,
     ):
         self.name = name
         self.description = description
         self.instruction = instruction
-        self.tools: List[Callable] = tools or []
+        self.enable_pii_tokenizer = enable_pii_tokenizer
+        self.enable_enterprise_grounding = enable_enterprise_grounding
+        self.tools: List[Callable] = list(tools or [])
         self.sovereignty_policy = sovereignty_policy
         self.router = SovereignCascadeRouter(
             t1_model=t1_model,
@@ -65,6 +69,25 @@ class SovereignResilientAgent:
         self.session_service: SessionService = (
             session_service if session_service is not None else InMemorySessionService()
         )
+        if self.enable_enterprise_grounding:
+            from .connectors.grounding_interceptor import SovereignGroundingInterceptor
+            self.grounding_interceptor = SovereignGroundingInterceptor()
+            # Register grounding tools if not already present
+            existing_tool_names = {getattr(t, "__name__", "") for t in self.tools}
+            if "search_enterprise_knowledge" not in existing_tool_names:
+                self.tools.append(self.search_enterprise_knowledge)
+        else:
+            self.grounding_interceptor = None
+
+    def search_enterprise_knowledge(self, query: str) -> str:
+        """
+        Searches enterprise Google Drive documents and Trix (Google Sheets) spreadsheets in-region (Australia).
+        All retrieved context is automatically scrubbed of PII before return.
+        """
+        if not self.grounding_interceptor:
+            return "Enterprise grounding is not enabled on this agent."
+        bundle = self.grounding_interceptor.retrieve_and_sanitize(query=query)
+        return bundle.sanitized_context_text
 
     def enforce_policy_on_session(self, session_state: Dict[str, Any]) -> str:
         """Calculates the forced tier based on the agent's SovereigntyPolicy."""
@@ -112,18 +135,19 @@ class SovereignResilientAgent:
         failed_tiers: Optional[List[str]] = None,
         forced_tier: str = "AUTO",
         tier_settings: Optional[Dict[str, Any]] = None,
-        enable_pii_tokenizer: bool = False,
+        enable_pii_tokenizer: Optional[bool] = None,
         tools: Optional[List[Callable]] = None,
     ) -> Dict[str, Any]:
         """
         Parent Agent capability: Delegate execution to a specialized subagent by passing
         only the session_id and a scoped prompt.
 
-        The subagent automatically shares the active session_state (including stickyTier
-        and replicating storage connection) and executes within its own private namespace.
+        The subagent automatically shares the active session_state (including stickyTier,
+        pii_vault, and replicating storage connection) and executes within its own private namespace.
         """
         subagent.session_service = self.session_service
 
+        eff_pii = enable_pii_tokenizer if enable_pii_tokenizer is not None else subagent.enable_pii_tokenizer
         session_state = await self.session_service.get_session(session_id)
         return await subagent.run(
             session_state=session_state,
@@ -132,7 +156,7 @@ class SovereignResilientAgent:
             failed_tiers=failed_tiers,
             forced_tier=forced_tier,
             tier_settings=tier_settings,
-            enable_pii_tokenizer=enable_pii_tokenizer,
+            enable_pii_tokenizer=eff_pii,
             tools=tools,
         )
 
@@ -144,7 +168,7 @@ class SovereignResilientAgent:
         failed_tiers: Optional[List[str]] = None,
         forced_tier: str = "AUTO",
         tier_settings: Optional[Dict[str, Any]] = None,
-        enable_pii_tokenizer: bool = False,
+        enable_pii_tokenizer: Optional[bool] = None,
         tools: Optional[List[Callable]] = None,
     ) -> Dict[str, Any]:
         """
@@ -157,6 +181,7 @@ class SovereignResilientAgent:
             effective_forced_tier = self.enforce_policy_on_session(session_state)
 
         effective_tools = tools if tools is not None else self.tools
+        eff_pii = enable_pii_tokenizer if enable_pii_tokenizer is not None else self.enable_pii_tokenizer
 
         result = await self.router.execute_turn(
             session_state=session_state,
@@ -167,7 +192,7 @@ class SovereignResilientAgent:
             forced_tier=effective_forced_tier,
             tier_settings=tier_settings,
             tools=effective_tools,
-            enable_pii_tokenizer=enable_pii_tokenizer,
+            enable_pii_tokenizer=eff_pii,
         )
 
         # Append assistant turn to cleartext session history

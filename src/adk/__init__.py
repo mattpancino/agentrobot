@@ -20,6 +20,17 @@ from .loan_lvr_tool import (
     reset_default_loans,
 )
 
+from .subagents import (
+    GeneralChatAgent,
+    SovereignGeneralChatAgent,
+    FleetOperationsAgent,
+    ClaimsProcessingAgent,
+    PolicyGuardAgent,
+    DomainSpecialistAgent,
+    EnterpriseSovereignOrchestrator,
+    SovereignParentOrchestrator,
+)
+
 __all__ = [
     "normalize_messages_for_gemma",
     "SovereignCascadeRouter",
@@ -33,6 +44,14 @@ __all__ = [
     "InMemorySessionService",
     "RedisSessionService",
     "ReplicatingSessionService",
+    "GeneralChatAgent",
+    "SovereignGeneralChatAgent",
+    "FleetOperationsAgent",
+    "ClaimsProcessingAgent",
+    "PolicyGuardAgent",
+    "DomainSpecialistAgent",
+    "EnterpriseSovereignOrchestrator",
+    "SovereignParentOrchestrator",
     "extract_tool_schema",
     "extract_tools_schemas",
     "execute_tool_call",
@@ -42,3 +61,4 @@ __all__ = [
     "ingest_loans_csv",
     "reset_default_loans",
 ]
+

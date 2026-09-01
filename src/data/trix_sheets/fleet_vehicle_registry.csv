@@ -1,0 +1,6 @@
+AssetID,State,LicensePlate,MakeModel,AssignedDriver,DriverEmail,DriverPhone,Status
+FLT-001,NSW,ABC-123,Toyota Hilux,Sarah Jenkins,sarah.jenkins@sydneyfleet.com.au,0412 345 678,Active
+FLT-002,VIC,1AB-2CD,Ford Transit,David Miller,david.miller@acme.com.au,0422 111 222,In Maintenance
+FLT-003,QLD,123-AB4,Isuzu D-Max,John Smith,john.smith@qldlogistics.com.au,0433 999 888,Active
+FLT-004,WA,1ABC-234,Kenworth T680,Emily Davis,emily.davis@perthfreight.com.au,0444 777 666,Active
+FLT-005,NSW,WX-88-YZ,Hyundai i30,David Zhang,david.zhang@corp.sydney.au,0455 123 987,Active

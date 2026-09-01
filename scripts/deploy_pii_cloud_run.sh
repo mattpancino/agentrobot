@@ -22,19 +22,32 @@ gcloud builds submit \
     --config="src/services/pii_tokenizer/cloudbuild.yaml" \
     --substitutions=_IMAGE_NAME="${IMAGE_NAME}" .
 
-# Step 2: Deploy to Cloud Run
+# Step 2: Deploy to Cloud Run (Hardened In-Region Sovereign Configuration)
 echo "☁️ Deploying to Cloud Run in ${REGION}..."
 gcloud run deploy "${SERVICE_NAME}" \
     --project="${PROJECT_ID}" \
     --image="${IMAGE_NAME}" \
     --region="${REGION}" \
     --platform="managed" \
-    --allow-unauthenticated \
-    --memory="1Gi" \
-    --cpu="1" \
+    --ingress="internal" \
+    --no-allow-unauthenticated \
+    --service-account="sa-presidio@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --vpc-connector="projects/${PROJECT_ID}/locations/${REGION}/connectors/vpc-connector-syd" \
+    --memory="4Gi" \
+    --cpu="2" \
     --min-instances=1 \
-    --max-instances=10 \
+    --max-instances=100 \
+    --concurrency=80 \
     --set-env-vars="SOVEREIGN_ENABLE_PII_TOKENIZATION=true,SOVEREIGN_PII_ENGINE=presidio"
+
+# Step 3: Grant IAM Invoke Permission to Agent Service Account (Zero Trust RBAC)
+echo "🔒 Binding roles/run.invoker to sa-sovereign-agent..."
+gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+    --project="${PROJECT_ID}" \
+    --region="${REGION}" \
+    --member="serviceAccount:sa-sovereign-agent@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/run.invoker" \
+    --quiet || true
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
     --project="${PROJECT_ID}" \
@@ -45,4 +58,6 @@ echo "============================================================"
 echo "✅ Sovereign PII Tokenizer successfully deployed!"
 echo "   Service Endpoint: ${SERVICE_URL}"
 echo "   Health Check:     ${SERVICE_URL}/health"
+echo "   Access:           Internal VPC & Authorized Service Account Only"
 echo "============================================================"
+

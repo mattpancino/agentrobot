@@ -25,23 +25,29 @@ git checkout -b feature/pii-tokenizer-parallel-context
 
 ```mermaid
 gantt
-    title PII Tokenization & Parallel Context Window Implementation
+    title Sovereign PII Tokenization, General Chat & Multi-Agent Architecture
     dateFormat  YYYY-MM-DD
     section Sprint 1
-    Presidio + spaCy Core Engine & Salted Tokenizer :s1_1, 2026-08-22, 2d
-    Fuzzy Mutation Healer & Unit Test Suite         :s1_2, after s1_1, 2d
+    Presidio Core Engine, AU License Plates & Banking Recognizers :s1_1, 2026-08-20, 2d
+    Fuzzy Mutation Healer & Unit Test Suite                       :s1_2, after s1_1, 2d
     section Sprint 2
-    Parallel Context in SessionService & Redis      :s2_1, after s1_2, 2d
-    Cascade Router Integration & Tool Interceptor   :s2_2, after s2_1, 2d
+    Parallel Context in SessionService & Redis Sync (DB 0/1)     :s2_1, after s1_2, 2d
+    Cascade Router Integration & Tool Interceptor                :s2_2, after s2_1, 2d
     section Sprint 3
-    Cloud Run Microservice & Container Packaging    :s3_1, after s2_2, 2d
-    Client SDK & Resilient Connection Fallback      :s3_2, after s3_1, 1d
+    Cloud Run Presidio Microservice (Sydney australia-southeast1):s3_1, after s2_2, 2d
+    IAM OIDC Authentication, Serverless VPC Access & VPC-SC      :s3_2, after s3_1, 1d
     section Sprint 4
-    Frontend Types & Chaos Panel Toggle Switch      :s4_1, after s3_2, 2d
-    Dual-Tab Chat Window (Clean/Shield/Diff View)   :s4_2, after s4_1, 2d
+    Enterprise OOP Base Agent Framework (SovereignResilientAgent):s4_1, after s3_2, 2d
+    General Chat Sovereign Agent & Enterprise Orchestrator Mesh  :s4_2, after s4_1, 2d
     section Sprint 5
-    Multi-Tier E2E Chaos Testing & Zero-Egress Probe:s5_1, after s4_2, 2d
-    Performance & Latency Benchmark Validation      :s5_2, after s5_1, 1d
+    In-Region RAG Grounding Interceptors (Google Drive & Trix)   :s5_1, after s4_2, 2d
+    A2A Sovereign Mesh Zero-PII Egress Validation                :s5_2, after s5_1, 1d
+    section Sprint 6
+    Frontend Types, Telemetry & Chaos Panel Toggle Switch        :s6_1, after s5_2, 2d
+    Dual-Tab Chat Window & A2UI Generative UI Inspector Widget   :s6_2, after s6_1, 2d
+    section Sprint 7
+    130-Test Comprehensive Suite & Chaos Failure Injection       :s7_1, after s6_2, 2d
+    Performance & Latency Benchmark Validation (<15ms scan)      :s7_2, after s7_1, 1d
 ```
 
 ---
@@ -49,16 +55,16 @@ gantt
 ## 3. Detailed Sprint Specifications
 
 ### 🏃 Sprint 1: Core PII Tokenizer Engine & Resilient Vault Manager
-* **Objective:** Implement the standalone Python tokenizer module with Microsoft Presidio, spaCy NER, Australian banking recognizers, and the fuzzy mutation healer.
+* **Objective:** Implement the standalone Python tokenizer module with Microsoft Presidio, spaCy NER, custom Australian recognizers (`AULicensePlateRecognizer`, `AU_TFN`, `AU_MEDICARE`, `AU_BSB_ACCOUNT`), and the fuzzy mutation healer.
 * **Deliverables:**
   1. `src/adk/pii_tokenizer.py`:
      * `SovereignPIITokenizer` class implementing `tokenize()`, `detokenize()`, and `heal_mutations()`.
-     * Deterministic salted token format: `[[PII_<TYPE>_<INDEX>_<SALT>]]`.
-     * Presidio recognizers for standard entities + custom Australian banking recognizers (`AU_TFN`, `AU_MEDICARE`, `AU_BSB_ACCOUNT`).
-  2. `tests/test_pii_tokenizer.py`:
-     * Unit tests covering entity detection, multi-string deterministic stability, session salt isolation, and bracket/casing/possessive mutation healing.
+     * Deterministic salted token format: `[[PII_<TYPE>_<INDEX>_<SALT>]]` and standard `<PII_<TYPE>_<N>>`.
+     * Regex whitelist and exclusions for financial acronyms (`AUD`, `BSB`, `TFN`) and programming syntax.
+  2. `tests/test_pii_tokenizer.py` & `tests/test_au_license_plate_tokenizer.py`:
+     * Unit tests covering state plate formats (NSW, VIC, QLD, WA, SA, TAS, ACT), multi-plate prompts, and salt isolation.
 * **Acceptance Criteria:**
-  * 100% test pass rate with $< 20\text{ms}$ scan time per prompt.
+  * 100% test pass rate with $< 15\text{ms}$ scan time per prompt.
 
 ---
 
@@ -80,48 +86,82 @@ gantt
 
 ---
 
-### 🏃 Sprint 3: Cloud Run Microservice & Enclave Container
-* **Objective:** Package the tokenizer engine as an independent microservice for deployment to Google Cloud Run, with graceful in-process fallback.
+### 🏃 Sprint 3: In-Region Cloud Run Presidio Microservice & Hardened Security Perimeter
+* **Objective:** Package and deploy the Presidio PII Tokenizer as an in-region, zero-trust microservice on Google Cloud Run in Sydney (`australia-southeast1`), enforcing strict IAM OIDC authentication, Serverless VPC Access, internal ingress, and VPC Service Controls.
 * **Deliverables:**
   1. `src/services/pii_tokenizer/`:
-     * `main.py`: FastAPI server exposing `/v1/tokenize`, `/v1/detokenize`, and `/health`.
-     * `Dockerfile`: Multi-stage lightweight container with pre-downloaded spaCy models.
-     * `requirements.txt`: Minimal dependencies for fast cold starts.
-  2. `scripts/deploy_pii_cloud_run.sh`: Automated gcloud build and Cloud Run deployment script.
-  3. Client HTTP wrapper in `src/adk/pii_tokenizer.py` with automatic fallback to local engine if service is offline.
+     * `main.py`: FastAPI server exposing `/v1/tokenize`, `/v1/detokenize`, and `/health` with custom `AULicensePlateRecognizer`.
+     * `Dockerfile`: Multi-stage lightweight container with pre-downloaded spaCy `en_core_web_lg` models.
+     * `requirements.txt`: Minimal dependencies optimized for fast initialization.
+  2. `scripts/deploy_pii_cloud_run.sh`: Automated deployment script:
+     * Deploys to `australia-southeast1` with `--ingress=internal`, `--min-instances=1`, `--cpu=2`, `--memory=4Gi`.
+     * Configures Serverless VPC Access connector (`vpc-connector-syd` on `10.152.0.0/28`).
+     * Enforces `--no-allow-unauthenticated` and binds `roles/run.invoker` exclusively to `sa-sovereign-agent@sovereignagent.iam.gserviceaccount.com`.
+  3. Client Security & Connection Layer in `src/adk/pii_tokenizer.py`:
+     * Service-to-Service OIDC token minting (`google.oauth2.id_token.fetch_id_token`) passing signed `Bearer` tokens.
+     * Private IP connection to Memorystore Redis Primary (`10.152.0.3`) with Redis AUTH and TLS in-transit encryption.
+     * Resilient in-process fallback engine if the remote microservice is offline during local test runs.
+  4. Security & Compliance Verification:
+     * Enrolls Cloud Run, Vertex AI Reasoning Engine, and Memorystore into the Sydney VPC-SC Service Perimeter.
 * **Acceptance Criteria:**
-  * Service responds to `/health` in $< 5\text{ms}$; handles 100 concurrent requests without failure.
+  * Cloud Run service responds to authenticated `/health` probe in $< 5\text{ms}$; unauthenticated requests return `403 Forbidden`.
+  * Cold start latency eliminated via warm minimum instances; 100 concurrent requests processed in $< 20\text{ms}$ per turn.
 
 ---
 
-### 🏃 Sprint 4: Frontend Dual-Context Inspector & Sovereign Shield UI
-* **Objective:** Build the interactive UI tabs and telemetry cards in the React/Tailwind frontend.
+### 🏃 Sprint 4: Enterprise OOP Base Agent Framework & General Chat Sovereignty
+* **Objective:** Deliver the enterprise standard `SovereignResilientAgent` base class enabling downstream specialist subagents and general chat routing with zero boilerplate.
 * **Deliverables:**
-  1. `src/frontend/src/types.ts`:
-     * Add `PIITelemetry` (`entitiesIntercepted`, `scanDurationMs`, `entities`, `tokenizedPrompt`, `zeroEgressVerified`).
-     * Add `enablePiiTokenizer` flag to `SimulationControls`.
-  2. `src/frontend/src/components/ChatWindow.tsx`:
-     * Tab Switcher at the top of the chat:
-       * 💬 **Clean User View** (cleartext).
-       * 🛡️ **Sovereign Shield View** (tokenized context with styled entity chips).
-       * 🔀 **Split / Diff View** (side-by-side comparison).
-     * Telemetry Accordion: Add "🛡️ Zero-PII Egress Shield" telemetry card showing scan duration and intercepted entities.
+  1. `src/adk/base_agent.py`:
+     * `SovereignResilientAgent` base class with automated session hydration, declarative tool extraction, grounding, and 3-tier cascade execution.
+  2. `src/adk/subagents.py`:
+     * `GeneralChatAgent`: Subclass handling open-ended conversational QA, brainstorming, and drafting with transparent in-region PII tokenization and de-tokenization.
+     * `FleetOperationsAgent`, `ClaimsProcessingAgent`, `HRComplianceAgent`: Specialist domain subagents inheriting full sovereignty capabilities in $<5$ lines of code.
+     * `EnterpriseSovereignOrchestrator`: Parent agent coordinating policy verification, domain routing, and defaulting general queries to `GeneralChatAgent`.
+  3. `tests/test_agent_inheritance.py`:
+     * Verifies subclass PII inheritance, AU license plate recognition, and default general chat orchestration.
+* **Acceptance Criteria:**
+  * New agents instantiated in 3 lines of code; general queries execute transparently without latency penalties or markdown corruption.
+
+---
+
+### 🏃 Sprint 5: Sovereign RAG Grounding Interceptors & A2A Sovereign Mesh
+* **Objective:** Build in-region grounding connectors that scrub raw PII from Google Drive docs and Trix (Google Sheets) spreadsheets before LLM context assembly.
+* **Deliverables:**
+  1. `src/adk/connectors/`:
+     * `gdrive_connector.py` & `trix_connector.py`: In-region connectors fetching enterprise docs and spreadsheets.
+     * `grounding_interceptor.py`: `SovereignGroundingInterceptor` executing local Presidio anonymization on retrieved context chunks.
+  2. Subagent Tool Integration:
+     * `search_enterprise_knowledge(query)` automatically registered on all `SovereignResilientAgent` subclasses when `enable_enterprise_grounding=True`.
+  3. `tests/test_drive_and_trix_connectors.py`:
+     * Verifies that grounding search retrieves relevant data while stripping all driver names and contact details.
+* **Acceptance Criteria:**
+  * Zero cleartext PII present in grounded context chunks passed to model inference.
+
+---
+
+### 🏃 Sprint 6: Frontend Dual-Context Inspector, Generative UI & Chaos Panel
+* **Objective:** Build interactive UI controls, dual-lens inspection tabs, and Generative UI widgets in the React/Tailwind frontend.
+* **Deliverables:**
+  1. `src/frontend/src/components/ChatWindow.tsx`:
+     * Tab Switcher: 💬 **Clean User View** (cleartext), 🛡️ **Sovereign Shield View** (tokenized), 🔀 **Split / Diff View**.
+     * Telemetry Accordion: Real-time scan duration, entity chips, and active tier indicator.
+  2. `docs/sovereignty_inspector_widget.html`:
+     * Standalone A2UI Generative UI widget showcasing dual-lens wire vs. cleartext inspection, Drive/Trix diffs, and tool argument traces.
   3. `src/frontend/src/components/ChaosPanel.tsx`:
-     * Add toggle switch: `[ ] Enable Sovereign PII Tokenizer`.
+     * Toggle switches for Sovereign PII Tokenizer, Enterprise Data Grounding, and simulated Tier failures.
 * **Acceptance Criteria:**
-  * User can switch tabs dynamically without reloading; UI clearly visualizes the difference between what the user typed and what the model saw.
+  * Users can dynamically toggle views; executive presentation widget renders interactive inspection traces cleanly.
 
 ---
 
-### 🏃 Sprint 5: Comprehensive Verification, Chaos Testing & Benchmarks
-* **Objective:** Full end-to-end testing, chaos failure injection, and performance validation.
+### 🏃 Sprint 7: Comprehensive 130-Test Verification, Chaos Testing & Benchmarks
+* **Objective:** Full end-to-end testing, chaos failure injection, and performance validation across all 130 test cases.
 * **Deliverables:**
-  1. `scripts/verify_zero_pii_egress.py`: Automated audit probe testing that no names, account numbers, or TFNs ever appear in outbound model payload logs.
-  2. Chaos test cases:
-     * Model bracket mutation injection (testing the fuzzy healer).
-     * Sudden Tier 1 timeout failover to Tier 3 during a tokenized turn.
-     * Replicating Redis recovery test with PII vault synchronization.
-  3. Performance report: Verify tokenization adds $< 25\text{ms}$ total turn latency.
+  1. Automated test suite execution (`pytest tests/`):
+     * 130 tests covering agent inheritance, cascade router, PII chaos, AU license plates, Drive/Trix connectors, Redis sync, and API gateway endpoints.
+  2. `scripts/verify_zero_pii_egress.py`: Automated audit probe verifying 0.00% PII leakage in outbound model logs.
+  3. Performance Benchmarks: Scan latency $< 15\text{ms}$; roundtrip turn overhead $< 25\text{ms}$.
 * **Acceptance Criteria:**
-  * All test suites passing (`pytest tests/`).
-  * 0.00% PII detected in external payload logs.
+  * 130 of 130 tests passing at 100%; zero warnings/regressions.
+

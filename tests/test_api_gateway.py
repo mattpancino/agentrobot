@@ -301,7 +301,7 @@ def test_api_architecture_descriptions():
 
 
 def test_api_demo_reset():
-    """Verify that /api/demo/reset clears all session stores, resets stages to Stage 1, and verifies Tier 3."""
+    """Verify that /api/demo/reset clears all session stores, resets stages to Stage 0, and verifies Tier 3."""
     # First, populate a session with messages
     client.post(
         "/api/chat",
@@ -317,7 +317,9 @@ def test_api_demo_reset():
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "success"
-    assert data["stage"] == 1
+    assert data["stage"] == 0
+    assert data["stageZeroRuntimeEnabled"] is False
+    assert data["stageZeroIntelligenceEnabled"] is False
     assert data["memoryCleared"] is True
     assert data["enterpriseDataEnabled"] is False
     assert data["tokenomicsEnabled"] is False

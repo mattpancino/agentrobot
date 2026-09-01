@@ -193,6 +193,11 @@ def _clean_entity_span(text: str, start: int, end: int, entity_type: str) -> Opt
         if prefix_m:
             l_trim += prefix_m.end()
             clean_text = clean_text[prefix_m.end():].strip()
+    elif entity_type in ("AU_LICENSE_PLATE", "LICENSE_PLATE", "REGO"):
+        prefix_m = re.match(r"^(?:(?:AU\s+)?(?:rego|plate|registration|licence|license)\s*(?:no\.?|number|#|is|:|=)?\s*)", clean_text, re.IGNORECASE)
+        if prefix_m:
+            l_trim += prefix_m.end()
+            clean_text = clean_text[prefix_m.end():].strip()
 
     if not clean_text or len(clean_text) < 2:
         return None
@@ -356,6 +361,103 @@ class SovereignPIITokenizer:
             )
             analyzer.registry.add_recognizer(au_phone_recognizer)
 
+            # Add Australian License Plate (Vehicle Registration) Recognizer
+            class AULicensePlateRecognizer(EntityRecognizer):
+                def __init__(self, supported_entities=None, supported_language="en"):
+                    super().__init__(
+                        supported_entities=supported_entities or ["AU_LICENSE_PLATE"],
+                        supported_language=supported_language,
+                        name="au_license_plate_recognizer",
+                    )
+                    self.plate_regexes = [
+                        re.compile(r"\b(?:NSW|VIC|QLD|WA|SA|TAS|ACT|NT)[-\s]?[A-Z0-9]{3,7}\b", re.IGNORECASE),  # NSW-DL1234, VIC-1AB2CD, NSW-ABC123
+                        re.compile(r"\b[A-Z]{3}[-\s]?[0-9]{3}\b", re.IGNORECASE),  # ABC-123, ABC 123
+                        re.compile(r"\b[0-9]{3}[-\s]?[A-Z]{3}\b", re.IGNORECASE),  # 123-ABC
+                        re.compile(r"\b[0-9][A-Z]{2}[-\s]?[0-9][A-Z]{2}\b", re.IGNORECASE),  # 1AB-2CD
+                        re.compile(r"\b[A-Z]{2}[-\s]?[0-9]{2}[-\s]?[A-Z]{2}\b", re.IGNORECASE),  # AA-11-AA, WX-88-YZ
+                        re.compile(r"\b[0-9]{3}[-\s]?[A-Z]{2}[0-9]\b", re.IGNORECASE),  # 123-AB4
+                        re.compile(r"\b[0-9][A-Z]{3}[-\s]?[0-9]{3}\b", re.IGNORECASE),  # 1ABC-234
+                        re.compile(r"\b[A-Z]{3}[-\s]?[0-9]{2}[A-Z]\b", re.IGNORECASE),  # ABC-12D
+                        re.compile(r"\b[A-Z]{2}[0-9]{2}[A-Z]{2}\b", re.IGNORECASE),  # AB12CD
+                    ]
+                    self.context_plate_regex = re.compile(
+                        r"\b(?:rego|plate|licence|license|vrm|vehicle|car|ute|truck)\s*(?:is|:|=|#)?\s*([A-Za-z0-9]{2,4}[-\s]?[A-Za-z0-9]{2,4})\b",
+                        re.IGNORECASE,
+                    )
+
+                def load(self):
+                    pass
+
+                def analyze(self, text, entities, nlp_artifacts=None):
+                    results = []
+                    if "AU_LICENSE_PLATE" not in entities:
+                        return results
+
+                    reserved_acronyms = {
+                        "TFN", "BSB", "AUD", "USD", "EUR", "SMS", "ATM",
+                        "OTP", "PIN", "TEL", "FAX", "DOC", "PDF", "API",
+                        "URL", "WWW", "HTTP", "HTTPS", "JSON", "HTML",
+                        "ON", "IN", "AT", "BY", "TO", "OF", "IS", "AS",
+                        "NO", "OR", "AM", "PM", "AN", "HE", "WE", "MY",
+                        "AND", "THE", "FOR", "ARE", "BUT", "NOT", "YOU",
+                        "ALL", "ANY", "CAN", "HER", "WAS", "ONE", "OUR",
+                        "OUT", "DAY", "GET", "HAS", "HIM", "HIS", "HOW",
+                        "MAN", "NEW", "NOW", "OLD", "SEE", "TWO", "WAY",
+                        "WHO", "BOY", "DID", "ITS", "LET", "PUT", "SAY",
+                        "SHE", "TOO", "USE", "PER", "CENT", "LVR", "LMI",
+                        "OFF", "CAR", "PAY", "LOW", "MID", "TOP", "END"
+                    }
+
+                    seen = set()
+                    for rx in self.plate_regexes:
+                        for m in rx.finditer(text):
+                            start, end = m.span()
+                            val = m.group(0).strip()
+                            clean_val = re.sub(r"[^A-Za-z0-9]", "", val)
+                            prefix3 = clean_val[:3].upper() if len(clean_val) >= 3 else ""
+                            suffix3 = clean_val[-3:].upper() if len(clean_val) >= 3 else ""
+                            if prefix3 in reserved_acronyms or suffix3 in reserved_acronyms:
+                                continue
+                            letters_only = re.sub(r"[^A-Za-z]", "", clean_val).lower()
+                            if ("-" not in val) and (letters_only in _COMMON_NAME_STOPWORDS or letters_only.upper() in reserved_acronyms):
+                                continue
+                            if any(c.isalpha() for c in clean_val) and any(c.isdigit() for c in clean_val):
+                                if (start, end) not in seen:
+                                    seen.add((start, end))
+                                    results.append(
+                                        RecognizerResult(
+                                            entity_type="AU_LICENSE_PLATE",
+                                            start=start,
+                                            end=end,
+                                            score=0.95,
+                                        )
+                                    )
+
+                    for m in self.context_plate_regex.finditer(text):
+                        val = m.group(1).strip()
+                        c_start = m.start(1)
+                        c_end = m.end(1)
+                        clean_val = re.sub(r"[^A-Za-z0-9]", "", val)
+                        prefix3 = clean_val[:3].upper() if len(clean_val) >= 3 else ""
+                        suffix3 = clean_val[-3:].upper() if len(clean_val) >= 3 else ""
+                        if prefix3 in reserved_acronyms or suffix3 in reserved_acronyms:
+                            continue
+                        if 3 <= len(clean_val) <= 7:
+                            if any(c.isalpha() for c in clean_val) and any(c.isdigit() for c in clean_val):
+                                if not any(s <= c_start < e or s < c_end <= e for s, e in seen):
+                                    seen.add((c_start, c_end))
+                                    results.append(
+                                        RecognizerResult(
+                                            entity_type="AU_LICENSE_PLATE",
+                                            start=c_start,
+                                            end=c_end,
+                                            score=0.92,
+                                        )
+                                    )
+                    return results
+
+            analyzer.registry.add_recognizer(AULicensePlateRecognizer())
+
             # Add Contextual / Conversational Person Recognizer (resilient to lowercase and chat phrases)
             class ContextualPersonRecognizer(EntityRecognizer):
                 def __init__(self, supported_entities=None, supported_language="en"):
@@ -483,7 +585,8 @@ class SovereignPIITokenizer:
             # Australian Banking & Identity Pack
             ("AU_MEDICARE", r"\b[2-6]\d{3}[\s-]?\d{5}[\s-]?\d{1,2}\b", 0.90, "medicare"),
             ("AU_TFN", r"\b(?:\d{3}[\s-]\d{3}[\s-]\d{2,3}|(?:AU\s+)?TFN\s*(?:is|:|=)?\s*\d{3}[\s-]?\d{3}[\s-]?\d{2,3})\b", 0.92, "tfn"),
-            ("AU_BSB_ACCOUNT", r"\b(?:account\s*(?:no\.?|number|#)?\s*[:=]?\s*(?:\d{3}[-\s]\d{3}\s+)?\d{6,10}|\d{3}-\d{3}\s+\d{6,10}|\d{3}-\d{3}|BSB\s*(?:is|:|=)?\s*\d{3}[-\s]?\d{3})\b", 0.92, "bsb"),
+            ("AU_LICENSE_PLATE", r"\b(?:[A-Z]{3}[-\s]?[0-9]{3}|[0-9]{3}[-\s]?[A-Z]{3}|[0-9][A-Z]{2}[-\s]?[0-9][A-Z]{2}|[A-Z]{2}[-\s]?[0-9]{2}[-\s]?[A-Z]{2}|[0-9]{3}[-\s]?[A-Z]{2}[0-9]|[0-9][A-Z]{3}[-\s]?[0-9]{3}|[A-Z]{3}[-\s]?[0-9]{2}[A-Z])\b", 0.95, "rego"),
+            ("AU_LICENSE_PLATE", r"\b(?:rego|plate|licence|license|vrm|vehicle)\s+(?:is\s+|:\s*|=\s*|#\s*)?([A-Za-z0-9]{2,4}[-\s]?[A-Za-z0-9]{2,4})\b", 0.90, "rego"),
 
             # Person Names & Identifiers (Heuristic Patterns & Titles)
             ("PERSON", r"\b(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", 0.92, "regex"),
@@ -531,6 +634,30 @@ class SovereignPIITokenizer:
                         valid = False
                 elif validator_type == "bsb":
                     valid = True
+                elif validator_type == "rego":
+                    clean_plate = re.sub(r"[^A-Za-z0-9]", "", matched_text)
+                    prefix3 = clean_plate[:3].upper() if len(clean_plate) >= 3 else ""
+                    suffix3 = clean_plate[-3:].upper() if len(clean_plate) >= 3 else ""
+                    reserved_prefixes = {
+                        "TFN", "BSB", "AUD", "USD", "EUR", "SMS", "ATM",
+                        "OTP", "PIN", "TEL", "FAX", "DOC", "PDF", "API",
+                        "URL", "WWW", "HTTP", "HTTPS", "NSW", "VIC", "QLD", "ACT"
+                    }
+                    if prefix3 in reserved_prefixes or suffix3 in reserved_prefixes:
+                        valid = False
+                    elif 4 <= len(clean_plate) <= 7:
+                        has_letter = any(c.isalpha() for c in clean_plate)
+                        has_digit = any(c.isdigit() for c in clean_plate)
+                        if has_letter and has_digit:
+                            valid = True
+                            confidence = 0.95
+                        elif any(ctx in text.lower() for ctx in ["rego", "plate", "license", "licence", "vehicle", "car", "ute", "truck", "nsw", "vic", "qld", "wa", "sa", "tas", "act", "nt", "toll", "infringement"]):
+                            valid = True
+                            confidence = 0.90
+                        else:
+                            valid = False
+                    else:
+                        valid = False
 
                 if valid:
                     clean_span = _clean_entity_span(text, start, end, entity_type)
@@ -569,6 +696,7 @@ class SovereignPIITokenizer:
                         "AU_TFN",
                         "AU_MEDICARE",
                         "AU_BSB_ACCOUNT",
+                        "AU_LICENSE_PLATE",
                     ],
                 )
                 

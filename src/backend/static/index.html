@@ -239,6 +239,10 @@
         rgba(15, 23, 42, 0.8) 12px
       );
     }
+    @keyframes shrink {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
   </style>
 </head>
 <body>
@@ -379,12 +383,243 @@
       },
     };
 
+    function RobotLeg({ isLeft, isRuntimeOn, isEyeStrobing, agentChar }) {
+      const activeColor = agentChar?.runtimeEyeColor || agentChar?.eyeColor || '#3b82f6';
+      const idPrefix = isLeft ? 'left-leg' : 'right-leg';
 
-    function TelemetryHeader() {
+      return (
+        <svg
+          viewBox="0 0 54 94"
+          className="w-full h-full overflow-visible select-none"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            {/* Hydraulic chrome gradient for pistons */}
+            <linearGradient id={`${idPrefix}-pistonGrad`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#334155" />
+              <stop offset="25%" stopColor="#94a3b8" />
+              <stop offset="55%" stopColor="#f8fafc" />
+              <stop offset="85%" stopColor="#cbd5e1" />
+              <stop offset="100%" stopColor="#1e293b" />
+            </linearGradient>
+
+            {/* Armored plating gradient */}
+            <linearGradient id={`${idPrefix}-armorGrad`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#1e293b" />
+              <stop offset="50%" stopColor="#0f172a" />
+              <stop offset="100%" stopColor="#020617" />
+            </linearGradient>
+
+            {/* Reactor core radial glow */}
+            <radialGradient id={`${idPrefix}-coreGlow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+              <stop offset="45%" stopColor={activeColor} stopOpacity="0.9" />
+              <stop offset="100%" stopColor={activeColor} stopOpacity="0" />
+            </radialGradient>
+
+            {/* Under-foot magnetic levitation pad glow */}
+            <radialGradient id={`${idPrefix}-soleGlow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={activeColor} stopOpacity={isRuntimeOn ? "0.6" : "0"} />
+              <stop offset="100%" stopColor={activeColor} stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* ================= 1. PELVIC HIP MOUNTING BRACKET ================= */}
+          {/* Base chassis bracket attaching under torso */}
+          <rect x="14" y="0" width="26" height="6" rx="2" fill="#1e293b" stroke="#64748b" strokeWidth="1.2" />
+          {/* Pelvis rivets matching head collar rivets */}
+          <circle cx="18" cy="3" r="1" fill="#94a3b8" />
+          <circle cx="27" cy="3" r="1" fill="#94a3b8" />
+          <circle cx="36" cy="3" r="1" fill="#94a3b8" />
+
+          {/* Upper hip ball swivel socket */}
+          <rect x="20" y="6" width="14" height="5" rx="2" fill="#334155" stroke="#64748b" strokeWidth="1" />
+          <circle cx="27" cy="8.5" r="1.5" fill="#cbd5e1" />
+
+          {/* ================= 2. UPPER THIGH / HYDRAULIC ASSEMBLY ================= */}
+          {/* Outer armored cylinder casing */}
+          <rect
+            x="19"
+            y="11"
+            width="16"
+            height="22"
+            rx="3"
+            fill={`url(#${idPrefix}-armorGrad)`}
+            stroke="#64748b"
+            strokeWidth="1.2"
+          />
+          {/* Inner chrome guide rails */}
+          <line x1="22" y1="13" x2="22" y2="31" stroke="#475569" strokeWidth="1" />
+          <line x1="32" y1="13" x2="32" y2="31" stroke="#475569" strokeWidth="1" />
+
+          {/* Center illuminated power conduit */}
+          <line
+            x1="27"
+            y1="14"
+            x2="27"
+            y2="30"
+            stroke={isRuntimeOn ? activeColor : '#334155'}
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            opacity={isRuntimeOn ? (isEyeStrobing ? "0.95" : "0.85") : "0.25"}
+            className={isRuntimeOn ? "animate-pulse" : ""}
+          />
+
+          {/* Left stabilizer hydraulic strut */}
+          <line x1="12" y1="13" x2="12" y2="31" stroke={`url(#${idPrefix}-pistonGrad)`} strokeWidth="1.8" strokeLinecap="round" />
+          <rect x="10" y="11" width="4.5" height="3" rx="1" fill="#334155" stroke="#64748b" strokeWidth="0.8" />
+          <rect x="10" y="30" width="4.5" height="3" rx="1" fill="#334155" stroke="#64748b" strokeWidth="0.8" />
+          <circle cx="12.25" cy="12.5" r="0.75" fill="#cbd5e1" />
+          <circle cx="12.25" cy="31.5" r="0.75" fill="#cbd5e1" />
+
+          {/* Right stabilizer hydraulic strut */}
+          <line x1="42" y1="13" x2="42" y2="31" stroke={`url(#${idPrefix}-pistonGrad)`} strokeWidth="1.8" strokeLinecap="round" />
+          <rect x="39.5" y="11" width="4.5" height="3" rx="1" fill="#334155" stroke="#64748b" strokeWidth="0.8" />
+          <rect x="39.5" y="30" width="4.5" height="3" rx="1" fill="#334155" stroke="#64748b" strokeWidth="0.8" />
+          <circle cx="41.75" cy="12.5" r="0.75" fill="#cbd5e1" />
+          <circle cx="41.75" cy="31.5" r="0.75" fill="#cbd5e1" />
+
+          {/* ================= 3. ARTICULATED KNEE JOINT (ROTARY BEARING) ================= */}
+          {/* Outer rotary bearing housing */}
+          <circle cx="27" cy="41" r="9" fill="#0f172a" stroke="#64748b" strokeWidth="1.4" />
+          {/* Middle mechanical ring */}
+          <circle cx="27" cy="41" r="6.5" fill="#1e293b" stroke="#475569" strokeWidth="1" />
+
+          {/* Perimeter gear notches / rivets at 12, 3, 6, 9 o'clock */}
+          <circle cx="27" cy="34" r="0.8" fill="#94a3b8" />
+          <circle cx="27" cy="48" r="0.8" fill="#94a3b8" />
+          <circle cx="20" cy="41" r="0.8" fill="#94a3b8" />
+          <circle cx="34" cy="41" r="0.8" fill="#94a3b8" />
+
+          {/* Illuminated Servo Reactor Core (Glows with active tier when online) */}
+          <circle
+            cx="27"
+            cy="41"
+            r="3.5"
+            fill={isRuntimeOn ? activeColor : '#0f172a'}
+            stroke={isRuntimeOn ? '#ffffff' : '#334155'}
+            strokeWidth="1"
+            style={
+              isRuntimeOn
+                ? {
+                    filter: `drop-shadow(0 0 6px ${activeColor}) drop-shadow(0 0 10px ${activeColor}88)`,
+                  }
+                : {}
+            }
+          />
+          {isRuntimeOn && <circle cx="25.8" cy="39.8" r="1.1" fill="#ffffff" opacity="0.95" />}
+
+          {/* ================= 4. LOWER SHIN: VERTEBRAE & FLANKING PISTONS ================= */}
+          {/* Central segmented spinal column / vertebral discs matching the robot neck */}
+          <g>
+            {/* Vertebra 1 */}
+            <rect x="19" y="50" width="16" height="4" rx="1.5" fill="#1e293b" stroke="#64748b" strokeWidth="1" />
+            {/* Vertebra 2 */}
+            <rect x="18" y="55" width="18" height="4" rx="1.5" fill="#334155" stroke="#94a3b8" strokeWidth="1.1" />
+            {/* Vertebra 3 */}
+            <rect x="19" y="60" width="16" height="4" rx="1.5" fill="#1e293b" stroke="#64748b" strokeWidth="1" />
+            {/* Vertebra 4 */}
+            <rect x="18" y="65" width="18" height="4" rx="1.5" fill="#334155" stroke="#94a3b8" strokeWidth="1.1" />
+          </g>
+
+          {/* Left heavy shock piston cylinder */}
+          <g>
+            <rect x="8.5" y="50" width="6" height="19" rx="1.5" fill="#0f172a" stroke="#64748b" strokeWidth="1.1" />
+            <line x1="11.5" y1="52" x2="11.5" y2="67" stroke={`url(#${idPrefix}-pistonGrad)`} strokeWidth="2.2" strokeLinecap="round" />
+            <circle cx="11.5" cy="51.5" r="1.3" fill="#334155" stroke="#94a3b8" strokeWidth="0.8" />
+            <circle cx="11.5" cy="67.5" r="1.3" fill="#334155" stroke="#94a3b8" strokeWidth="0.8" />
+          </g>
+
+          {/* Right heavy shock piston cylinder */}
+          <g>
+            <rect x="39.5" y="50" width="6" height="19" rx="1.5" fill="#0f172a" stroke="#64748b" strokeWidth="1.1" />
+            <line x1="42.5" y1="52" x2="42.5" y2="67" stroke={`url(#${idPrefix}-pistonGrad)`} strokeWidth="2.2" strokeLinecap="round" />
+            <circle cx="42.5" cy="51.5" r="1.3" fill="#334155" stroke="#94a3b8" strokeWidth="0.8" />
+            <circle cx="42.5" cy="67.5" r="1.3" fill="#334155" stroke="#94a3b8" strokeWidth="0.8" />
+          </g>
+
+          {/* ================= 5. ANKLE PIVOT & FLANGES ================= */}
+          <rect x="16" y="70" width="22" height="5.5" rx="2" fill="#1e293b" stroke="#64748b" strokeWidth="1.2" />
+          <circle cx="19.5" cy="72.8" r="0.9" fill="#94a3b8" />
+          <circle cx="27" cy="72.8" r="0.9" fill="#94a3b8" />
+          <circle cx="34.5" cy="72.8" r="0.9" fill="#94a3b8" />
+
+          {/* ================= 6. 1950s RETRO-FUTURISTIC ROBOT FOOT ================= */}
+          {/* Main sculpted boot chassis (mirrored slightly for natural left/right stance) */}
+          {isLeft ? (
+            <g>
+              {/* Left Boot Body (Toe flared to left) */}
+              <path
+                d="M 17 75 L 37 75 C 43 75 47 79 47 84 L 47 86 L 5 86 L 5 81 C 5 77 9 75 17 75 Z"
+                fill={`url(#${idPrefix}-armorGrad)`}
+                stroke="#64748b"
+                strokeWidth="1.4"
+              />
+              {/* Retro mouth-grille style horizontal traction vents on toe */}
+              <line x1="8" y1="79" x2="16" y2="79" stroke="#64748b" strokeWidth="1.1" strokeLinecap="round" />
+              <line x1="8" y1="82" x2="16" y2="82" stroke="#64748b" strokeWidth="1.1" strokeLinecap="round" />
+              {/* Rivet details along boot rim */}
+              <circle cx="22" cy="80" r="0.9" fill="#94a3b8" />
+              <circle cx="29" cy="80" r="0.9" fill="#94a3b8" />
+              <circle cx="36" cy="80" r="0.9" fill="#94a3b8" />
+            </g>
+          ) : (
+            <g>
+              {/* Right Boot Body (Toe flared to right) */}
+              <path
+                d="M 37 75 L 17 75 C 11 75 7 79 7 84 L 7 86 L 49 86 L 49 81 C 49 77 45 75 37 75 Z"
+                fill={`url(#${idPrefix}-armorGrad)`}
+                stroke="#64748b"
+                strokeWidth="1.4"
+              />
+              {/* Retro mouth-grille style horizontal traction vents on toe */}
+              <line x1="38" y1="79" x2="46" y2="79" stroke="#64748b" strokeWidth="1.1" strokeLinecap="round" />
+              <line x1="38" y1="82" x2="46" y2="82" stroke="#64748b" strokeWidth="1.1" strokeLinecap="round" />
+              {/* Rivet details along boot rim */}
+              <circle cx="18" cy="80" r="0.9" fill="#94a3b8" />
+              <circle cx="25" cy="80" r="0.9" fill="#94a3b8" />
+              <circle cx="32" cy="80" r="0.9" fill="#94a3b8" />
+            </g>
+          )}
+
+          {/* Sole Plate / Magnetic Clamp */}
+          <rect x="4" y="86" width="46" height="4.5" rx="1.5" fill="#1e293b" stroke="#475569" strokeWidth="1.1" />
+          {/* Sole Traction Grooves */}
+          <line x1="12" y1="86" x2="12" y2="90.5" stroke="#334155" strokeWidth="1.2" />
+          <line x1="20" y1="86" x2="20" y2="90.5" stroke="#334155" strokeWidth="1.2" />
+          <line x1="27" y1="86" x2="27" y2="90.5" stroke="#334155" strokeWidth="1.2" />
+          <line x1="34" y1="86" x2="34" y2="90.5" stroke="#334155" strokeWidth="1.2" />
+          <line x1="42" y1="86" x2="42" y2="90.5" stroke="#334155" strokeWidth="1.2" />
+
+          {/* Under-foot Magnetic Ground Emitter Glow */}
+          {isRuntimeOn && (
+            <ellipse
+              cx="27"
+              cy="92"
+              rx="21"
+              ry="2.5"
+              fill={`url(#${idPrefix}-soleGlow)`}
+            />
+          )}
+        </svg>
+      );
+    }
+
+    const STAGE_TITLES = {
+      0: 'Stage 0: Genesis Lab',
+      1: 'Stage 1: Core Memory',
+      2: 'Stage 2: Zero-PII',
+      3: 'Stage 3: Add Skills - LVR',
+      4: 'Stage 4: Tokenomics',
+    };
+
+    function TelemetryHeader({ currentStage = 1 }) {
+      const stageTitle = STAGE_TITLES[currentStage] || `Stage ${currentStage}`;
       return (
         <header className="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-md">
           <h1 className="text-base md:text-lg font-bold tracking-tight text-white font-sans bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-            Sovereign Agent Demo
+            Anatomy of an Agent - {stageTitle}
           </h1>
         </header>
       );
@@ -502,20 +737,26 @@
         onChange({ ...controls, failedTiers: updatedFailed });
       };
 
-      const getEffectiveActiveTier = () => {
-        const failed = controls.failedTiers || [];
-        const tierOrder = ['TIER_1_GLOBAL', 'TIER_2_REGIONAL', 'TIER_3_SOVEREIGN'];
-        const startIndex =
-          controls.forcedTier !== 'AUTO'
-            ? tierOrder.indexOf(controls.forcedTier)
-            : 0;
+      const lastMetadataItem = lastMetadata || (messages && messages.length > 0 && messages[messages.length - 1]?.metadata) || null;
 
-        for (let i = Math.max(0, startIndex); i < tierOrder.length; i++) {
-          if (!failed.includes(tierOrder[i])) {
-            return tierOrder[i];
-          }
+      const getEffectiveActiveTier = () => {
+        // 1. Manual Sovereignty Override: Immediately reflect explicit user lock
+        if (controls.forcedTier && controls.forcedTier !== 'AUTO') {
+          return controls.forcedTier;
         }
-        return 'TIER_3_SOVEREIGN';
+        // 2. Preemptively reflect target tier if user has injected faults in AUTO mode
+        if (controls.failedTiers && controls.failedTiers.includes('TIER_1_GLOBAL')) {
+          if (controls.failedTiers.includes('TIER_2_REGIONAL')) {
+            return 'TIER_3_SOVEREIGN';
+          }
+          return 'TIER_2_REGIONAL';
+        }
+        // 3. Dynamic Auto Cascade: Only reflect the tier that actually served the prompt when data was sent
+        if (lastMetadataItem?.activeTier) {
+          return lastMetadataItem.activeTier;
+        }
+        // 4. Default initial tier prior to first inference execution
+        return 'TIER_1_GLOBAL';
       };
 
       const activeTier = getEffectiveActiveTier();
@@ -569,25 +810,6 @@
             : 'text-amber-400 font-semibold';
         }
 
-        const getModelDisplayName = (tier) => {
-          const configuredModel = controls.tierSettings?.[tier]?.model;
-          if (configuredModel) {
-            if (configuredModel === 'gemini-3.7-flash') return 'Gemini 3.7 Flash';
-            if (configuredModel === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
-            if (configuredModel === 'gemini-1.5-pro-002') return 'Gemini 1.5 Pro (002)';
-            if (configuredModel === 'gemini-1.5-flash-002') return 'Gemini 1.5 Flash (002)';
-            if (configuredModel === 'gemini-2.0-flash-001') return 'Gemini 2.0 Flash (001)';
-            if (configuredModel === 'gemini-2.0-pro-exp-02-05') return 'Gemini 2.0 Pro Experimental';
-            if (configuredModel === 'gemini-1.0-pro-002') return 'Gemini 1.0 Pro (002)';
-            if (configuredModel === 'gemini-1.5-flash-001') return 'Gemini 1.5 Flash (001)';
-            if (configuredModel.includes('gemma')) return 'Gemma 2 (Self-Hosted)';
-            return configuredModel;
-          }
-          if (tier === 'TIER_1_GLOBAL') return 'Gemini 3.7 Flash';
-          if (tier === 'TIER_2_REGIONAL') return 'Gemini 2.5 Flash';
-          return 'Gemma 2 (Self-Hosted)';
-        };
-
         // Live cumulative and latest turn token calculation
         let inTokensCount = 0;
         let outTokensCount = 0;
@@ -632,36 +854,36 @@
 
         const getBrainImage = (tier, modelId, isIntelOn) => {
           if (!isIntelOn) {
-            return '/static/images/robot/robot_head_dormant.jpg';
+            return '/static/images/robot/robot_head_dormant.png';
           }
           if (!modelId) {
-            if (tier === 'TIER_3_SOVEREIGN') return '/static/images/robot/robot_head_emerald.jpg';
-            if (tier === 'TIER_2_REGIONAL') return '/static/images/robot/robot_head_amber.jpg';
-            return '/static/images/robot/robot_head_blue.jpg';
+            if (tier === 'TIER_3_SOVEREIGN') return '/static/images/robot/robot_head_emerald.png';
+            if (tier === 'TIER_2_REGIONAL') return '/static/images/robot/robot_head_amber.png';
+            return '/static/images/robot/robot_head_blue.png';
           }
           const m = modelId.toLowerCase();
           if (m.includes('gemma') || m.includes('airgap') || m.includes('sovereign')) {
-            return '/static/images/robot/robot_head_emerald.jpg';
+            return '/static/images/robot/robot_head_emerald.png';
           }
           if (m.includes('claude') || m.includes('sonnet') || m.includes('haiku') || m.includes('opus')) {
-            return '/static/images/robot/robot_head_amber.jpg';
+            return '/static/images/robot/robot_head_ruby.png';
           }
           if (m.includes('pro') || m.includes('ultra') || m.includes('reasoning') || m.includes('exp')) {
-            return '/static/images/robot/robot_head_purple.jpg';
+            return '/static/images/robot/robot_head_purple.png';
           }
           if (m.includes('llama') || m.includes('deepseek') || m.includes('mistral') || m.includes('qwen')) {
-            return '/static/images/robot/robot_head_ruby.jpg';
+            return '/static/images/robot/robot_head_ruby.png';
           }
           if (m.includes('custom') || m.includes('finetune') || m.includes('apra') || m.includes('magenta')) {
-            return '/static/images/robot/robot_head_magenta.jpg';
+            return '/static/images/robot/robot_head_magenta.png';
           }
           if (tier === 'TIER_2_REGIONAL') {
-            return '/static/images/robot/robot_head_amber.jpg';
+            return '/static/images/robot/robot_head_amber.png';
           }
           if (tier === 'TIER_3_SOVEREIGN') {
-            return '/static/images/robot/robot_head_emerald.jpg';
+            return '/static/images/robot/robot_head_emerald.png';
           }
-          return '/static/images/robot/robot_head_blue.jpg';
+          return '/static/images/robot/robot_head_blue.png';
         };
 
         const activeModelIdentifier = controls.tierSettings?.[activeTier]?.model || (
@@ -669,6 +891,7 @@
         );
         const rates = getModelPricingRates(activeModelIdentifier);
         const currentHeadImage = getBrainImage(activeTier, activeModelIdentifier, isIntelligenceOn);
+        const isClaudeModel = activeModelIdentifier.toLowerCase().includes('claude') || activeModelIdentifier.toLowerCase().includes('sonnet');
 
         let modelRateFormatted = '';
         if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
@@ -686,6 +909,26 @@
           const totalCost = inCostTotal + outCostTotal;
           costPer10kFormatted = `$${totalCost.toFixed(2)} / 10k Turns`;
         }
+
+        const getModelDisplayName = (tier) => {
+          const configuredModel = controls.tierSettings?.[tier]?.model;
+          if (configuredModel) {
+            if (configuredModel.includes('claude') || configuredModel.includes('sonnet')) return 'Claude 3.5 Sonnet v2 (Model Garden)';
+            if (configuredModel === 'gemini-3.7-flash') return 'Gemini 3.7 Flash';
+            if (configuredModel === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
+            if (configuredModel === 'gemini-1.5-pro-002') return 'Gemini 1.5 Pro (002)';
+            if (configuredModel === 'gemini-1.5-flash-002') return 'Gemini 1.5 Flash (002)';
+            if (configuredModel === 'gemini-2.0-flash-001') return 'Gemini 2.0 Flash (001)';
+            if (configuredModel === 'gemini-2.0-pro-exp-02-05') return 'Gemini 2.0 Pro Experimental';
+            if (configuredModel === 'gemini-1.0-pro-002') return 'Gemini 1.0 Pro (002)';
+            if (configuredModel === 'gemini-1.5-flash-001') return 'Gemini 1.5 Flash (001)';
+            if (configuredModel.includes('gemma')) return 'Gemma 2 (Self-Hosted)';
+            return configuredModel;
+          }
+          if (tier === 'TIER_1_GLOBAL') return 'Gemini 3.7 Flash';
+          if (tier === 'TIER_2_REGIONAL') return 'Gemini 2.5 Flash';
+          return 'Gemma 2 (Self-Hosted)';
+        };
 
         switch (activeTier) {
           case 'TIER_2_REGIONAL':
@@ -762,6 +1005,43 @@
             };
           case 'TIER_1_GLOBAL':
           default:
+            if (isClaudeModel) {
+              return {
+                name: 'Global Partner Agent (Claude 3.5)',
+                runtime: 'Vertex AI Agent Engine (AU-SYD)',
+                runtimeColor: 'text-amber-400 font-semibold',
+                modelLocation: 'Iowa, USA (us-central1)',
+                modelLocationColor: 'text-red-400 font-semibold',
+                model: getModelDisplayName('TIER_1_GLOBAL'),
+                modelColor: 'text-red-400 font-bold',
+                memory: 'Vertex AI Managed Sessions (AU-SYD)',
+                memoryColor: 'text-amber-400 font-semibold',
+                piiCleanser: piiCleanserText,
+                piiCleanserColor: piiCleanserColor,
+                skill: skillText,
+                skillColor: skillColor,
+                tool: toolText,
+                toolColor: toolColor,
+                storageRest: storageRestText,
+                storageRestColor: storageRestColor,
+                tokensUsed: tokensUsedFormatted,
+                tokensUsedColor: 'text-slate-100 font-medium font-mono',
+                modelRate: modelRateFormatted,
+                modelRateColor: 'text-red-400 font-bold font-mono',
+                costPer10kTurns: costPer10kFormatted,
+                costPer10kTurnsColor: 'text-red-400 font-bold font-mono',
+                costPer1000Turns: costPer10kFormatted,
+                costPer1000TurnsColor: 'text-red-400 font-bold font-mono',
+                color: 'red',
+                borderClass: 'border-red-500/50 bg-gradient-to-b from-red-950/50 via-red-950/20 to-slate-950',
+                glowClass: 'shadow-lg shadow-red-500/20 ring-1 ring-red-500/30',
+                eyeColor: '#ef4444',
+                runtimeEyeColor: '#f59e0b',
+                brainColor: '#ef4444',
+                headImage: currentHeadImage,
+                pulseClass: 'bg-red-500',
+              };
+            }
             return {
               name: 'Global Frontier Agent',
               runtime: 'Vertex AI Agent Engine (AU-SYD)',
@@ -885,7 +1165,6 @@
                         <span className={`w-2 h-2 rounded-full ${isRuntimeOn ? agentChar.pulseClass : 'bg-slate-600'}`} />
                         <span>Active Sovereign Agent</span>
                       </div>
-                      <h2 className="text-base font-bold text-white truncate mt-0.5">{agentChar.name}</h2>
                     </div>
                   </div>
 
@@ -986,8 +1265,8 @@
                           </div>
                         )}
 
-                        {/* 4. Memory (Stages 1..4) */}
-                        {currentStage >= 1 && (
+                        {/* 4. Memory (Stage 0 with Runtime, Stages 1..4) */}
+                        {isRuntimeOn && (
                           <div
                             onClick={() =>
                               onOpenArchitectureModal &&
@@ -1262,24 +1541,26 @@
                 </div>
               </div>
 
-              {/* 3. ROBOT LEGS: HYDRAULIC SUSPENSION (DYNAMIC COMPRESSION) */}
-              <div className="flex justify-center gap-12 mt-1 px-8">
-                {/* Left Leg */}
-                <div className={`w-3.5 flex flex-col items-center transition-all duration-300 ${
-                  currentStage === 0 ? 'h-10' : currentStage === 1 ? 'h-8' : currentStage === 2 ? 'h-7' : 'h-5'
-                }`}>
-                  <div className="w-3 h-1 bg-slate-700 rounded-t-sm" />
-                  <div className="w-2 flex-1 bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 border-x border-slate-600" />
-                  <div className="w-5 h-2 bg-slate-800 border border-slate-600 rounded-sm shadow-md" />
+              {/* 3. RETRO-FUTURISTIC 1950s ROBOT LEGS: ARTICULATED HYDRAULIC SUSPENSION */}
+              <div className="flex justify-center items-start gap-14 mt-1 px-4 select-none">
+                {/* Left Articulated Mech Leg */}
+                <div className="relative w-14 h-24 transition-all duration-300 drop-shadow-md hover:scale-105">
+                  <RobotLeg
+                    isLeft={true}
+                    isRuntimeOn={isRuntimeOn}
+                    isEyeStrobing={isEyeStrobing}
+                    agentChar={agentChar}
+                  />
                 </div>
 
-                {/* Right Leg */}
-                <div className={`w-3.5 flex flex-col items-center transition-all duration-300 ${
-                  currentStage === 0 ? 'h-10' : currentStage === 1 ? 'h-8' : currentStage === 2 ? 'h-7' : 'h-5'
-                }`}>
-                  <div className="w-3 h-1 bg-slate-700 rounded-t-sm" />
-                  <div className="w-2 flex-1 bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 border-x border-slate-600" />
-                  <div className="w-5 h-2 bg-slate-800 border border-slate-600 rounded-sm shadow-md" />
+                {/* Right Articulated Mech Leg */}
+                <div className="relative w-14 h-24 transition-all duration-300 drop-shadow-md hover:scale-105">
+                  <RobotLeg
+                    isLeft={false}
+                    isRuntimeOn={isRuntimeOn}
+                    isEyeStrobing={isEyeStrobing}
+                    agentChar={agentChar}
+                  />
                 </div>
               </div>
             </div>
@@ -1609,7 +1890,7 @@
                   {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF, Tokenomics: OFF)"}
                   {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF, Tokenomics: OFF)"}
                   {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON, Tokenomics: OFF)"}
-                  {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling with live token counters and rate cards. (PII Shield: ON, Tools: ON, Tokenomics: ON)"}
+                  {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling. Tier 1 routes to Claude 3.5 Sonnet (Iowa $3.00/$15.00) showing huge cost disparity vs Gemini Flash ($0.10/$0.40) & On-Prem Gemma ($0.00)."}
                 </div>
               </div>
             )}
@@ -1623,7 +1904,7 @@
                 onClick={onResetDemo}
                 disabled={isResettingDemo}
                 className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-950/40 border border-emerald-400/40 flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-[0.99]"
-                title="Reset Demo: Sets stages back to 1, clears all memory, and ensures Tier 3 Gemma enclave is active and reachable"
+                title="Reset Demo: Sets stage back to Stage 0 (Genesis Lab), clears all memory, and ensures Tier 3 Gemma enclave is active and reachable"
               >
                 {isResettingDemo ? (
                   <>
@@ -3652,6 +3933,30 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
       const [directPrompt, setDirectPrompt] = useState('');
       const [promptOutput, setPromptOutput] = useState('');
       const [isSendingPrompt, setIsSendingPrompt] = useState(false);
+      const [runtimeExpanded, setRuntimeExpanded] = useState(false);
+      const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
+      const [showRuntimeModal, setShowRuntimeModal] = useState(false);
+      const runtimeModalTimerRef = React.useRef(null);
+
+      React.useEffect(() => {
+        return () => {
+          if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+        };
+      }, []);
+
+      const handleToggleRuntimeWithPopup = (nextState) => {
+        if (nextState) {
+          setShowRuntimeModal(true);
+          if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+          runtimeModalTimerRef.current = setTimeout(() => {
+            setShowRuntimeModal(false);
+          }, 5000);
+        } else {
+          setShowRuntimeModal(false);
+          if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+        }
+        if (onToggleRuntime) onToggleRuntime(nextState);
+      };
 
       const handleTestPrompt = async (e) => {
         e.preventDefault();
@@ -3675,7 +3980,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
           });
           if (res.ok) {
             const data = await res.json();
-            setPromptOutput(data.response || 'Diagnostic response completed with 200 OK');
+            setPromptOutput(data.content || data.response || 'Diagnostic response completed with 200 OK');
           } else {
             setPromptOutput('Error: HTTP ' + res.status);
           }
@@ -3698,18 +4003,15 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 <span>STAGE 0: GENESIS &amp; ASSEMBLY LAB</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white font-sans">
-                Bring the Sovereign Agent to Life
+                Bring the Agent to Life
               </h1>
-              <p className="text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
-                Initialize foundational agent sub-systems via physical circuit isolation. Throw the heavy-duty industrial breakers to power the mechanical chassis and synaptically mount cognitive models before proceeding.
-              </p>
             </div>
 
             {/* Dual Industrial Circuit Breakers Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Circuit Breaker 1: Execution Runtime */}
               <div
-                onClick={() => onToggleRuntime && onToggleRuntime(!runtimeEnabled)}
+                onClick={() => handleToggleRuntimeWithPopup(!runtimeEnabled)}
                 className={`rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none relative overflow-hidden group ${
                   runtimeEnabled
                     ? 'bg-slate-900/90 border-amber-500/60 shadow-xl shadow-amber-500/10'
@@ -3722,7 +4024,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
-                      Breaker #1 • Sub-System Power
+                      Pillar #1 • Compute &amp; Orchestration
                     </div>
                     <h3 className="text-lg font-bold text-white mt-0.5 flex items-center gap-2">
                       <span>⚙️</span> Execution Runtime
@@ -3745,11 +4047,11 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 </div>
 
                 {/* Knife-Switch Throw Lever Representation */}
-                <div className="my-6 p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div className="my-5 p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                   <div className="space-y-1">
-                    <div className="text-xs font-semibold text-slate-200">Chassis &amp; Hardware Bus</div>
+                    <div className="text-xs font-semibold text-slate-200">Chassis &amp; Sandbox Environment</div>
                     <div className="text-[11px] text-slate-400">
-                      {runtimeEnabled ? 'Power bus online • Optics active' : 'Click switch to throw breaker'}
+                      {runtimeEnabled ? 'Vertex AI Agent Engine • Enclave Online' : 'Click switch to throw breaker'}
                     </div>
                   </div>
 
@@ -3775,16 +4077,53 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   </div>
                 </div>
 
-                {/* Action Summary Bullets */}
-                <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-4">
-                  <div className={`flex items-center gap-2 ${runtimeEnabled ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>
-                    <span>{runtimeEnabled ? '✔' : '○'}</span>
-                    <span>Visor eyes boot strobe (blinks) &rarr; steady lit ON</span>
-                  </div>
-                  <div className={`flex items-center gap-2 ${runtimeEnabled ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>
-                    <span>{runtimeEnabled ? '✔' : '○'}</span>
-                    <span>Injects ⚙️ Runtime element into Torso body</span>
-                  </div>
+                {/* What is a Runtime? Collapsible Accordion */}
+                <div
+                  className="border-t border-slate-800/80 pt-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setRuntimeExpanded(!runtimeExpanded)}
+                    className="w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 hover:bg-slate-800/40 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>⚙️</span>
+                      <span>What is a Runtime?</span>
+                    </div>
+                    <svg
+                      className={`w-3.5 h-3.5 transform transition-transform duration-200 ${
+                        runtimeExpanded ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {runtimeExpanded && (
+                    <div className="mt-2.5 space-y-3 animate-in fade-in duration-200">
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        The sandboxed compute environment that hosts the agent's application code, coordinates multi-turn workflows, and executes deterministic tools.
+                      </p>
+                      <div className="space-y-2 text-xs font-mono pt-1">
+                        <div className={`flex items-start gap-2 ${runtimeEnabled ? 'text-amber-300' : 'text-slate-400'}`}>
+                          <span className="shrink-0 mt-0.5">{runtimeEnabled ? '✔' : '○'}</span>
+                          <span><strong>Workflow Orchestration:</strong> Manages turn loops, session lifecycles, and tool call routing.</span>
+                        </div>
+                        <div className={`flex items-start gap-2 ${runtimeEnabled ? 'text-amber-300' : 'text-slate-400'}`}>
+                          <span className="shrink-0 mt-0.5">{runtimeEnabled ? '✔' : '○'}</span>
+                          <span><strong>Deterministic Tools:</strong> Safely runs mathematical calculations and APIs without hallucination.</span>
+                        </div>
+                        <div className={`flex items-start gap-2 ${runtimeEnabled ? 'text-amber-300' : 'text-slate-400'}`}>
+                          <span className="shrink-0 mt-0.5">{runtimeEnabled ? '✔' : '○'}</span>
+                          <span><strong>State &amp; Failover:</strong> Persists session memory and coordinates multi-region recovery paths.</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3803,7 +4142,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
-                      Breaker #2 • Neural Engine
+                      Pillar #2 • Neural Reasoning
                     </div>
                     <h3 className="text-lg font-bold text-white mt-0.5 flex items-center gap-2">
                       <span>🧠</span> Cognitive Intelligence
@@ -3826,11 +4165,11 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                 </div>
 
                 {/* Knife-Switch Throw Lever Representation */}
-                <div className="my-6 p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div className="my-5 p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="text-xs font-semibold text-slate-200">Foundation Models &amp; Weights</div>
                     <div className="text-[11px] text-slate-400">
-                      {intelligenceEnabled ? 'Weights mounted • Neural dome glowing' : 'Click switch to throw breaker'}
+                      {intelligenceEnabled ? 'Gemini 3.7/2.5 &amp; Gemma 2 Mounted' : 'Click switch to throw breaker'}
                     </div>
                   </div>
 
@@ -3856,16 +4195,53 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   </div>
                 </div>
 
-                {/* Action Summary Bullets */}
-                <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-4">
-                  <div className={`flex items-center gap-2 ${intelligenceEnabled ? 'text-blue-300 font-semibold' : 'text-slate-500'}`}>
-                    <span>{intelligenceEnabled ? '✔' : '○'}</span>
-                    <span>Illuminates glowing synaptic brain inside Glass Dome</span>
-                  </div>
-                  <div className={`flex items-center gap-2 ${intelligenceEnabled ? 'text-blue-300 font-semibold' : 'text-slate-500'}`}>
-                    <span>{intelligenceEnabled ? '✔' : '○'}</span>
-                    <span>Injects 📍 Model Location &amp; ⚡ Model into Torso body</span>
-                  </div>
+                {/* What is Intelligence? Collapsible Accordion */}
+                <div
+                  className="border-t border-slate-800/80 pt-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIntelligenceExpanded(!intelligenceExpanded)}
+                    className="w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider text-blue-400 hover:text-blue-300 hover:bg-slate-800/40 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>🧠</span>
+                      <span>What is Intelligence?</span>
+                    </div>
+                    <svg
+                      className={`w-3.5 h-3.5 transform transition-transform duration-200 ${
+                        intelligenceExpanded ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {intelligenceExpanded && (
+                    <div className="mt-2.5 space-y-3 animate-in fade-in duration-200">
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        The neural foundation models and learned parameters providing semantic comprehension, strategic planning, and natural language generation.
+                      </p>
+                      <div className="space-y-2 text-xs font-mono pt-1">
+                        <div className={`flex items-start gap-2 ${intelligenceEnabled ? 'text-blue-300' : 'text-slate-400'}`}>
+                          <span className="shrink-0 mt-0.5">{intelligenceEnabled ? '✔' : '○'}</span>
+                          <span><strong>Reasoning &amp; Planning:</strong> Interprets complex user intent and formulates step-by-step solutions.</span>
+                        </div>
+                        <div className={`flex items-start gap-2 ${intelligenceEnabled ? 'text-blue-300' : 'text-slate-400'}`}>
+                          <span className="shrink-0 mt-0.5">{intelligenceEnabled ? '✔' : '○'}</span>
+                          <span><strong>Multi-Tier Cascade:</strong> Dynamically routes inference across global, regional, and airgapped models.</span>
+                        </div>
+                        <div className={`flex items-start gap-2 ${intelligenceEnabled ? 'text-blue-300' : 'text-slate-400'}`}>
+                          <span className="shrink-0 mt-0.5">{intelligenceEnabled ? '✔' : '○'}</span>
+                          <span><strong>Enterprise Policy Adherence:</strong> Enforces organization-specific domain rulebooks and decision logic.</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -3880,7 +4256,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                       <span>AGENT FULLY ENERGIZED &amp; ASSEMBLED</span>
                     </div>
                     <p className="text-xs text-slate-300">
-                      The robot chassis is powered and cognitive reasoning is active. You can now advance to Stage 1 to test resilient multi-region failover.
+                      The execution sandbox is running and cognitive reasoning models are active. You can now advance to Stage 1 to test resilient multi-region failover.
                     </p>
                   </div>
 
@@ -3927,6 +4303,96 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
               </div>
             )}
           </div>
+
+          {/* Vertex - Welcome to the Harness Era Modal Popup */}
+          {showRuntimeModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200"
+              onClick={() => {
+                if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+                setShowRuntimeModal(false);
+              }}
+            >
+              <div
+                className="relative max-w-lg w-full bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-6 shadow-2xl shadow-amber-500/25 overflow-hidden text-slate-100 space-y-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Top Animated Progress Countdown Bar (5s) */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-800">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300"
+                    style={{ animation: 'shrink 5s linear forwards' }}
+                  />
+                </div>
+
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20 shrink-0">
+                      ⚙️
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                        <span>Vertex AI Agent Engine • Runtime Online</span>
+                      </div>
+                      <h2 className="text-base md:text-lg font-black text-white tracking-tight mt-0.5">
+                        Vertex - Welcome to the Harness Era, Copyright Mitesh 2026
+                      </h2>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+                      setShowRuntimeModal(false);
+                    }}
+                    className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition text-sm font-mono"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                  You have activated the sandboxed sovereign execution runtime. The agent now operates within a stateful compute harness capable of orchestrating multi-turn reasoning, enforcing zero-hallucination tools, and managing high-availability failovers.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+                  <div className="p-2.5 rounded-lg bg-slate-950/80 border border-amber-500/30 text-amber-300 flex flex-col items-center text-center">
+                    <span className="text-sm mb-1">⚡</span>
+                    <span className="font-bold">240V Energized</span>
+                    <span className="text-[9px] text-slate-400 mt-0.5">Compute Enclave</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-950/80 border border-amber-500/30 text-amber-300 flex flex-col items-center text-center">
+                    <span className="text-sm mb-1">🛡️</span>
+                    <span className="font-bold">Tool Harness</span>
+                    <span className="text-[9px] text-slate-400 mt-0.5">APRA Deterministic</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-950/80 border border-amber-500/30 text-amber-300 flex flex-col items-center text-center">
+                    <span className="text-sm mb-1">🔄</span>
+                    <span className="font-bold">Failover Ready</span>
+                    <span className="text-[9px] text-slate-400 mt-0.5">Multi-Region State</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] font-mono text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Auto-dismissing in 5s...
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+                      setShowRuntimeModal(false);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold font-mono transition shadow-md shadow-amber-500/20"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -4086,7 +4552,12 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
         let icon = '🌐';
         let label = 'Tier 1 Global';
 
-        if (activeTier === 'TIER_2_REGIONAL') {
+        const isClaudeUsed = (modelUsed || '').toLowerCase().includes('claude') || (modelUsed || '').toLowerCase().includes('sonnet');
+        if (activeTier === 'TIER_1_GLOBAL' && isClaudeUsed) {
+          badgeColor = 'bg-red-500/15 border-red-500/40 text-red-400 font-bold';
+          icon = '🔴';
+          label = 'Tier 1 Global (Claude 3.5 Iowa)';
+        } else if (activeTier === 'TIER_2_REGIONAL') {
           badgeColor = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
           icon = '🦘';
           label = 'Tier 2 Regional (AU-SYD)';
@@ -4385,6 +4856,20 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   );
                 }
 
+                const isAssistant = msg.role === 'assistant';
+                const meta = msg.metadata;
+                const activeTier = meta?.activeTier;
+                const failoverOccurred = meta?.failoverOccurred;
+
+                let assistantBubbleBorder = 'border-slate-800';
+                if (activeTier === 'TIER_1_GLOBAL') {
+                  assistantBubbleBorder = 'border-blue-500/30 shadow-sm shadow-blue-500/5';
+                } else if (activeTier === 'TIER_2_REGIONAL') {
+                  assistantBubbleBorder = 'border-amber-500/50 shadow-sm shadow-amber-500/10';
+                } else if (activeTier === 'TIER_3_SOVEREIGN') {
+                  assistantBubbleBorder = 'border-emerald-500/50 shadow-sm shadow-emerald-500/10';
+                }
+
                 return (
                   <div
                     key={msg.id}
@@ -4396,9 +4881,39 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                           ? effectiveTab === 'shield'
                             ? 'bg-purple-900/80 border border-purple-700 text-white rounded-br-none font-mono text-xs'
                             : 'bg-blue-600 text-white rounded-br-none'
-                          : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none'
+                          : `bg-slate-900 border ${assistantBubbleBorder} text-slate-100 rounded-bl-none`
                       }`}
                     >
+                      {/* Failover Alert Banner */}
+                      {isAssistant && failoverOccurred && (
+                        <div className="mb-3 px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-mono flex items-center justify-between shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="animate-pulse text-sm">⚠️</span>
+                            <div>
+                              <span className="font-bold text-amber-200">Sovereign Failover Active: </span>
+                              <span className="text-amber-100">
+                                {meta?.failoverHops ? `${meta.failoverHops} hop(s)` : 'Automatic cascade'} to{' '}
+                                <span className="font-semibold underline">
+                                  {activeTier === 'TIER_2_REGIONAL'
+                                    ? 'Tier 2 Regional (AU-SYD)'
+                                    : activeTier === 'TIER_3_SOVEREIGN'
+                                    ? 'Tier 3 Sovereign Enclave'
+                                    : activeTier}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                          {meta?.failoverLog && meta.failoverLog.length > 0 && (
+                            <button
+                              onClick={() => toggleLog(msg.id)}
+                              className="text-[11px] text-amber-300 hover:text-white underline font-sans shrink-0 ml-2"
+                            >
+                              {expandedLogs[msg.id] ? 'Hide Hops' : 'View Hop Log'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       {renderMarkdownContent(
                         displayContent,
                         effectiveTab === 'shield',
@@ -5039,9 +5554,9 @@ tools:
         TIER_3_SOVEREIGN: { region: 'airgap-vpc-ausyd', model: 'google/gemma-2-9b-it' },
       });
       const [controls, setControls] = useState({
-        stage: 1,
-        stageZeroRuntimeEnabled: true,
-        stageZeroIntelligenceEnabled: true,
+        stage: 0,
+        stageZeroRuntimeEnabled: false,
+        stageZeroIntelligenceEnabled: false,
         failedTiers: [],
         forcedTier: 'AUTO',
         enablePiiTokenizer: false,
@@ -5061,10 +5576,6 @@ tools:
           .then((data) => {
             if (data) {
               setDatasetSummary(data);
-              setControls((prev) => ({
-                ...prev,
-                enterpriseDataEnabled: data.enabled !== undefined ? data.enabled : true,
-              }));
             }
           })
           .catch((err) => console.error('Failed to load dataset info:', err));
@@ -5244,12 +5755,12 @@ tools:
           localStorage.setItem('sovereign_session_id', newId);
           setSessionId(newId);
 
-          // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
+          // 2. Reset frontend stage controls to Stage 0 (Breakers open/off, PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
           setControls((prev) => ({
             ...prev,
-            stage: 1,
-            stageZeroRuntimeEnabled: true,
-            stageZeroIntelligenceEnabled: true,
+            stage: 0,
+            stageZeroRuntimeEnabled: false,
+            stageZeroIntelligenceEnabled: false,
             enablePiiTokenizer: false,
             enterpriseDataEnabled: false,
             tokenomicsEnabled: false,
@@ -5309,6 +5820,19 @@ tools:
         const isEnterprise = stage === 3 || stage === 4;
         const isTokenomics = stage === 4;
 
+        const newTierSettings = isTokenomics
+          ? {
+              TIER_1_GLOBAL: { region: 'us-central1', model: 'claude-3-5-sonnet-v2@20241022' },
+              TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
+              TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
+            }
+          : {
+              TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
+              TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
+              TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
+            };
+
+        setTierSettings(newTierSettings);
         setControls((prev) => ({
           ...prev,
           stage: stage,
@@ -5317,9 +5841,12 @@ tools:
           enablePiiTokenizer: isPii,
           enterpriseDataEnabled: isEnterprise,
           tokenomicsEnabled: isTokenomics,
+          tierSettings: newTierSettings,
           forcedTier: 'AUTO',
           failedTiers: [],
         }));
+
+        setDatasetSummary((prev) => (prev ? { ...prev, enabled: isEnterprise } : { enabled: isEnterprise }));
 
         try {
           await fetch('/api/settings', {
@@ -5330,6 +5857,7 @@ tools:
               stageZeroIntelligenceEnabled: isStage0 ? false : true,
               enterpriseDataEnabled: isEnterprise,
               tokenomicsEnabled: isTokenomics,
+              tierSettings: newTierSettings,
             }),
           });
           await fetch('/api/dataset/toggle', {
@@ -5355,11 +5883,24 @@ tools:
           ? 0
           : 1;
 
-      const isEnterpriseActive = controls.enterpriseDataEnabled ?? datasetSummary?.enabled ?? false;
+      const isEnterpriseActive = Boolean(controls.enterpriseDataEnabled);
+
+      useEffect(() => {
+        const stageTitles = {
+          0: 'Stage 0: Genesis Lab',
+          1: 'Stage 1: Core Memory',
+          2: 'Stage 2: Zero-PII',
+          3: 'Stage 3: Add Skills - LVR',
+          4: 'Stage 4: Tokenomics',
+        };
+        const title = stageTitles[currentStage] || `Stage ${currentStage}`;
+        document.title = `Anatomy of an Agent - ${title}`;
+      }, [currentStage]);
 
       return (
         <div className="h-screen overflow-hidden flex flex-col bg-slate-950 font-sans text-slate-100">
           <TelemetryHeader
+            currentStage={currentStage}
             lastMetadata={lastMetadata}
             buildInfo={buildInfo}
             datasetSummary={datasetSummary}

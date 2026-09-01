@@ -77,28 +77,32 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
   const totalSavedMs = metadataList.reduce((acc, m) => acc + (m.wastedLatencyAvoidedMs || 0), 0);
 
   const currentStage =
-    controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
+    controls.stage !== undefined
+      ? controls.stage
+      : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
       ? 4
       : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
       ? 3
       : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
       ? 2
-      : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
-      ? 1
-      : 0;
+      : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled && (controls.stageZeroRuntimeEnabled === false || controls.stageZeroIntelligenceEnabled === false)
+      ? 0
+      : 1;
 
   const handleStageSelect = (stage: number) => {
     if (onSelectStage) {
       onSelectStage(stage);
     } else {
-      if (stage === 1) {
-        onChange({ ...controls, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+      if (stage === 0) {
+        onChange({ ...controls, stage: 0, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, stageZeroRuntimeEnabled: false, stageZeroIntelligenceEnabled: false, forcedTier: 'AUTO', failedTiers: [], tierSettings: { TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' }, TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' }, TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' } } });
+      } else if (stage === 1) {
+        onChange({ ...controls, stage: 1, enablePiiTokenizer: false, enterpriseDataEnabled: false, tokenomicsEnabled: false, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [], tierSettings: { TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' }, TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' }, TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' } } });
       } else if (stage === 2) {
-        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: false, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+        onChange({ ...controls, stage: 2, enablePiiTokenizer: true, enterpriseDataEnabled: false, tokenomicsEnabled: false, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [], tierSettings: { TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' }, TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' }, TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' } } });
       } else if (stage === 3) {
-        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: false, forcedTier: 'AUTO', failedTiers: [] });
+        onChange({ ...controls, stage: 3, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: false, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [], tierSettings: { TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' }, TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' }, TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' } } });
       } else if (stage === 4) {
-        onChange({ ...controls, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: true, forcedTier: 'AUTO', failedTiers: [] });
+        onChange({ ...controls, stage: 4, enablePiiTokenizer: true, enterpriseDataEnabled: true, tokenomicsEnabled: true, stageZeroRuntimeEnabled: true, stageZeroIntelligenceEnabled: true, forcedTier: 'AUTO', failedTiers: [], tierSettings: { TIER_1_GLOBAL: { region: 'us-central1', model: 'claude-3-5-sonnet-v2@20241022' }, TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' }, TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' } } });
       }
       onResetChat();
     }
@@ -126,25 +130,33 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
     });
   };
 
-  const getEffectiveActiveTier = () => {
-    const failed = controls.failedTiers || [];
-    const tierOrder: Array<'TIER_1_GLOBAL' | 'TIER_2_REGIONAL' | 'TIER_3_SOVEREIGN'> = [
-      'TIER_1_GLOBAL',
-      'TIER_2_REGIONAL',
-      'TIER_3_SOVEREIGN',
-    ];
-    const startIndex =
-      controls.forcedTier !== 'AUTO'
-        ? tierOrder.indexOf(controls.forcedTier)
-        : 0;
+  const lastMetadata =
+    metadataList && metadataList.length > 0
+      ? metadataList[metadataList.length - 1]
+      : undefined;
 
-    for (let i = Math.max(0, startIndex); i < tierOrder.length; i++) {
-      if (!failed.includes(tierOrder[i])) {
-        return tierOrder[i];
-      }
+  const getEffectiveActiveTier = (): 'TIER_1_GLOBAL' | 'TIER_2_REGIONAL' | 'TIER_3_SOVEREIGN' => {
+    // 1. Manual Sovereignty Override: Immediately reflect explicit user lock
+    if (controls.forcedTier && controls.forcedTier !== 'AUTO') {
+      return controls.forcedTier;
     }
-    return 'TIER_3_SOVEREIGN';
+    // 2. Preemptively reflect the target tier if the user has injected faults in AUTO mode
+    if (controls.failedTiers && controls.failedTiers.includes('TIER_1_GLOBAL')) {
+      if (controls.failedTiers.includes('TIER_2_REGIONAL')) {
+        return 'TIER_3_SOVEREIGN';
+      }
+      return 'TIER_2_REGIONAL';
+    }
+    // 3. Dynamic Auto Cascade: Only reflect the tier that actually served the prompt when data was sent
+    if (lastMetadata?.activeTier) {
+      return lastMetadata.activeTier as 'TIER_1_GLOBAL' | 'TIER_2_REGIONAL' | 'TIER_3_SOVEREIGN';
+    }
+    // 4. Default initial tier prior to first inference execution
+    return 'TIER_1_GLOBAL';
   };
+
+  const isRuntimeOn = currentStage >= 1 || (controls.stageZeroRuntimeEnabled ?? false);
+  const isIntelligenceOn = currentStage >= 1 || (controls.stageZeroIntelligenceEnabled ?? false);
 
   const activeTier = getEffectiveActiveTier();
 
@@ -234,10 +246,46 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
       return { inRate: 0.10, outRate: 0.40, isSelfHosted: false };
     };
 
+    const getBrainImage = (tier: string, modelId?: string, isIntelOn?: boolean) => {
+      if (!isIntelOn) {
+        return '/static/images/robot/robot_head_dormant.png';
+      }
+      if (!modelId) {
+        if (tier === 'TIER_3_SOVEREIGN') return '/static/images/robot/robot_head_emerald.png';
+        if (tier === 'TIER_2_REGIONAL') return '/static/images/robot/robot_head_amber.png';
+        return '/static/images/robot/robot_head_blue.png';
+      }
+      const m = modelId.toLowerCase();
+      if (m.includes('gemma') || m.includes('airgap') || m.includes('sovereign')) {
+        return '/static/images/robot/robot_head_emerald.png';
+      }
+      if (m.includes('claude') || m.includes('sonnet') || m.includes('haiku') || m.includes('opus')) {
+        return '/static/images/robot/robot_head_ruby.png';
+      }
+      if (m.includes('pro') || m.includes('ultra') || m.includes('reasoning') || m.includes('exp')) {
+        return '/static/images/robot/robot_head_purple.png';
+      }
+      if (m.includes('llama') || m.includes('deepseek') || m.includes('mistral') || m.includes('qwen')) {
+        return '/static/images/robot/robot_head_ruby.png';
+      }
+      if (m.includes('custom') || m.includes('finetune') || m.includes('apra') || m.includes('magenta')) {
+        return '/static/images/robot/robot_head_magenta.png';
+      }
+      if (tier === 'TIER_2_REGIONAL') {
+        return '/static/images/robot/robot_head_amber.png';
+      }
+      if (tier === 'TIER_3_SOVEREIGN') {
+        return '/static/images/robot/robot_head_emerald.png';
+      }
+      return '/static/images/robot/robot_head_blue.png';
+    };
+
     const activeModelIdentifier = controls.tierSettings?.[activeTier]?.model || (
       activeTier === 'TIER_1_GLOBAL' ? 'gemini-3.7-flash' : activeTier === 'TIER_2_REGIONAL' ? 'gemini-2.5-flash' : 'google/gemma-2-2b-it'
     );
     const rates = getModelPricingRates(activeModelIdentifier);
+    const currentHeadImage = getBrainImage(activeTier, activeModelIdentifier, isIntelligenceOn);
+    const isClaudeModel = activeModelIdentifier.toLowerCase().includes('claude') || activeModelIdentifier.toLowerCase().includes('sonnet');
 
     let modelRateFormatted = '';
     if (rates.isSelfHosted || activeTier === 'TIER_3_SOVEREIGN') {
@@ -259,6 +307,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
     const getModelDisplayName = (tier: string) => {
       const configuredModel = controls.tierSettings?.[tier]?.model;
       if (configuredModel) {
+        if (configuredModel.includes('claude') || configuredModel.includes('sonnet')) return 'Claude 3.5 Sonnet v2 (Model Garden)';
         if (configuredModel === 'gemini-3.7-flash') return 'Gemini 3.7 Flash';
         if (configuredModel === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
         if (configuredModel === 'gemini-1.5-pro-002') return 'Gemini 1.5 Pro (002)';
@@ -307,6 +356,8 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           borderClass: 'border-amber-500/40 bg-gradient-to-b from-amber-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-amber-500/10',
           eyeColor: '#f59e0b',
+          brainColor: '#f59e0b',
+          headImage: currentHeadImage,
           pulseClass: 'bg-amber-500',
         };
       case 'TIER_3_SOVEREIGN':
@@ -340,10 +391,48 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           borderClass: 'border-emerald-500/40 bg-gradient-to-b from-emerald-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-emerald-500/10',
           eyeColor: '#10b981',
+          brainColor: '#10b981',
+          headImage: currentHeadImage,
           pulseClass: 'bg-emerald-500',
         };
       case 'TIER_1_GLOBAL':
       default:
+        if (isClaudeModel) {
+          return {
+            name: 'Global Partner Agent (Claude 3.5)',
+            runtime: 'Vertex AI Agent Engine (AU-SYD)',
+            runtimeColor: 'text-amber-400 font-semibold',
+            modelLocation: 'Iowa, USA (us-central1)',
+            modelLocationColor: 'text-red-400 font-semibold',
+            model: getModelDisplayName('TIER_1_GLOBAL'),
+            modelColor: 'text-red-400 font-bold',
+            memory: 'Vertex AI Managed Sessions (AU-SYD)',
+            memoryColor: 'text-amber-400 font-semibold',
+            piiCleanser: piiCleanserText,
+            piiCleanserColor: piiCleanserColor,
+            skill: skillText,
+            skillColor: skillColor,
+            tool: toolText,
+            toolColor: toolColor,
+            storageRest: storageRestText,
+            storageRestColor: storageRestColor,
+            tokensUsed: tokensUsedFormatted,
+            tokensUsedColor: 'text-slate-100 font-medium font-mono',
+            modelRate: modelRateFormatted,
+            modelRateColor: 'text-red-400 font-bold font-mono',
+            costPer10kTurns: costPer10kFormatted,
+            costPer10kTurnsColor: 'text-red-400 font-bold font-mono',
+            costPer1000Turns: costPer10kFormatted,
+            costPer1000TurnsColor: 'text-red-400 font-bold font-mono',
+            color: 'red',
+            borderClass: 'border-red-500/50 bg-gradient-to-b from-red-950/50 via-red-950/20 to-slate-950',
+            glowClass: 'shadow-lg shadow-red-500/20 ring-1 ring-red-500/30',
+            eyeColor: '#ef4444',
+            brainColor: '#ef4444',
+            headImage: currentHeadImage,
+            pulseClass: 'bg-red-500',
+          };
+        }
         return {
           name: 'Global Frontier Agent',
           runtime: 'Vertex AI Agent Engine (AU-SYD)',
@@ -374,6 +463,8 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           borderClass: 'border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-slate-950',
           glowClass: 'shadow-lg shadow-blue-500/10',
           eyeColor: '#3b82f6',
+          brainColor: '#3b82f6',
+          headImage: currentHeadImage,
           pulseClass: 'bg-blue-500',
         };
     }
@@ -389,69 +480,77 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
           className={`p-4 rounded-2xl border ${agentChar.borderClass} ${agentChar.glowClass} transition-all duration-300 space-y-3.5`}
         >
           <div className="flex items-center gap-3">
-            {/* SVG Agent Avatar Character */}
+            {/* Illuminated Robot Head Avatar Character */}
             <div className="relative shrink-0">
               <div className="w-14 h-14 rounded-2xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center shadow-inner relative overflow-hidden">
-                <svg
-                  className="w-9 h-9"
-                  viewBox="0 0 36 36"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <rect
-                    x="5"
-                    y="10"
-                    width="26"
-                    height="20"
-                    rx="7"
-                    className="fill-slate-800 stroke-slate-600"
-                    strokeWidth="1.5"
+                {agentChar.headImage ? (
+                  <img
+                    src={agentChar.headImage}
+                    alt={agentChar.name}
+                    className="w-full h-full object-contain filter drop-shadow-md"
                   />
-                  <path
-                    d="M18 10V5"
-                    className="stroke-slate-400"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                  <circle
-                    cx="18"
-                    cy="4"
-                    r="2.5"
-                    fill={agentChar.eyeColor}
-                    className="animate-pulse"
-                  />
-                  <rect
-                    x="2"
-                    y="16"
-                    width="3"
-                    height="8"
-                    rx="1.5"
-                    fill={agentChar.eyeColor}
-                    fillOpacity="0.7"
-                  />
-                  <rect
-                    x="31"
-                    y="16"
-                    width="3"
-                    height="8"
-                    rx="1.5"
-                    fill={agentChar.eyeColor}
-                    fillOpacity="0.7"
-                  />
-                  <circle cx="13" cy="19" r="3" fill={agentChar.eyeColor} />
-                  <circle cx="23" cy="19" r="3" fill={agentChar.eyeColor} />
-                  <circle cx="14" cy="18" r="1" fill="#ffffff" />
-                  <circle cx="24" cy="18" r="1" fill="#ffffff" />
-                  <rect
-                    x="13"
-                    y="24"
-                    width="10"
-                    height="2.5"
-                    rx="1.25"
-                    fill={agentChar.eyeColor}
-                    fillOpacity="0.85"
-                  />
-                </svg>
+                ) : (
+                  <svg
+                    className="w-9 h-9"
+                    viewBox="0 0 36 36"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect
+                      x="5"
+                      y="10"
+                      width="26"
+                      height="20"
+                      rx="7"
+                      className="fill-slate-800 stroke-slate-600"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M18 10V5"
+                      className="stroke-slate-400"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx="18"
+                      cy="4"
+                      r="2.5"
+                      fill={agentChar.eyeColor}
+                      className="animate-pulse"
+                    />
+                    <rect
+                      x="2"
+                      y="16"
+                      width="3"
+                      height="8"
+                      rx="1.5"
+                      fill={agentChar.eyeColor}
+                      fillOpacity="0.7"
+                    />
+                    <rect
+                      x="31"
+                      y="16"
+                      width="3"
+                      height="8"
+                      rx="1.5"
+                      fill={agentChar.eyeColor}
+                      fillOpacity="0.7"
+                    />
+                    <circle cx="13" cy="19" r="3" fill={agentChar.eyeColor} />
+                    <circle cx="23" cy="19" r="3" fill={agentChar.eyeColor} />
+                    <circle cx="14" cy="18" r="1" fill="#ffffff" />
+                    <circle cx="24" cy="18" r="1" fill="#ffffff" />
+                    <rect
+                      x="13"
+                      y="24"
+                      width="10"
+                      height="2.5"
+                      rx="1.25"
+                      fill={agentChar.eyeColor}
+                      fillOpacity="0.85"
+                    />
+                  </svg>
+                )}
               </div>
               <span
                 className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${agentChar.pulseClass}`}
@@ -462,143 +561,157 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
               <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
                 Active Sovereign Agent
               </div>
-              <h2 className="text-base font-bold text-white truncate">{agentChar.name}</h2>
             </div>
           </div>
 
           {/* Integrated Architecture Elements for Active Tier (Interactive Popups) */}
           <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-1.5 text-[11px] font-mono leading-tight">
-            {/* 1. Runtime */}
-            <div
-              onClick={() =>
-                onOpenArchitectureModal?.({
-                  type: 'function_desc',
-                  functionKey: 'runtime',
-                  title: '⚙️ Execution Runtime',
-                  icon: '⚙️',
-                  activeValue: agentChar.runtime,
-                  activeColor: agentChar.runtimeColor,
-                })
-              }
-              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-              title="Click to view Execution Runtime architecture & role"
-            >
-              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                <span>⚙️</span>
-                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                  Runtime:
-                </span>
-              </span>
-              <span className={`text-right font-sans ${agentChar.runtimeColor}`}>
-                {agentChar.runtime}
-              </span>
-            </div>
-
-            {/* 2. Model Location */}
-            <div
-              onClick={() =>
-                onOpenArchitectureModal?.({
-                  type: 'function_desc',
-                  functionKey: 'modelLocation',
-                  title: '📍 Model Location & Data Residency',
-                  icon: '📍',
-                  activeValue: agentChar.modelLocation,
-                  activeColor: agentChar.modelLocationColor,
-                })
-              }
-              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-              title="Click to view Model Location and Data Residency compliance"
-            >
-              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                <span>📍</span>
-                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                  Model Location:
-                </span>
-              </span>
-              <span className={`text-right font-sans ${agentChar.modelLocationColor}`}>
-                {agentChar.modelLocation}
-              </span>
-            </div>
-
-            {/* 3. Model */}
-            <div
-              onClick={() =>
-                onOpenArchitectureModal?.({
-                  type: 'function_desc',
-                  functionKey: 'model',
-                  title: '⚡ Foundation Model Tier',
-                  icon: '⚡',
-                  activeValue: agentChar.model,
-                  activeColor: agentChar.modelColor,
-                })
-              }
-              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-              title="Click to view Model selection & failover specifications"
-            >
-              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                <span>⚡</span>
-                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                  Model:
-                </span>
-              </span>
-              <span className={`text-right font-sans ${agentChar.modelColor}`}>
-                {agentChar.model}
-              </span>
-            </div>
-
-            {/* 4. Memory */}
-            <div
-              onClick={() =>
-                onOpenArchitectureModal?.({
-                  type: 'function_desc',
-                  functionKey: 'memory',
-                  title: '💾 Stateful Memory & Session Store',
-                  icon: '💾',
-                  activeValue: agentChar.memory,
-                  activeColor: agentChar.memoryColor,
-                })
-              }
-              className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
-              title="Click to view Memory persistence & replication architecture"
-            >
-              <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
-                <span>💾</span>
-                <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
-                  Memory:
-                </span>
-              </span>
-              <span className={`text-right font-sans ${agentChar.memoryColor}`}>
-                {agentChar.memory}
-              </span>
-            </div>
-
-            {/* 5. PII Cleanser */}
-            {controls.enablePiiTokenizer && (
-              <div
-                onClick={() =>
-                  onOpenArchitectureModal?.({
-                    type: 'function_desc',
-                    functionKey: 'piiCleanser',
-                    title: '🛡️ PII Cleanser & Cryptographic Tokenizer',
-                    icon: '🛡️',
-                    activeValue: agentChar.piiCleanser,
-                    activeColor: agentChar.piiCleanserColor,
-                  })
-                }
-                className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
-                title="Click to view PII Cleanser entity recognition specifications"
-              >
-                <span className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1">
-                  <span>🛡️</span>
-                  <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
-                    PII Cleanser:
-                  </span>
-                </span>
-                <span className={`text-right font-sans ${agentChar.piiCleanserColor}`}>
-                  {agentChar.piiCleanser}
-                </span>
+            {currentStage === 0 && !isRuntimeOn && !isIntelligenceOn ? (
+              <div className="p-3 text-center text-slate-500 font-mono text-[11px] border border-dashed border-slate-800 rounded-lg">
+                ⚡ CHASSIS STANDBY
+                <div className="text-[9px] text-slate-600 mt-0.5">Engage circuit breakers in Genesis Lab</div>
               </div>
-            )}
+            ) : (
+              <>
+                {/* 1. Runtime */}
+                {isRuntimeOn && (
+                  <div
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'runtime',
+                        title: '⚙️ Execution Runtime',
+                        icon: '⚙️',
+                        activeValue: agentChar.runtime,
+                        activeColor: agentChar.runtimeColor,
+                      })
+                    }
+                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                    title="Click to view Execution Runtime architecture & role"
+                  >
+                    <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                      <span>⚙️</span>
+                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                        Runtime:
+                      </span>
+                    </span>
+                    <span className={`text-right font-sans ${agentChar.runtimeColor}`}>
+                      {agentChar.runtime}
+                    </span>
+                  </div>
+                )}
+
+                {/* 2. Model Location */}
+                {isIntelligenceOn && (
+                  <div
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'modelLocation',
+                        title: '📍 Model Location & Data Residency',
+                        icon: '📍',
+                        activeValue: agentChar.modelLocation,
+                        activeColor: agentChar.modelLocationColor,
+                      })
+                    }
+                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                    title="Click to view Model Location and Data Residency compliance"
+                  >
+                    <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                      <span>📍</span>
+                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                        Model Location:
+                      </span>
+                    </span>
+                    <span className={`text-right font-sans ${agentChar.modelLocationColor}`}>
+                      {agentChar.modelLocation}
+                    </span>
+                  </div>
+                )}
+
+                {/* 3. Model */}
+                {isIntelligenceOn && (
+                  <div
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'model',
+                        title: '⚡ Foundation Model Tier',
+                        icon: '⚡',
+                        activeValue: agentChar.model,
+                        activeColor: agentChar.modelColor,
+                      })
+                    }
+                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                    title="Click to view Model selection & failover specifications"
+                  >
+                    <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                      <span>⚡</span>
+                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                        Model:
+                      </span>
+                    </span>
+                    <span className={`text-right font-sans ${agentChar.modelColor}`}>
+                      {agentChar.model}
+                    </span>
+                  </div>
+                )}
+
+                {/* 4. Memory (Stage 0 with Runtime, Stages 1..4) */}
+                {isRuntimeOn && (
+                  <div
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'memory',
+                        title: '💾 Stateful Memory & Session Store',
+                        icon: '💾',
+                        activeValue: agentChar.memory,
+                        activeColor: agentChar.memoryColor,
+                      })
+                    }
+                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group"
+                    title="Click to view Memory persistence & replication architecture"
+                  >
+                    <span className="text-slate-500 shrink-0 group-hover:text-blue-400 flex items-center gap-1">
+                      <span>💾</span>
+                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-blue-400">
+                        Memory:
+                      </span>
+                    </span>
+                    <span className={`text-right font-sans ${agentChar.memoryColor}`}>
+                      {agentChar.memory}
+                    </span>
+                  </div>
+                )}
+
+                {/* 5. PII Cleanser */}
+                {currentStage >= 2 && controls.enablePiiTokenizer && (
+                  <div
+                    onClick={() =>
+                      onOpenArchitectureModal?.({
+                        type: 'function_desc',
+                        functionKey: 'piiCleanser',
+                        title: '🛡️ PII Cleanser & Cryptographic Tokenizer',
+                        icon: '🛡️',
+                        activeValue: agentChar.piiCleanser,
+                        activeColor: agentChar.piiCleanserColor,
+                      })
+                    }
+                    className="flex items-start justify-between gap-2 p-1 rounded hover:bg-slate-900/90 cursor-pointer transition text-slate-400 group border-t border-slate-800/60 pt-1.5"
+                    title="Click to view PII Cleanser entity recognition specifications"
+                  >
+                    <span className="text-slate-500 shrink-0 group-hover:text-purple-400 flex items-center gap-1">
+                      <span>🛡️</span>
+                      <span className="underline decoration-dotted decoration-slate-600 group-hover:decoration-purple-400">
+                        PII Cleanser:
+                      </span>
+                    </span>
+                    <span className={`text-right font-sans ${agentChar.piiCleanserColor}`}>
+                      {agentChar.piiCleanser}
+                    </span>
+                  </div>
+                )}
 
             {/* 6. Skill */}
             {controls.enterpriseDataEnabled && (
@@ -977,7 +1090,9 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
             <div className="flex items-center gap-2 shrink-0">
               {/* Collapsed Stage Status Pill */}
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-medium border ${
-                currentStage === 1
+                currentStage === 0
+                  ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
+                  : currentStage === 1
                   ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
                   : currentStage === 2
                   ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
@@ -987,7 +1102,9 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                   : 'bg-slate-800 border-slate-700 text-slate-300'
               }`}>
-                {currentStage === 1
+                {currentStage === 0
+                  ? 'Stage 0: Genesis Lab'
+                  : currentStage === 1
                   ? 'Stage 1: Core Memory'
                   : currentStage === 2
                   ? 'Stage 2: Zero-PII'
@@ -1022,6 +1139,26 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleStageSelect(0);
+                    resetStagesTimer();
+                  }}
+                  className={`col-span-2 flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all ${
+                    currentStage === 0
+                      ? 'bg-cyan-600/25 border-cyan-500 text-cyan-200 shadow-md shadow-cyan-900/30 ring-1 ring-cyan-500/40 font-bold'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Stage 0: Genesis Lab & Character Assembly (Physical Circuit Breakers)"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-cyan-400">Stage 0</span>
+                    <span className="text-[11px] font-semibold">Genesis Lab</span>
+                  </div>
+                  <span className="text-[9px] font-mono opacity-80">Physical Breakers • Anatomy Assembly</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1096,11 +1233,11 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
               </div>
 
               <div className="pt-1.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-tight">
+                {currentStage === 0 && "⚡ Stage 0 Active: Genesis Lab & Character Assembly. Toggle Runtime and Intelligence breakers to energize the agent."}
                 {currentStage === 1 && "💡 Stage 1 Active: Basic memory preservation across Tier 1 ➔ 2 ➔ 3. (PII Shield: OFF, Tools: OFF, Tokenomics: OFF)"}
                 {currentStage === 2 && "🔒 Stage 2 Active: Zero-PII cryptographic entity tokenization across tiers. (PII Shield: ON, Tools: OFF, Tokenomics: OFF)"}
                 {currentStage === 3 && "📊 Stage 3 Active: Institutional APRA CPS 234 mathematical LVR calculation tools. (PII Shield: ON, Tools: ON, Tokenomics: OFF)"}
-                {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling with live token counters and rate cards. (PII Shield: ON, Tools: ON, Tokenomics: ON)"}
-                {currentStage === 0 && "⚙️ Custom Mode Active: Custom configuration active with individual feature toggles."}
+                {currentStage === 4 && "💰 Stage 4 Active: Enterprise Tokenomics & unit economic modeling. Tier 1 routes to Claude 3.5 Sonnet (Iowa $3.00/$15.00) showing huge cost disparity vs Gemini Flash ($0.10/$0.40) & On-Prem Gemma ($0.00)."}
               </div>
             </div>
           )}
@@ -1114,7 +1251,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
             onClick={onResetDemo}
             disabled={isResettingDemo}
             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-950/40 border border-emerald-400/40 flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-[0.99]"
-            title="Reset Demo: Sets stages back to 1, clears all memory, and ensures Tier 3 Gemma enclave is active and reachable"
+            title="Reset Demo: Sets stage back to Stage 0 (Genesis Lab), clears all memory, and ensures Tier 3 Gemma enclave is active and reachable"
           >
             {isResettingDemo ? (
               <>

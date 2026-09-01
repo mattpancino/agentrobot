@@ -14,6 +14,7 @@ import { DEFAULT_ARCHITECTURE_DESCRIPTIONS } from './defaultArchitectureDescript
 import { TelemetryHeader } from './components/TelemetryHeader';
 import { ChaosPanel } from './components/ChaosPanel';
 import { ChatWindow } from './components/ChatWindow';
+import { StageZeroLab } from './components/StageZeroLab';
 import { SettingsModal } from './components/SettingsModal';
 import { ArchitectureInfoModal } from './components/ArchitectureInfoModal';
 
@@ -51,6 +52,9 @@ export default function App() {
     TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
   });
   const [controls, setControls] = useState<SimulationControls>({
+    stage: 0,
+    stageZeroRuntimeEnabled: false,
+    stageZeroIntelligenceEnabled: false,
     failedTiers: [],
     forcedTier: 'AUTO',
     enablePiiTokenizer: false,
@@ -254,9 +258,12 @@ export default function App() {
       localStorage.setItem('sovereign_session_id', newId);
       setSessionId(newId);
 
-      // 2. Reset frontend stage controls to Stage 1 (PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
+      // 2. Reset frontend stage controls to Stage 0 (Breakers open/off, PII Off, Tools Off, Econ Off, Auto routing, no failed tiers)
       setControls((prev) => ({
         ...prev,
+        stage: 0,
+        stageZeroRuntimeEnabled: false,
+        stageZeroIntelligenceEnabled: false,
         enablePiiTokenizer: false,
         enterpriseDataEnabled: false,
         tokenomicsEnabled: false,
@@ -283,17 +290,61 @@ export default function App() {
     }
   };
 
+  const handleToggleStageZeroRuntime = async (enabled: boolean) => {
+    setControls((prev) => ({ ...prev, stageZeroRuntimeEnabled: enabled }));
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stageZeroRuntimeEnabled: enabled }),
+      });
+    } catch (err) {
+      console.error('Failed to sync stageZeroRuntimeEnabled:', err);
+    }
+  };
+
+  const handleToggleStageZeroIntelligence = async (enabled: boolean) => {
+    setControls((prev) => ({ ...prev, stageZeroIntelligenceEnabled: enabled }));
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stageZeroIntelligenceEnabled: enabled }),
+      });
+    } catch (err) {
+      console.error('Failed to sync stageZeroIntelligenceEnabled:', err);
+    }
+  };
+
   const handleSelectStage = async (stage: number) => {
     handleResetChat();
+    const isStage0 = stage === 0;
     const isPii = stage === 2 || stage === 3 || stage === 4;
     const isEnterprise = stage === 3 || stage === 4;
     const isTokenomics = stage === 4;
 
+    const newTierSettings: TierSettingsMap = isTokenomics
+      ? {
+          TIER_1_GLOBAL: { region: 'us-central1', model: 'claude-3-5-sonnet-v2@20241022' },
+          TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
+          TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
+        }
+      : {
+          TIER_1_GLOBAL: { region: 'global', model: 'gemini-3.7-flash' },
+          TIER_2_REGIONAL: { region: 'jurisdictional-subregion-1', model: 'gemini-2.5-flash' },
+          TIER_3_SOVEREIGN: { region: 'airgap-vpc-sovereign', model: 'google/gemma-2-9b-it' },
+        };
+
+    setTierSettings(newTierSettings);
     setControls((prev) => ({
       ...prev,
+      stage,
+      stageZeroRuntimeEnabled: isStage0 ? false : true,
+      stageZeroIntelligenceEnabled: isStage0 ? false : true,
       enablePiiTokenizer: isPii,
       enterpriseDataEnabled: isEnterprise,
       tokenomicsEnabled: isTokenomics,
+      tierSettings: newTierSettings,
       forcedTier: 'AUTO',
       failedTiers: [],
     }));
@@ -302,7 +353,13 @@ export default function App() {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enterpriseDataEnabled: isEnterprise, tokenomicsEnabled: isTokenomics }),
+        body: JSON.stringify({
+          stageZeroRuntimeEnabled: isStage0 ? false : true,
+          stageZeroIntelligenceEnabled: isStage0 ? false : true,
+          enterpriseDataEnabled: isEnterprise,
+          tokenomicsEnabled: isTokenomics,
+          tierSettings: newTierSettings,
+        }),
       });
       await fetch('/api/dataset/toggle', {
         method: 'POST',
@@ -314,11 +371,37 @@ export default function App() {
     }
   };
 
+  const currentStage =
+    controls.stage !== undefined
+      ? controls.stage
+      : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && controls.tokenomicsEnabled
+      ? 4
+      : controls.enablePiiTokenizer && controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
+      ? 3
+      : controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled
+      ? 2
+      : !controls.enablePiiTokenizer && !controls.enterpriseDataEnabled && !controls.tokenomicsEnabled && (controls.stageZeroRuntimeEnabled === false || controls.stageZeroIntelligenceEnabled === false)
+      ? 0
+      : 1;
+
+  useEffect(() => {
+    const stageTitles: Record<number, string> = {
+      0: 'Stage 0: Genesis Lab',
+      1: 'Stage 1: Core Memory',
+      2: 'Stage 2: Zero-PII',
+      3: 'Stage 3: Add Skills - LVR',
+      4: 'Stage 4: Tokenomics',
+    };
+    const title = stageTitles[currentStage] || `Stage ${currentStage}`;
+    document.title = `Anatomy of an Agent - ${title}`;
+  }, [currentStage]);
+
   const isEnterpriseActive = controls.enterpriseDataEnabled ?? datasetSummary?.enabled ?? false;
 
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-slate-950 font-sans text-slate-100">
       <TelemetryHeader
+        currentStage={currentStage}
         lastMetadata={lastMetadata}
         buildInfo={buildInfo}
         datasetSummary={datasetSummary}
@@ -337,14 +420,24 @@ export default function App() {
           onSelectStage={handleSelectStage}
           onOpenArchitectureModal={setActiveArchitectureModal}
         />
-        <ChatWindow
-          messages={messages}
-          isLoading={isLoading}
-          onSendMessage={handleSendMessage}
-          enablePiiTokenizer={controls.enablePiiTokenizer}
-          enterpriseDataEnabled={isEnterpriseActive}
-          tokenomicsEnabled={controls.tokenomicsEnabled}
-        />
+        {currentStage === 0 ? (
+          <StageZeroLab
+            runtimeEnabled={controls.stageZeroRuntimeEnabled ?? false}
+            intelligenceEnabled={controls.stageZeroIntelligenceEnabled ?? false}
+            onToggleRuntime={handleToggleStageZeroRuntime}
+            onToggleIntelligence={handleToggleStageZeroIntelligence}
+            onAdvanceToStageOne={() => handleSelectStage(1)}
+          />
+        ) : (
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+            onSendMessage={handleSendMessage}
+            enablePiiTokenizer={controls.enablePiiTokenizer}
+            enterpriseDataEnabled={isEnterpriseActive}
+            tokenomicsEnabled={controls.tokenomicsEnabled}
+          />
+        )}
       </div>
 
       {/* Metadata Footer */}

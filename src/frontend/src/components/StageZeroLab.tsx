@@ -1,7 +1,4 @@
-// Copyright 2026 Google LLC. All Rights Reserved.
-// Stage 0: Genesis Lab & Character Assembly Component
-
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface StageZeroLabProps {
   runtimeEnabled: boolean;
@@ -21,6 +18,30 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
   const [directPrompt, setDirectPrompt] = useState('');
   const [promptOutput, setPromptOutput] = useState('');
   const [isSendingPrompt, setIsSendingPrompt] = useState(false);
+  const [runtimeExpanded, setRuntimeExpanded] = useState(false);
+  const [intelligenceExpanded, setIntelligenceExpanded] = useState(false);
+  const [showRuntimeModal, setShowRuntimeModal] = useState(false);
+  const runtimeModalTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+    };
+  }, []);
+
+  const handleToggleRuntimeWithPopup = (nextState: boolean) => {
+    if (nextState) {
+      setShowRuntimeModal(true);
+      if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+      runtimeModalTimerRef.current = setTimeout(() => {
+        setShowRuntimeModal(false);
+      }, 5000);
+    } else {
+      setShowRuntimeModal(false);
+      if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+    }
+    if (onToggleRuntime) onToggleRuntime(nextState);
+  };
 
   const handleTestPrompt = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,18 +88,15 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
             <span>STAGE 0: GENESIS & ASSEMBLY LAB</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white font-sans">
-            Bring the Sovereign Agent to Life
+            Bring the Agent to Life
           </h1>
-          <p className="text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
-            Initialize foundational agent sub-systems via physical circuit isolation. Throw the heavy-duty industrial breakers to power the mechanical chassis and synaptically mount cognitive models before proceeding.
-          </p>
         </div>
 
         {/* Dual Industrial Circuit Breakers Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Circuit Breaker 1: Execution Runtime */}
           <div
-            onClick={() => onToggleRuntime && onToggleRuntime(!runtimeEnabled)}
+            onClick={() => handleToggleRuntimeWithPopup(!runtimeEnabled)}
             className={`rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none relative overflow-hidden group ${
               runtimeEnabled
                 ? 'bg-slate-900/90 border-amber-500/60 shadow-xl shadow-amber-500/10'
@@ -91,7 +109,7 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
-                  Breaker #1 • Sub-System Power
+                  Pillar #1 • Compute & Orchestration
                 </div>
                 <h3 className="text-lg font-bold text-white mt-0.5 flex items-center gap-2">
                   <span>⚙️</span> Execution Runtime
@@ -114,11 +132,11 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
             </div>
 
             {/* Knife-Switch Throw Lever Representation */}
-            <div className="my-6 p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="my-5 p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="space-y-1">
-                <div className="text-xs font-semibold text-slate-200">Chassis & Hardware Bus</div>
+                <div className="text-xs font-semibold text-slate-200">Chassis & Sandbox Environment</div>
                 <div className="text-[11px] text-slate-400">
-                  {runtimeEnabled ? 'Power bus online • Optics active' : 'Click switch to throw breaker'}
+                  {runtimeEnabled ? 'Vertex AI Agent Engine • Enclave Online' : 'Click switch to throw breaker'}
                 </div>
               </div>
 
@@ -144,16 +162,53 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
               </div>
             </div>
 
-            {/* Action Summary Bullets */}
-            <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-4">
-              <div className={`flex items-center gap-2 ${runtimeEnabled ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>
-                <span>{runtimeEnabled ? '✔' : '○'}</span>
-                <span>Visor eyes boot strobe (blinks) &rarr; steady lit ON</span>
-              </div>
-              <div className={`flex items-center gap-2 ${runtimeEnabled ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>
-                <span>{runtimeEnabled ? '✔' : '○'}</span>
-                <span>Injects ⚙️ Runtime element into Torso body</span>
-              </div>
+            {/* What is a Runtime? Collapsible Accordion */}
+            <div
+              className="border-t border-slate-800/80 pt-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setRuntimeExpanded(!runtimeExpanded)}
+                className="w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 hover:bg-slate-800/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>⚙️</span>
+                  <span>What is a Runtime?</span>
+                </div>
+                <svg
+                  className={`w-3.5 h-3.5 transform transition-transform duration-200 ${
+                    runtimeExpanded ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {runtimeExpanded && (
+                <div className="mt-2.5 space-y-3 animate-in fade-in duration-200">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    The sandboxed compute environment that hosts the agent's application code, coordinates multi-turn workflows, and executes deterministic tools.
+                  </p>
+                  <div className="space-y-2 text-xs font-mono pt-1">
+                    <div className={`flex items-start gap-2 ${runtimeEnabled ? 'text-amber-300' : 'text-slate-400'}`}>
+                      <span className="shrink-0 mt-0.5">{runtimeEnabled ? '✔' : '○'}</span>
+                      <span><strong>Workflow Orchestration:</strong> Manages turn loops, session lifecycles, and tool call routing.</span>
+                    </div>
+                    <div className={`flex items-start gap-2 ${runtimeEnabled ? 'text-amber-300' : 'text-slate-400'}`}>
+                      <span className="shrink-0 mt-0.5">{runtimeEnabled ? '✔' : '○'}</span>
+                      <span><strong>Deterministic Tools:</strong> Safely runs mathematical calculations and APIs without hallucination.</span>
+                    </div>
+                    <div className={`flex items-start gap-2 ${runtimeEnabled ? 'text-amber-300' : 'text-slate-400'}`}>
+                      <span className="shrink-0 mt-0.5">{runtimeEnabled ? '✔' : '○'}</span>
+                      <span><strong>State & Failover:</strong> Persists session memory and coordinates multi-region recovery paths.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -172,7 +227,7 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
-                  Breaker #2 • Neural Engine
+                  Pillar #2 • Neural Reasoning
                 </div>
                 <h3 className="text-lg font-bold text-white mt-0.5 flex items-center gap-2">
                   <span>🧠</span> Cognitive Intelligence
@@ -195,11 +250,11 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
             </div>
 
             {/* Knife-Switch Throw Lever Representation */}
-            <div className="my-6 p-5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="my-5 p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="space-y-1">
                 <div className="text-xs font-semibold text-slate-200">Foundation Models & Weights</div>
                 <div className="text-[11px] text-slate-400">
-                  {intelligenceEnabled ? 'Weights mounted • Neural dome glowing' : 'Click switch to throw breaker'}
+                  {intelligenceEnabled ? 'Gemini 3.7/2.5 & Gemma 2 Mounted' : 'Click switch to throw breaker'}
                 </div>
               </div>
 
@@ -225,16 +280,53 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
               </div>
             </div>
 
-            {/* Action Summary Bullets */}
-            <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-4">
-              <div className={`flex items-center gap-2 ${intelligenceEnabled ? 'text-blue-300 font-semibold' : 'text-slate-500'}`}>
-                <span>{intelligenceEnabled ? '✔' : '○'}</span>
-                <span>Illuminates glowing synaptic brain inside Glass Dome</span>
-              </div>
-              <div className={`flex items-center gap-2 ${intelligenceEnabled ? 'text-blue-300 font-semibold' : 'text-slate-500'}`}>
-                <span>{intelligenceEnabled ? '✔' : '○'}</span>
-                <span>Injects 📍 Model Location & ⚡ Model into Torso body</span>
-              </div>
+            {/* What is Intelligence? Collapsible Accordion */}
+            <div
+              className="border-t border-slate-800/80 pt-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setIntelligenceExpanded(!intelligenceExpanded)}
+                className="w-full flex items-center justify-between py-1.5 px-2 -mx-2 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider text-blue-400 hover:text-blue-300 hover:bg-slate-800/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>🧠</span>
+                  <span>What is Intelligence?</span>
+                </div>
+                <svg
+                  className={`w-3.5 h-3.5 transform transition-transform duration-200 ${
+                    intelligenceExpanded ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {intelligenceExpanded && (
+                <div className="mt-2.5 space-y-3 animate-in fade-in duration-200">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    The neural foundation models and learned parameters providing semantic comprehension, strategic planning, and natural language generation.
+                  </p>
+                  <div className="space-y-2 text-xs font-mono pt-1">
+                    <div className={`flex items-start gap-2 ${intelligenceEnabled ? 'text-blue-300' : 'text-slate-400'}`}>
+                      <span className="shrink-0 mt-0.5">{intelligenceEnabled ? '✔' : '○'}</span>
+                      <span><strong>Reasoning & Planning:</strong> Interprets complex user intent and formulates step-by-step solutions.</span>
+                    </div>
+                    <div className={`flex items-start gap-2 ${intelligenceEnabled ? 'text-blue-300' : 'text-slate-400'}`}>
+                      <span className="shrink-0 mt-0.5">{intelligenceEnabled ? '✔' : '○'}</span>
+                      <span><strong>Multi-Tier Cascade:</strong> Dynamically routes inference across global, regional, and airgapped models.</span>
+                    </div>
+                    <div className={`flex items-start gap-2 ${intelligenceEnabled ? 'text-blue-300' : 'text-slate-400'}`}>
+                      <span className="shrink-0 mt-0.5">{intelligenceEnabled ? '✔' : '○'}</span>
+                      <span><strong>Enterprise Policy Adherence:</strong> Enforces organization-specific domain rulebooks and decision logic.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -249,7 +341,7 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
                   <span>AGENT FULLY ENERGIZED & ASSEMBLED</span>
                 </div>
                 <p className="text-xs text-slate-300">
-                  The robot chassis is powered and cognitive reasoning is active. You can now advance to Stage 1 to test resilient multi-region failover.
+                  The execution sandbox is running and cognitive reasoning models are active. You can now advance to Stage 1 to test resilient multi-region failover.
                 </p>
               </div>
 
@@ -296,6 +388,96 @@ export const StageZeroLab: React.FC<StageZeroLabProps> = ({
           </div>
         )}
       </div>
+
+      {/* Vertex - Welcome to the Harness Era Modal Popup */}
+      {showRuntimeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200"
+          onClick={() => {
+            if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+            setShowRuntimeModal(false);
+          }}
+        >
+          <div
+            className="relative max-w-lg w-full bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-6 shadow-2xl shadow-amber-500/25 overflow-hidden text-slate-100 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Animated Progress Countdown Bar (5s) */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-slate-800">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300"
+                style={{ animation: 'shrink 5s linear forwards' }}
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20 shrink-0">
+                  ⚙️
+                </div>
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <span>Vertex AI Agent Engine • Runtime Online</span>
+                  </div>
+                  <h2 className="text-base md:text-lg font-black text-white tracking-tight mt-0.5">
+                    Vertex - Welcome to the Harness Era, Copyright Mitesh 2026
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+                  setShowRuntimeModal(false);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition text-sm font-mono"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-sans">
+              You have activated the sandboxed sovereign execution runtime. The agent now operates within a stateful compute harness capable of orchestrating multi-turn reasoning, enforcing zero-hallucination tools, and managing high-availability failovers.
+            </p>
+
+            <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-amber-500/30 text-amber-300 flex flex-col items-center text-center">
+                <span className="text-sm mb-1">⚡</span>
+                <span className="font-bold">240V Energized</span>
+                <span className="text-[9px] text-slate-400 mt-0.5">Compute Enclave</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-amber-500/30 text-amber-300 flex flex-col items-center text-center">
+                <span className="text-sm mb-1">🛡️</span>
+                <span className="font-bold">Tool Harness</span>
+                <span className="text-[9px] text-slate-400 mt-0.5">APRA Deterministic</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-amber-500/30 text-amber-300 flex flex-col items-center text-center">
+                <span className="text-sm mb-1">🔄</span>
+                <span className="font-bold">Failover Ready</span>
+                <span className="text-[9px] text-slate-400 mt-0.5">Multi-Region State</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] font-mono text-slate-400">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Auto-dismissing in 5s...
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (runtimeModalTimerRef.current) clearTimeout(runtimeModalTimerRef.current);
+                  setShowRuntimeModal(false);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold font-mono transition shadow-md shadow-amber-500/20"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

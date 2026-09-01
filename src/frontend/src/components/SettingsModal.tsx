@@ -693,7 +693,7 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                         >
                           {currentRegion?.models.map((mod) => (
                             <option key={mod.id} value={mod.id}>
-                              {mod.name} [{mod.type}] {mod.recommended ? '★ Recommended' : ''}
+                              {mod.name} [{mod.type}] {mod.id.includes('claude') || mod.id.includes('sonnet') ? '🔴 ($3.00/$15.00)' : ''} {mod.recommended ? '★ Recommended' : ''}
                             </option>
                           ))}
                         </select>
@@ -704,9 +704,14 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                     {currentRegion && (
                       <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 flex items-center justify-between">
                         <span>
-                          Active Model: <strong className="text-white">{setting.model}</strong> —{' '}
+                          Active Model: <strong className={setting.model.includes('claude') ? 'text-red-400 font-bold' : 'text-white'}>{setting.model}</strong> —{' '}
                           {currentRegion.models.find((m) => m.id === setting.model)?.description || currentRegion.description}
                         </span>
+                        {setting.model.includes('claude') && (
+                          <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-bold border border-red-500/40">
+                            🔴 Partner Model ($3/$15)
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -730,21 +735,33 @@ CUST-CRE3,Brisbane Tech Park,6200000.00,3720000.00,890000.00,18000.00,5.65,20`,
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    {reg.models.map((mod) => (
+                    {reg.models.map((mod) => {
+                      const isClaude = mod.id.includes('claude') || mod.id.includes('sonnet');
+                      return (
                       <div
                         key={mod.id}
-                        className="p-3 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col justify-between"
+                        className={`p-3 rounded-lg bg-slate-900/90 border flex flex-col justify-between ${
+                          isClaude ? 'border-red-500/40 bg-gradient-to-b from-red-950/20 to-slate-900' : 'border-slate-800'
+                        }`}
                       >
                         <div>
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-white font-mono">{mod.name}</span>
-                            {mod.recommended && (
+                            <span className={`text-xs font-bold font-mono ${isClaude ? 'text-red-400' : 'text-white'}`}>
+                              {mod.name}
+                            </span>
+                            {isClaude ? (
+                              <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-bold border border-red-500/40">
+                                🔴 Partner Model
+                              </span>
+                            ) : mod.recommended ? (
                               <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-semibold">
                                 Recommended
                               </span>
-                            )}
+                            ) : null}
                           </div>
-                          <div className="text-[10px] text-blue-400 mb-1.5">{mod.type}</div>
+                          <div className={`text-[10px] mb-1.5 ${isClaude ? 'text-red-400 font-semibold' : 'text-blue-400'}`}>
+                            {mod.type}
+                          </div>
                           <p className="text-[11px] text-slate-400 leading-snug mb-3">{mod.description}</p>
                         </div>
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-800">

@@ -109,10 +109,10 @@ from src.adk.loan_lvr_tool import (
 # Global model, region, custom PII rule, enterprise dataset, and architecture descriptions store
 GLOBAL_SETTINGS: Dict[str, Any] = {
     "tierSettings": get_default_tier_settings(),
-    "enterpriseDataEnabled": True,
+    "enterpriseDataEnabled": False,
     "tokenomicsEnabled": False,
-    "stageZeroRuntimeEnabled": True,
-    "stageZeroIntelligenceEnabled": True,
+    "stageZeroRuntimeEnabled": False,
+    "stageZeroIntelligenceEnabled": False,
     "architectureDescriptions": {},
     "customPiiRules": [
         {
@@ -617,7 +617,7 @@ async def get_skill_endpoint(skill_name: str = "apra-underwriting"):
 async def reset_demo_endpoint():
     """
     Comprehensive Demo Reset:
-    1. Sets stages back to Stage 1 (enterpriseDataEnabled=False, enablePiiTokenizer=False, forcedTier='AUTO', failedTiers=[]).
+    1. Sets stages back to Stage 0 (enterpriseDataEnabled=False, enablePiiTokenizer=False, stageZeroRuntimeEnabled=False, stageZeroIntelligenceEnabled=False, forcedTier='AUTO', failedTiers=[]).
     2. Clears all session memory across in-memory cache, Primary Tier 2 Redis (DB 0), and Tier 3 Standby Redis (DB 1).
     3. Restores default Australian benchmark loan dataset and default regional tier settings.
     4. Ensures Tier 3 system (sovereign-gemma-2b-vm / IAP tunnel / mock Gemma) is up, running, and accessible.
@@ -626,11 +626,11 @@ async def reset_demo_endpoint():
     SESSION_STORE.clear()
     await session_manager.clear_all_sessions()
 
-    # 2. Reset global settings to Stage 1 defaults
+    # 2. Reset global settings to Stage 0 defaults
     GLOBAL_SETTINGS["enterpriseDataEnabled"] = False
     GLOBAL_SETTINGS["tokenomicsEnabled"] = False
-    GLOBAL_SETTINGS["stageZeroRuntimeEnabled"] = True
-    GLOBAL_SETTINGS["stageZeroIntelligenceEnabled"] = True
+    GLOBAL_SETTINGS["stageZeroRuntimeEnabled"] = False
+    GLOBAL_SETTINGS["stageZeroIntelligenceEnabled"] = False
     GLOBAL_SETTINGS["tierSettings"] = get_default_tier_settings()
 
     # 3. Reset benchmark loan dataset
@@ -735,11 +735,13 @@ async def reset_demo_endpoint():
 
     return {
         "status": "success",
-        "message": "Demo state reset to Stage 1. Memory cleared and Tier 3 verified.",
-        "stage": 1,
+        "message": "Demo state reset to Stage 0. Memory cleared and Tier 3 verified.",
+        "stage": 0,
         "memoryCleared": True,
         "enterpriseDataEnabled": False,
         "tokenomicsEnabled": False,
+        "stageZeroRuntimeEnabled": False,
+        "stageZeroIntelligenceEnabled": False,
         "tierSettings": GLOBAL_SETTINGS["tierSettings"],
         "datasetSummary": dataset_summary,
         "tier3": {
