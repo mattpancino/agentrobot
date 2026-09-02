@@ -20,18 +20,43 @@ When enterprise leaders evaluate AI agents, they typically encounter two extreme
 - How modern AI agents think (**Intelligence**), remember (**Memory**), protect data (**PII & Privacy**), act (**Skills & Tools**), and scale (**Tokenomics**).
 - How an enterprise agent built on **100% Google ADK and Vertex AI** operates continuously across global, regional, and airgapped environments without losing a single turn of conversation context.
 
+---
+
+## 2. The Core Breakthrough: Inference is Mobile, Memory is Fixed
+
+In traditional chatbot architectures, model inference and conversation memory are tightly coupled: if you change models or switch cloud endpoints, you lose your conversation history and scratchpad.
+
+In **Sovereign-Stream**, we strictly decouple **Inference Compute** from **Session Memory**:
+
 ```mermaid
 graph TD
-    User["Customer / Enterprise User"] --> PII["1. In-Region PII Shield<br/>(Sydney Presidio Tokenizer)"]
-    PII --> Mem["2. Governed Working Memory<br/>(Dual-Tier Replicating Redis)"]
-    Mem --> Intel["3. Multi-Tier Intelligence<br/>(Global Gemini ➔ Sydney Vertex AI ➔ Airgapped Gemma 2)"]
-    Intel --> Tools["4. Skills & Deterministic Tools<br/>(APRA CPS 234 Policy & Loan Calculator)"]
-    Tools --> Sov["5. Sovereign Fleet Governance<br/>(Zero-PII Egress & Zero-Loss Failover)"]
+    subgraph Compute ["INFERENCE COMPUTE (Mobile & Tiered)"]
+        T1["Tier 1: Global Cloud API<br/>(Gemini 2.5 / 3.7 Pro)"]
+        T2["Tier 2: Sydney Vertex AI<br/>(Regional Gemini)"]
+        T3["Tier 3: Local Airgap Enclave<br/>(Open-Weights Gemma 2 2B)"]
+    end
+
+    subgraph Memory ["SESSION MEMORY & PII VAULT (Fixed & Sovereign)"]
+        M_Primary[("Primary Memory Store<br/>Pinned to Sydney australia-southeast1<br/>• Full Turn History<br/>• Agent Scratchpad<br/>• PII Vault")]
+        M_Replica[("Local Airgap Replica<br/>Local Standby Redis<br/>• Continuous Async Mirror<br/>• Offline Failover")]
+    end
+
+    M_Primary <-->|"Continuous Async Stream Sync"| M_Replica
+    M_Primary -.->|"Ephemeral Tokens"| T1
+    M_Primary -.->|"Ephemeral Tokens"| T2
+    M_Replica -.->|"Local Prompts"| T3
 ```
+
+1. **Inference Compute is Mobile:**  
+   Inference happens at the model and moves dynamically based on availability, latency, or crisis (Global Hyperscaler $\rightarrow$ Sydney Cloud $\rightarrow$ Local Airgapped Enclave).
+2. **Session Memory is Fixed & Sovereign:**  
+   Data at rest, conversation history, user personas, and PII surrogate mappings are **anchored in-country (Sydney `australia-southeast1`)**. Even when the agent calls a Global model in Tier 1, the memory *never* leaves Australia.
+3. **Context Invariance Across Outages:**  
+   When cloud connectivity is severed, the model switches from a multi-trillion parameter cloud model to a local 2-billion parameter Gemma 2 model, **but the memory is 100% identical**. The agent still remembers customer details, past turns, and tool results without restarting.
 
 ---
 
-## 2. The 5-Stage Educational Learning Journey
+## 3. The 5-Stage Educational Learning Journey
 
 Rather than presenting an opaque chatbot, this demo unpacks an agent before your eyes across **5 progressive stages**. Each stage activates a distinct architectural capability in the robot character's chassis, teaching a foundational concept in agent system design:
 
@@ -70,20 +95,21 @@ Rather than presenting an opaque chatbot, this demo unpacks an agent before your
 
 ---
 
-### **Stage 0: Genesis Lab — Powering Up the Agent**
+### **Stage 0: Genesis Lab — Powering Up the Agent (Runtime & Intelligence)**
 > **Demo Action:** The interactive Industrial Power-Up Lab presents two physical circuit breakers. Flipping **Breaker #1** powers the execution chassis (triggering optic bootup strobes and injecting `⚙️ Runtime`). Flipping **Breaker #2** ignites the glowing neural brain in the glass dome and injects `📍 Model Location` and `⚡ Model Tier`.
 
 #### **What Customers Learn:**
-1. **An LLM is Not an Agent:** An LLM is a stateless next-token predictor. An **agent** is an execution runtime that wraps the model in a continuous loop, managing memory, invoking tools, and evaluating policies.
-2. **Data Residency at Inception:** Where the model runs dictates legal jurisdiction. Enterprises can establish boundaries at initialization:
-   - **Global Hyperscaler:** Maximum parameter scale and speed.
+1. **An LLM is Not an Agent:** An LLM is a stateless next-token predictor. An **agent** is an execution runtime (Google ADK) that wraps the model in a continuous loop, managing memory, invoking tools, and evaluating policies.
+2. **Establishing Compute Boundaries at Inception:** Where model inference executes defines jurisdiction. Enterprises select their compute boundary at startup:
+   - **Global Hyperscaler:** Frontier reasoning and speed.
    - **Regional In-Country Cloud:** Sovereign compliance pinned to Sydney (`australia-southeast1`).
    - **Local Airgapped Enclave:** Self-hosted open-weights on private hardware.
+3. **The Static Memory Anchor:** While inference compute location is selectable, the sovereign memory anchor is established in Sydney from turn zero.
 
 ---
 
 ### **Stage 1: Resilience & Cascades — The Memory & Survivability Layer**
-> **Demo Action:** The robot chassis expands to incorporate `💾 Memory` (backed by the dual-tier replicating session store). Users chat with the agent, then flip the **Chaos Monkey** breaker to simulate a severe cloud network severance or geopolitical lockout.
+> **Demo Action:** The robot chassis expands to incorporate `💾 Memory` (backed by the dual-tier replicating session store). Users chat with the agent, then flip the **Chaos Monkey** breaker to simulate an international cable cut, cloud outage, or geopolitical lockout.
 
 #### **What Customers Learn:**
 1. **Why Working Memory Matters:** Agents require state to execute multi-step plans, maintain user personas, and remember tool outputs. Without stateful memory, an agent resets to zero on every turn.
@@ -143,21 +169,21 @@ Rather than presenting an opaque chatbot, this demo unpacks an agent before your
 
 ---
 
-## 3. Technical Architecture Matrix
+## 4. Technical Architecture Matrix
 
 | Architectural Dimension | Tier 1: Global Cloud | Tier 2: Regional Cloud | Tier 3: Airgapped Enclave |
 | :--- | :--- | :--- | :--- |
 | **Model Engine** | Gemini 2.5 / 3.7 Pro & Flash | Vertex AI Gemini (Regional) | Open-Weights Gemma 2 (2B / 9B) |
 | **Compute Physical Location** | Global Hyperscaler | Sydney (`australia-southeast1`) | Private Isolated VPC / On-Prem |
+| **Session Memory Location** | **Fixed in Sydney** (`australia-southeast1`) | **Fixed in Sydney** (`australia-southeast1`) | **Local Standby Replica** (Redis/Valkey) |
 | **Network Dependency** | Public Internet | Australian Cloud VPC | **Zero (Completely Airgapped)** |
 | **PII Transit Status** | **Surrogate Tokens Only** | **Surrogate Tokens Only** | **In-Enclave / Local Only** |
 | **Regulatory Compliance** | APP 8 Compliant | APP 8 & APRA CPS 234 Compliant | ISM Protected / Full Airgap |
-| **Session Memory Store** | Active Redis (Sydney) | Active Redis (Sydney) | Local Standby Redis Replica |
 | **Dome Luminescence** | 🔵 Sapphire Blue | 🟠 Amber Gold | 🟢 Sovereign Emerald |
 
 ---
 
-## 4. Quickstart: Launching the Demo
+## 5. Quickstart: Launching the Demo
 
 ### Prerequisites
 - Python 3.11+
@@ -185,19 +211,19 @@ Open your browser to the local or cloudtop gateway:
 
 ---
 
-## 5. Recommended 5-Minute Customer Walkthrough Script
+## 6. Recommended 5-Minute Customer Walkthrough Script
 
 | Step | Action in Demo UI | Talking Point for Customer |
 | :---: | :--- | :--- |
 | **1** | Start on **Stage 0**. Flip Breaker #1, then Breaker #2. | *"Notice how the agent boots up. An agent isn't just an API key; it's a runtime harness linked to a model."* |
-| **2** | Advance to **Stage 1**. Ask: *"Hi, I'm reviewing loan options for Sarah Connor in Sydney."* | *"Notice the blue dome (Global Gemini) and the memory row tracking our conversation state."* |
-| **3** | Flip the **Chaos Monkey** breaker to simulate a severed cloud link. Ask: *"What was the customer's name and city?"* | *"The dome turned emerald. The cloud was cut, but the agent answered using local Gemma 2 with zero lost context."* |
+| **2** | Advance to **Stage 1**. Ask: *"Hi, I'm reviewing loan options for Sarah Connor in Sydney."* | *"Notice the blue dome (Global Gemini) and the memory row tracking our conversation state in Sydney."* |
+| **3** | Flip the **Chaos Monkey** breaker to simulate a severed cloud link. Ask: *"What was the customer's name and city?"* | *"The dome turned emerald. Compute shifted to local Gemma 2, but memory stayed invariant. Zero lost context."* |
 | **4** | Advance to **Stage 2**. Enter: *"Vehicle registration is NSW-XYZ888, phone 0411222333."* Open **Dual-Lens View**. | *"Notice the customer sees cleartext, but the wire shows `<PII_AU_LICENSE_PLATE_1>`. Zero raw PII left Australia."* |
 | **5** | Advance to **Stage 3 & 4**. Request an APRA loan assessment. Review tool output and tokenomics. | *"The agent used deterministic code for the LVR math, and we have complete visibility into cost per 10k turns."* |
 
 ---
 
-## 6. Developer Extension: Building Your Own Sovereign Agent
+## 7. Developer Extension: Building Your Own Sovereign Agent
 
 All specialist subagents inherit full in-region PII tokenization, grounding interceptors, and 3-tier failover in **under 5 lines of code** by subclassing `SovereignResilientAgent`:
 
@@ -214,7 +240,7 @@ class MortgageUnderwritingAgent(SovereignResilientAgent):
 
 ---
 
-## 7. License & Authorship
+## 8. License & Authorship
 
 - **Author:** Matthew Pancino (`mattpancino@google.com`)
 - **Repository:** [https://github.com/mattpancino/agentrobot](https://github.com/mattpancino/agentrobot)
