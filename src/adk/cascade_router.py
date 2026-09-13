@@ -36,19 +36,45 @@ async def get_gcp_bearer_token(default_project: str = "sovereignagent") -> Tuple
     """Retrieves a cached OAuth bearer token and project ID, refreshing asynchronously when expired."""
     global _CACHED_CREDS, _CACHED_PROJECT
     async with _AUTH_LOCK:
-        if _CACHED_CREDS is None:
-            def _load_creds():
-                import google.auth
-                return google.auth.default()
-            _CACHED_CREDS, _CACHED_PROJECT = await asyncio.to_thread(_load_creds)
-
-        if not getattr(_CACHED_CREDS, "valid", False) or getattr(_CACHED_CREDS, "expired", False):
-            def _refresh_creds(creds):
-                from google.auth.transport.requests import Request
+        def _load_and_refresh():
+            import google.auth
+            from google.auth.transport.requests import Request
+            creds, proj = google.auth.default()
+            if not getattr(creds, "valid", False) or getattr(creds, "expired", False):
                 creds.refresh(Request())
-            await asyncio.to_thread(_refresh_creds, _CACHED_CREDS)
+            return creds, proj
 
-        return _CACHED_CREDS.token, (_CACHED_PROJECT or default_project)
+        try:
+            if _CACHED_CREDS is None:
+                _CACHED_CREDS, _CACHED_PROJECT = await asyncio.to_thread(_load_and_refresh)
+            elif not getattr(_CACHED_CREDS, "valid", False) or getattr(_CACHED_CREDS, "expired", False):
+                def _refresh_only(creds):
+                    from google.auth.transport.requests import Request
+                    creds.refresh(Request())
+                try:
+                    await asyncio.to_thread(_refresh_only, _CACHED_CREDS)
+                except Exception:
+                    _CACHED_CREDS, _CACHED_PROJECT = await asyncio.to_thread(_load_and_refresh)
+
+            resolved_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            if not resolved_project:
+                resolved_project = _CACHED_PROJECT if _CACHED_PROJECT != "elevateproject1" else None
+            return _CACHED_CREDS.token, (resolved_project or default_project)
+        except Exception:
+            _CACHED_CREDS = None
+            import subprocess
+            try:
+                token = await asyncio.to_thread(
+                    lambda: subprocess.check_output(
+                        ["gcloud", "auth", "application-default", "print-access-token"],
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                    ).strip()
+                )
+                return token, (os.environ.get("GOOGLE_CLOUD_PROJECT") or default_project)
+            except Exception as e:
+                raise RuntimeError(f"Reauthentication is needed. Please run `gcloud auth application-default login` to reauthenticate. ({e})")
+
 
 
 _SHARED_HTTP_CLIENT: Optional[httpx.AsyncClient] = None
